@@ -1,3 +1,4 @@
+import { fileURLToPath } from "node:url";
 import { describe, expect, it } from "vitest";
 import { execFileSync } from "node:child_process";
 import { existsSync, mkdtempSync } from "node:fs";
@@ -16,7 +17,7 @@ function hasFfmpeg() {
     return false;
   }
 }
-const FONT = ["/usr/share/fonts/opentype/noto/NotoSansCJK-Regular.ttc", "/usr/share/fonts/opentype/noto/NotoSansCJK-Black.ttc"].find(existsSync);
+const FONT = [fileURLToPath(new URL("../../../apps/web/assets/fonts/Pretendard-Bold.otf", import.meta.url)), "/usr/share/fonts/opentype/noto/NotoSansCJK-Regular.ttc", "/usr/share/fonts/opentype/noto/NotoSansCJK-Black.ttc"].find(existsSync);
 
 describe("content: 장면 기획", () => {
   it("훅부터 마무리까지 5장면, 합계가 목표 길이", () => {

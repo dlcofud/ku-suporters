@@ -12,11 +12,11 @@ ku-suporters/
 │  ├─ src/feedback       성과 요약·일정 제안·지원서 성과 문장 + Graph API 어댑터
 │  ├─ src/account        계정 생성 가이드: 컨셉·아이디 후보·소개글·첫 9개 그리드·프로페셔널 전환
 │  ├─ src/content        장면 기획 → 클립 매칭 → 편집 계획 → ffmpeg 명령 (브라우저에서도 import 가능)
-│  │   └─ node.ts        서버 렌더러 (ffmpeg 실행, ffprobe로 업로드 클립 분석)
+│  │   └─ node.ts        서버 렌더러 (ffmpeg 실행, ffmpeg만으로 업로드 클립 분석)
 │  ├─ src/publish        예약 게시: 컨테이너 24시간 만료를 고려한 스케줄러 + Graph API 게시 클라이언트
 │  └─ src/llm            LLM 인터페이스 (상용 API / Ollama-Gemma / Mock)
-├─ apps/web/             (다음 단계) Next.js 웹 앱
-├─ supabase/migrations/  DB 스키마 초안 (RLS 포함)
+├─ apps/web/             Next.js 웹 앱 (화면·서버 액션·저장소)
+├─ supabase/migrations/  DB 스키마 (RLS 켜짐, 서버 전용 접근)
 └─ docs/                 우선순위, 구조
 ```
 

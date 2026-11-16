@@ -1,0 +1,33 @@
+name: CI
+
+on:
+  pull_request:
+  push:
+    branches: [main]
+
+concurrency:
+  group: ci-${{ github.ref }}
+  cancel-in-progress: true
+
+jobs:
+  check:
+    runs-on: ubuntu-latest
+    timeout-minutes: 15
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version-file: .nvmrc
+          cache: npm
+      - run: npm ci
+      - name: 타입 검사
+        run: npm run typecheck
+      - name: 테스트 (실제 영상 렌더 포함)
+        run: |
+          # 렌더 테스트는 PATH의 ffmpeg를 쓰므로 패키지 바이너리를 연결해 둔다
+          mkdir -p "$RUNNER_TEMP/bin" && ln -sf "$PWD/node_modules/ffmpeg-static/ffmpeg" "$RUNNER_TEMP/bin/ffmpeg"
+          echo "$RUNNER_TEMP/bin" >> "$GITHUB_PATH"
+          export PATH="$RUNNER_TEMP/bin:$PATH"
+          npm test
+      - name: 빌드
+        run: npm run build

@@ -1,0 +1,37 @@
+name: 기능 / 작업
+description: 새 기능이나 할 일을 등록해요
+labels: ["feature"]
+body:
+  - type: dropdown
+    id: priority
+    attributes:
+      label: 우선순위
+      options: ["P0 — 데모 전에 꼭", "P1 — 완성도", "P2 — 시간 남으면"]
+    validations: { required: true }
+  - type: dropdown
+    id: module
+    attributes:
+      label: 모듈
+      multiple: true
+      options: [credits, notice, skeleton, planner, trends, account, content(studio), publish, feedback, contribution, llm, web 공통, 배포, 데이터 수집, 발표]
+  - type: textarea
+    id: what
+    attributes:
+      label: 무엇을
+      description: 사용자 입장에서 무엇이 가능해지나요?
+      placeholder: 예) 공고에 "~까지" 형식으로 적힌 마감일도 인식한다
+    validations: { required: true }
+  - type: textarea
+    id: done
+    attributes:
+      label: 끝난 기준
+      description: 무엇을 확인하면 끝났다고 할 수 있나요?
+      placeholder: |
+        - [ ] 테스트 공고 3개에서 마감일이 맞게 나온다
+        - [ ] /notice 화면에 표시된다
+    validations: { required: true }
+  - type: dropdown
+    id: size
+    attributes:
+      label: 예상 크기
+      options: ["S — 반나절", "M — 하루", "L — 2~3일"]

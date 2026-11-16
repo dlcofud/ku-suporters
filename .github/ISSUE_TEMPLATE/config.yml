@@ -1,0 +1,5 @@
+blank_issues_enabled: true
+contact_links:
+  - name: 작업 후보 목록 (BACKLOG)
+    url: https://github.com/dlcofud/ku-suporters/blob/main/docs/BACKLOG.md
+    about: 이슈를 만들기 전에 이미 있는 작업인지 확인해 주세요
