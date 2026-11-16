@@ -10,6 +10,10 @@ ku-suporters/
 │  ├─ src/trends         팀 수집 시트(CSV) 집계: 루브릭 점수, 키워드 빈도, 출처
 │  ├─ src/contribution   합격자 기여: 동의 4종, 상태 머신, 검수, 보상
 │  ├─ src/feedback       성과 요약·일정 제안·지원서 성과 문장 + Graph API 어댑터
+│  ├─ src/account        계정 생성 가이드: 컨셉·아이디 후보·소개글·첫 9개 그리드·프로페셔널 전환
+│  ├─ src/content        장면 기획 → 클립 매칭 → 편집 계획 → ffmpeg 명령 (브라우저에서도 import 가능)
+│  │   └─ node.ts        서버 렌더러 (ffmpeg 실행, ffprobe로 업로드 클립 분석)
+│  ├─ src/publish        예약 게시: 컨테이너 24시간 만료를 고려한 스케줄러 + Graph API 게시 클라이언트
 │  └─ src/llm            LLM 인터페이스 (상용 API / Ollama-Gemma / Mock)
 ├─ apps/web/             (다음 단계) Next.js 웹 앱
 ├─ supabase/migrations/  DB 스키마 초안 (RLS 포함)
@@ -26,6 +30,9 @@ trends.buildTrendReport ─▶ formatMixHint ─┘   (포맷 비율)
                                   └─▶ achievementSentence ─▶ 지원서 성과 문장
 모든 LLM 작업 ─▶ credits.hold ─▶ (실행) ─▶ credits.settle
 합격자 기여 ─▶ contribution.submit(지급 예정) ─▶ decide(확정/취소) ─▶ credits
+planner 일정 ─▶ content.planScenes ─▶ (사용자가 장면별 촬영·업로드) ─▶ matchClips ─▶ buildEditPlan
+            ─▶ content/node.renderWithFfmpeg ─▶ 스토리지 공개 URL ─▶ publish.schedulePost ─▶ (5분마다) publish.tick
+account.buildAccountKit ─▶ 첫 9개 그리드 ─▶ planner 첫 일정과 연결
 ```
 
 ## 설계 원칙

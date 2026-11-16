@@ -15,8 +15,9 @@ npm run typecheck
 ## 문서
 - [구현 우선순위](docs/ROADMAP.md)
 - [구조와 설계 원칙](docs/ARCHITECTURE.md)
-- DB 스키마 초안: `supabase/migrations/0001_init.sql`
+- [인스타그램 개발 모드 설정 (예약 게시·인사이트)](docs/INSTAGRAM_SETUP.md)
+- DB 스키마 초안: `supabase/migrations/`
 
 ## 지금 상태
-`packages/core`에 핵심 기능이 UI와 분리된 모듈로 구현되어 있고, 테스트 32개가 통과합니다.
+`packages/core`에 핵심 기능이 UI와 분리된 모듈로 구현되어 있고, 테스트 45개가 통과합니다 (ffmpeg가 있으면 실제 9:16 자막 릴스 렌더 테스트 포함).
 다음 단계는 `apps/web`(Next.js)에서 화면을 만든 뒤 Supabase와 연결하는 것입니다.
