@@ -1,11 +1,12 @@
 import Link from "next/link";
-import { requireUser } from "@/lib/session";
+import { requireUser, currentActivity } from "@/lib/session";
 import { repo } from "@/lib/repo";
 import { skeletonAction } from "@/lib/actions";
 
-export default async function SkeletonPage() {
+export default async function SkeletonPage({ searchParams }: { searchParams: Promise<{ achievement?: string }> }) {
+  const { achievement } = await searchParams;
   const user = await requireUser();
-  const act = await repo.latestActivity(user.id);
+  const act = await currentActivity(user.id);
   if (!act) return <div className="card"><h1>먼저 공고를 분석해 주세요</h1><Link className="btn pri" href="/notice">공고 분석</Link></div>;
   const s = act.skeleton;
   return (
@@ -14,10 +15,11 @@ export default async function SkeletonPage() {
         <span className="eyebrow">{act.name}</span>
         <h1>지원서 뼈대</h1>
       </header>
+      {achievement && <div className="note ok">성과 피드백의 성과 문장을 ‘내 경험’에 넣어 뒀어요. 뼈대를 만들면 맞는 문항에 추천돼요.</div>}
       <form action={skeletonAction} className="card">
         <label>
           내 경험 (한 줄에 하나 · <code>제목 | 설명 | 성과1, 성과2</code>)
-          <textarea name="experiences" placeholder={"개인 맛집 블로그 | 식품 리뷰 블로그 운영 | 월 방문자 1.2만\n과 학생회 기획국 | 축제 홍보물 제작"} />
+          <textarea name="experiences" defaultValue={achievement ? `서포터즈 준비 계정 운영 | ${achievement.slice(0, 300)}` : undefined} placeholder={"개인 맛집 블로그 | 식품 리뷰 블로그 운영 | 월 방문자 1.2만\n과 학생회 기획국 | 축제 홍보물 제작"} />
         </label>
         <label>
           추가 문항 (공고에서 못 찾은 문항이 있으면 한 줄에 하나)

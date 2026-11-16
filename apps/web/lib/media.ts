@@ -1,5 +1,6 @@
-import { feedback } from "@supportlab/core";
-import { repo, type User } from "./repo";
+import { currentActivity } from "./session";
+import { feedback, shared } from "@supportlab/core";
+import { repo, todayISO, type User } from "./repo";
 
 /**
  * 내 게시물 지표.
@@ -17,12 +18,15 @@ export async function myMedia(user: User): Promise<{ media: feedback.MediaMetric
   }
   const cached = await repo.getDemoMedia(user.id);
   if (cached) return { media: cached, demo: true };
-  const act = await repo.latestActivity(user.id);
+  const act = await currentActivity(user.id);
   const sample: [number, number, number][] = [[1820, 96, 12], [640, 41, 23], [380, 52, 4], [2380, 130, 18], [710, 38, 27]];
   const contents = act?.plan?.items.filter((i) => i.kind === "content") ?? [];
-  const media = contents.slice(0, 5).map((it, k) => {
+  const picked = contents.slice(0, 5);
+  const media = picked.map((it, k) => {
     const [views, likes, saves] = sample[k % sample.length]!;
-    return { id: `demo_${it.id}`, date: it.date, format: (it.format === "check" || !it.format ? "post" : it.format) as feedback.MediaMetrics["format"], title: it.title, views, likes, comments: Math.round(likes / 12), saves };
+    // 예시는 "이미 올린 콘텐츠"처럼 보여야 하므로 오늘까지 2일 간격으로 지난 날짜를 쓴다
+    const date = shared.addDays(todayISO(), -2 * (picked.length - 1 - k));
+    return { id: `demo_${it.id}`, date, format: (it.format === "check" || !it.format ? "post" : it.format) as feedback.MediaMetrics["format"], title: it.title, views, likes, comments: Math.round(likes / 12), saves };
   });
   if (media.length) await repo.setDemoMedia(user.id, media);
   return { media, demo: true };

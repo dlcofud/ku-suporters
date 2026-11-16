@@ -1,5 +1,5 @@
 import Link from "next/link";
-import { requireUser } from "@/lib/session";
+import { requireUser, currentActivity } from "@/lib/session";
 import { repo } from "@/lib/repo";
 import { ClipUploader } from "@/components/ClipUploader";
 import { planScenesAction, uploadClipsAction, renderAction, scheduleAction, runTickNowAction, cancelPostAction } from "@/lib/actions";
@@ -18,8 +18,8 @@ export const maxDuration = 60; // 영상 편집에 시간이 걸린다
 export default async function StudioPage({ searchParams }: { searchParams: Promise<{ item?: string; error?: string }> }) {
   const user = await requireUser();
   const sp = await searchParams;
-  const act = await repo.latestActivity(user.id);
-  if (!act?.plan) return <div className="card"><h1>먼저 업로드 일정을 만들어 주세요</h1><Link className="btn pri" href="/calendar">콘텐츠 캘린더</Link></div>;
+  const act = await currentActivity(user.id);
+  if (!act?.plan) return <div className="card"><h1>먼저 업로드 일정을 만들어 주세요</h1><Link className="btn pri" href="/">콘텐츠 캘린더</Link></div>;
   const contents = act.plan.items.filter((i) => i.kind === "content");
   const item = contents.find((i) => i.id === sp.item) ?? contents.find((i) => i.status !== "past") ?? contents[0]!;
   const scenes = await repo.getScenes(user.id, item.id);

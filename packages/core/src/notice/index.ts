@@ -214,3 +214,4 @@ export async function analyzeNoticeWithLLM(text: string, llm: LLMClient, opts: {
   };
   return { analysis: merged, usage: { inputTokens: res.inputTokens, outputTokens: res.outputTokens }, tier: llm.tier };
 }
+export * from "./html.js";

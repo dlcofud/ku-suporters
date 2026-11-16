@@ -9,9 +9,9 @@
 | 모듈 | 하는 일 | 화면 | 담당(제안) | 상태 |
 |---|---|---|---|---|
 | [`credits`](#credits--크레딧) | 크레딧 원장 (가입 보너스·차감·보상) | 사이드바 | B | ✅ |
-| [`notice`](#notice--공고-분석) | 공고 → 마감일·우대사항·제출물·문항 | `/notice` | C | ✅ |
+| [`notice`](#notice--공고-분석) | 공고 링크·본문 → 마감일·우대사항·제출물·문항 | `/notice` | C | ✅ |
 | [`skeleton`](#skeleton--지원서-뼈대) | 문항별 지원서 뼈대 | `/skeleton` | C | ✅ |
-| [`planner`](#planner--업로드-캘린더) | 마감일에서 거꾸로 짠 업로드 일정 | `/calendar`, `/` | A | ✅ |
+| [`planner`](#planner--업로드-캘린더) | 마감일에서 거꾸로 짠 업로드 일정 | `/` (메인) | A | ✅ |
 | [`trends`](#trends--합격-경향) | 팀 수집 시트 집계 | `/trends` | D | ✅ 데이터 수집 중 |
 | [`account`](#account--전용-계정-가이드) | 서포터즈 전용 계정 가이드 | `/account` | A | ✅ |
 | [`content`](#content--장면-기획영상-편집) | 장면 기획 → 클립 매칭 → ffmpeg 편집 | `/studio` | A | ✅ |
@@ -28,6 +28,8 @@
 | `session.ts` | 로그인 쿠키 (지금은 닉네임 가입) | B |
 | `publisher.ts`, `media.ts` | 인스타 게시·지표 (실제 / 데모) | B |
 | `ffmpeg.ts` | ffmpeg 경로·자막 글꼴 | A |
+| `fetchNotice.ts` | 공고 링크 가져오기 (안전장치 포함) | C |
+| `releases.ts` | 릴리즈 노트 (기능 합칠 때 한 줄 추가) | 전원 |
 
 ---
 
@@ -40,7 +42,8 @@
 
 ## notice — 공고 분석
 - **주요 함수:** `analyzeNotice(text)` → `toActionGuides()`; 부족한 칸만 `analyzeNoticeWithLLM`
-- **테스트 데이터:** `packages/core/test/fixtures/notice.txt`
+- **링크 분석:** `notice/html.ts`의 `extractNoticeFromHtml` (구조화 데이터 → 앱 내장 데이터 → 본문 영역 → 페이지 전체 순으로 후보를 모아 공고다운 글을 고름, EUC-KR 지원). 네트워크 요청은 `apps/web/lib/fetchNotice.ts` — 붙여넣은 한 페이지만, 내부 주소 차단, 10초·3MB 제한. 이미지 공고는 본문 붙여넣기로 안내.
+- **테스트 데이터:** `packages/core/test/fixtures/notice.txt`, `test/notice-html.test.ts`
 - **다음 할 일:** 실제 공고 10개로 테스트 늘리기 (날짜 형식, "우대" 표현 다양화)
 
 ## skeleton — 지원서 뼈대

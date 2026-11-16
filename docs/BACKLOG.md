@@ -30,7 +30,8 @@
 | 14 | 초대 보상 (초대한 친구가 가입하면 크레딧) | credits | S |
 | 15 | 로컬 LLM(Ollama Gemma)으로 뼈대 보강 켜기 | llm·skeleton | S |
 | 16 | 릴리즈 노트 페이지 | web | S |
-| 17 | 공고 URL만 넣어도 본문 가져오기 | notice | M |
+| 17 | 이미지 포스터 공고 글자 읽기 (OCR) | notice | M |
+| 18 | 링커리어·캠퍼스픽 등 자주 쓰는 사이트별 본문 위치 보강 | notice | S |
 
 ## 이슈로 옮길 때 붙일 라벨
 `P0` `P1` `P2` · 모듈 이름(`notice`, `studio` …) · `frontend` `backend` `data` `docs` · `good first issue`(처음 온 사람이 하기 좋은 것: 7, 8, 10, 16)

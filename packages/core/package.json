@@ -18,7 +18,8 @@
     "./account": "./src/account/index.ts",
     "./content": "./src/content/index.ts",
     "./content/node": "./src/content/node.ts",
-    "./publish": "./src/publish/index.ts"
+    "./publish": "./src/publish/index.ts",
+    "./notice/html": "./src/notice/html.ts"
   },
   "scripts": {
     "test": "vitest run",

@@ -9,7 +9,8 @@ import { tmpdir } from "node:os";
 import { notice, skeleton, planner, account, content, publish, contribution } from "@supportlab/core";
 import { renderWithFfmpeg, probeWithFfmpeg } from "@supportlab/core/content/node";
 import { repo, files, newId, todayISO, type Activity } from "./repo";
-import { COOKIE, requireUser } from "./session";
+import { COOKIE, ACT_COOKIE, requireUser, currentActivity } from "./session";
+import { fetchNotice, NoticeFetchError } from "./fetchNotice";
 import { getLLM } from "./llm";
 import { publisherFor } from "./publisher";
 import { ffmpegPath, captionFont } from "./ffmpeg";
@@ -17,7 +18,7 @@ import { ffmpegPath, captionFont } from "./ffmpeg";
 const WORK_DIR = join(process.env.SUPPORTLAB_DATA_DIR || tmpdir(), "supportlab-work");
 
 async function activityOrRedirect(userId: string, to = "/notice"): Promise<Activity> {
-  const act = await repo.latestActivity(userId);
+  const act = await currentActivity(userId);
   if (!act) redirect(to);
   return act;
 }
@@ -49,16 +50,31 @@ function safePlan(deadline: string, name: string) {
 
 export async function analyzeNoticeAction(formData: FormData) {
   const user = await requireUser();
-  const text = String(formData.get("text") || "");
-  const sourceUrl = String(formData.get("url") || "") || undefined;
-  if (text.trim().length < 20) redirect("/notice?error=short");
+  let text = String(formData.get("text") || "");
+  let sourceUrl = String(formData.get("url") || "").trim() || undefined;
+  let pageTitle: string | undefined;
+  // 링크만 넣었으면 그 페이지를 읽어 온다 (본문을 직접 붙여넣었다면 그걸 우선)
+  if (text.trim().length < 20 && sourceUrl) {
+    let failure: string | undefined;
+    try {
+      const page = await fetchNotice(sourceUrl);
+      text = page.text;
+      pageTitle = page.title;
+      sourceUrl = page.finalUrl;
+    } catch (e) {
+      failure = e instanceof NoticeFetchError ? e.message : "페이지를 가져오지 못했어요. 본문을 붙여 넣어 주세요";
+    }
+    if (failure) redirect(`/notice?error=fetch&msg=${encodeURIComponent(failure)}&url=${encodeURIComponent(sourceUrl)}`);
+  }
+  if (text.trim().length < 20) redirect(sourceUrl ? "/notice?error=short" : "/notice?error=empty");
   const hold = await repo.ledger.hold(user.id, "notice_analysis", newId("job")).catch(() => null);
   if (!hold) redirect("/notice?error=credits");
+  let actId: string;
   try {
     const year = Number(todayISO().slice(0, 4));
     const r = await notice.analyzeNoticeWithLLM(text, getLLM(), { referenceYear: year, sourceUrl });
     await repo.ledger.settle(hold, r.usage, r.tier);
-    const name = String(formData.get("name") || "").trim() || r.analysis.title || "새 활동";
+    const name = String(formData.get("name") || "").trim() || r.analysis.title || cleanTitle(pageTitle) || "새 활동";
     const act: Activity = {
       id: newId("act"),
       userId: user.id,
@@ -70,24 +86,43 @@ export async function analyzeNoticeAction(formData: FormData) {
     };
     if (r.analysis.deadline) act.plan = safePlan(r.analysis.deadline, name);
     await repo.saveActivity(act);
+    actId = act.id;
   } catch (e) {
     await repo.ledger.release(hold);
     throw e;
   }
+  (await cookies()).set(ACT_COOKIE, actId, { httpOnly: true, sameSite: "lax", path: "/", maxAge: 60 * 60 * 24 * 365 });
   revalidatePath("/", "layout");
   redirect("/notice");
+}
+
+/** "달콤제과 서포터즈 13기 모집 | 링커리어" → "달콤제과 서포터즈 13기 모집" */
+function cleanTitle(t?: string): string | undefined {
+  const v = t?.split(/\s[|\-–:]\s/)[0]?.trim();
+  return v ? v.slice(0, 60) : undefined;
+}
+
+/** 사이드바에서 활동 고르기 */
+export async function selectActivityAction(formData: FormData) {
+  const user = await requireUser();
+  const id = String(formData.get("activityId") || "");
+  const next = String(formData.get("next") || "/");
+  const list = await repo.listActivities(user.id);
+  if (list.some((a) => a.id === id)) (await cookies()).set(ACT_COOKIE, id, { httpOnly: true, sameSite: "lax", path: "/", maxAge: 60 * 60 * 24 * 365 });
+  revalidatePath("/", "layout");
+  redirect(next.startsWith("/") && !next.startsWith("//") ? next : "/");
 }
 
 export async function setDeadlineAction(formData: FormData) {
   const user = await requireUser();
   const act = await activityOrRedirect(user.id);
   const deadline = String(formData.get("deadline") || "");
-  if (!/^\d{4}-\d{2}-\d{2}$/.test(deadline)) redirect("/calendar");
+  if (!/^\d{4}-\d{2}-\d{2}$/.test(deadline)) redirect("/");
   act.analysis.deadline = deadline;
   act.plan = safePlan(deadline, act.name);
   await repo.saveActivity(act);
   revalidatePath("/", "layout");
-  redirect(act.plan ? "/calendar" : "/calendar?error=deadline");
+  redirect(act.plan ? "/" : "/?error=deadline");
 }
 
 /* ---------------- 지원서 뼈대 ---------------- */
@@ -159,7 +194,7 @@ export async function applySuggestionAction(formData: FormData) {
     await repo.saveActivity(act);
   }
   revalidatePath("/", "layout");
-  redirect("/calendar");
+  redirect(itemId ? `/?day=${act.plan?.items.find((i) => i.id === itemId)?.date ?? ""}` : "/");
 }
 
 /* ---------------- 콘텐츠 제작 ---------------- */
@@ -170,7 +205,7 @@ export async function planScenesAction(formData: FormData) {
   const style = String(formData.get("style") || "review") as "review" | "challenge" | "routine";
   const targetSec = Number(formData.get("targetSec") || 15) as 15 | 20 | 30;
   const product = String(formData.get("product") || "제품");
-  const act = await repo.latestActivity(user.id);
+  const act = await currentActivity(user.id);
   const item = act?.plan?.items.find((i) => i.id === planItemId);
   await repo.setScenes(user.id, planItemId, content.planScenes({ title: item?.title ?? "콘텐츠", product, targetSec, style }));
   redirect(`/studio?item=${planItemId}`);

@@ -62,6 +62,8 @@ export interface Repo {
   getUser(id: string): Promise<User | undefined>;
   setUserIg(id: string, ig: NonNullable<User["ig"]>): Promise<void>;
   latestActivity(userId: string): Promise<Activity | undefined>;
+  /** 최신순 */
+  listActivities(userId: string): Promise<Activity[]>;
   saveActivity(a: Activity): Promise<void>;
   getScenes(userId: string, planItemId: string): Promise<CT.Scene[] | undefined>;
   setScenes(userId: string, planItemId: string, scenes: CT.Scene[]): Promise<void>;
@@ -124,7 +126,10 @@ class MemoryRepo implements Repo {
     if (u) u.ig = ig;
   }
   async latestActivity(userId: string) {
-    return [...this.activities.values()].filter((a) => a.userId === userId).sort((a, b) => (a.createdAt < b.createdAt ? 1 : -1))[0];
+    return (await this.listActivities(userId))[0];
+  }
+  async listActivities(userId: string) {
+    return [...this.activities.values()].filter((a) => a.userId === userId).sort((a, b) => (a.createdAt < b.createdAt ? 1 : -1)).map((a) => structuredClone(a));
   }
   async saveActivity(a: Activity) {
     this.activities.set(a.id, structuredClone(a));
@@ -276,14 +281,18 @@ class SupabaseRepo implements Repo {
   async setUserIg(id: string, ig: NonNullable<User["ig"]>) {
     must(await this.sb.from("app_users").update({ ig_user_id: ig.userId, ig_username: ig.username ?? null, ig_access_token: ig.accessToken }).eq("id", id), "users.ig");
   }
-  async latestActivity(userId: string) {
-    const r = must(await this.sb.from("activities").select("*").eq("user_id", userId).order("created_at", { ascending: false }).limit(1), "activities.latest");
-    const a = r?.[0];
-    if (!a) return undefined;
+  private toActivity(a: Record<string, any>): Activity {
     return {
       id: a.id, userId: a.user_id, name: a.name, sourceUrl: a.source_url ?? undefined, analysis: a.analysis, guides: a.guides ?? [],
       plan: a.plan ?? undefined, skeleton: a.skeleton ?? undefined, accountKit: a.account_kit ?? undefined, createdAt: a.created_at,
     } as Activity;
+  }
+  async latestActivity(userId: string) {
+    return (await this.listActivities(userId, 1))[0];
+  }
+  async listActivities(userId: string, limit = 30) {
+    const r = must(await this.sb.from("activities").select("*").eq("user_id", userId).order("created_at", { ascending: false }).limit(limit), "activities.list");
+    return (r ?? []).map((a: Record<string, any>) => this.toActivity(a));
   }
   async saveActivity(a: Activity) {
     must(
