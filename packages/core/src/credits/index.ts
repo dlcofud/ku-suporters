@@ -67,6 +67,7 @@ export function creditsForUsage(
   tier: "local" | "paid" = "paid",
 ): number {
   if (tier === "local") return 0;
+  if (usage.inputTokens + usage.outputTokens === 0) return 0; // 규칙 기반으로 끝난 작업은 무료
   const weighted = usage.inputTokens + usage.outputTokens * CREDIT_POLICY.outputTokenWeight;
   return Math.max(1, Math.ceil(weighted / CREDIT_POLICY.tokensPerCredit));
 }
