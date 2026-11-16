@@ -1,5 +1,5 @@
 import { requireUser } from "@/lib/session";
-import { latestActivity } from "@/lib/store";
+import { repo } from "@/lib/repo";
 import { analyzeNoticeAction } from "@/lib/actions";
 import { credits } from "@supportlab/core";
 import Link from "next/link";
@@ -11,7 +11,7 @@ const ERR: Record<string, string> = { short: "공고 내용을 조금 더 붙여
 export default async function NoticePage({ searchParams }: { searchParams: Promise<{ error?: string }> }) {
   const user = await requireUser();
   const { error } = await searchParams;
-  const act = latestActivity(user.id);
+  const act = await repo.latestActivity(user.id);
   const est = credits.TASK_ESTIMATES.notice_analysis;
   return (
     <>

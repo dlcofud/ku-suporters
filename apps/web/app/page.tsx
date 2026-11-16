@@ -1,6 +1,6 @@
 import Link from "next/link";
 import { currentUser } from "@/lib/session";
-import { db, latestActivity, todayISO } from "@/lib/store";
+import { repo, todayISO } from "@/lib/repo";
 import { signup, logout } from "@/lib/actions";
 import { credits, shared } from "@supportlab/core";
 import { dday, fmtLabel, md } from "@/lib/format";
@@ -28,8 +28,8 @@ export default async function Home() {
       </div>
     );
   }
-  const act = latestActivity(user.id);
-  const bal = await db.ledger.balance(user.id);
+  const act = await repo.latestActivity(user.id);
+  const bal = await repo.ledger.balance(user.id);
   const next = act?.plan?.items.find((i) => i.status !== "past" && i.kind !== "deadline");
   const done = act?.plan?.items.filter((i) => i.kind === "content" && i.status === "past").length ?? 0;
   const total = act?.plan?.items.filter((i) => i.kind === "content").length ?? 0;

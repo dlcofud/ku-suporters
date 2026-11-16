@@ -28,7 +28,7 @@
 
 1. **모듈 (지금 단계)** — `packages/core`. 화면 없이 테스트로 검증한다. `npm test`
 2. **UI (완료)** — `apps/web` (Next.js 15). 모듈을 직접 import 하고 메모리 저장소·데모 LLM·데모 게시로 모든 화면이 동작한다.
-3. **통합 (다음)** — Supabase 저장소 구현(`CreditStore` 등 인터페이스 구현체), 관리자 권한, 렌더 파일을 Storage로 이동. 인스타 OAuth·예약 게시 주기 작업 라우트는 이미 있음.
+3. **통합 (진행 중)** — ✅ Supabase 프로젝트 `ku_suporters` 생성·스키마 적용, ✅ 저장소 계층(`apps/web/lib/repo.ts`)과 `CreditStore` 구현, ✅ 영상·증빙 파일을 비공개 Storage 버킷으로 이동. 남은 것: 관리자 권한 분리, 실제 로그인(지금은 닉네임 가입), Vercel 배포.
 
 ## 팀 분담 제안 (4인 기준)
 - A: `apps/web` 대시보드·캘린더 화면

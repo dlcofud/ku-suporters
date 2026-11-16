@@ -3,15 +3,15 @@ import Link from "next/link";
 import type { ReactNode } from "react";
 import { Nav } from "@/components/Nav";
 import { currentUser } from "@/lib/session";
-import { db, latestActivity } from "@/lib/store";
+import { repo } from "@/lib/repo";
 
 export const metadata = { title: "서포트랩", description: "대학생 서포터즈 지원·활동 AI 매니저" };
 export const dynamic = "force-dynamic";
 
 export default async function RootLayout({ children }: { children: ReactNode }) {
   const user = await currentUser();
-  const bal = user ? await db.ledger.balance(user.id) : undefined;
-  const act = user ? latestActivity(user.id) : undefined;
+  const bal = user ? await repo.ledger.balance(user.id) : undefined;
+  const act = user ? await repo.latestActivity(user.id) : undefined;
   return (
     <html lang="ko">
       <head>

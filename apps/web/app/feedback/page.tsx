@@ -1,6 +1,6 @@
 import Link from "next/link";
 import { requireUser } from "@/lib/session";
-import { latestActivity, todayISO } from "@/lib/store";
+import { repo, todayISO } from "@/lib/repo";
 import { applySuggestionAction } from "@/lib/actions";
 import { feedback } from "@supportlab/core";
 import { myMedia } from "@/lib/media";
@@ -8,7 +8,7 @@ import { fmtLabel, md } from "@/lib/format";
 
 export default async function FeedbackPage() {
   const user = await requireUser();
-  const act = latestActivity(user.id);
+  const act = await repo.latestActivity(user.id);
   if (!act?.plan) return <div className="card"><h1>먼저 업로드 일정을 만들어 주세요</h1><Link className="btn pri" href="/calendar">콘텐츠 캘린더</Link></div>;
   const { media, demo } = await myMedia(user);
   const s = feedback.summarize(media);

@@ -1,5 +1,5 @@
 import { publish } from "@supportlab/core";
-import type { User } from "./store";
+import type { User } from "./repo";
 
 /** 데모 게시: 실제로 인스타에 올리지 않고, 처리 완료 → 게시 흐름만 보여준다. */
 class DemoPublisher extends publish.MockPublisher {

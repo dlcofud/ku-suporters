@@ -1,6 +1,6 @@
 import Link from "next/link";
 import { requireUser } from "@/lib/session";
-import { latestActivity } from "@/lib/store";
+import { repo } from "@/lib/repo";
 import { accountKitAction } from "@/lib/actions";
 import { fmtLabel } from "@/lib/format";
 
@@ -8,7 +8,7 @@ const FIELDS = ["F&B·식품", "뷰티·패션", "IT·테크", "금융", "언론
 
 export default async function AccountPage() {
   const user = await requireUser();
-  const act = latestActivity(user.id);
+  const act = await repo.latestActivity(user.id);
   if (!act) return <div className="card"><h1>먼저 공고를 분석해 주세요</h1><Link className="btn pri" href="/notice">공고 분석</Link></div>;
   const kit = act.accountKit;
   return (

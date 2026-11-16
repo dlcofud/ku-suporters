@@ -1,5 +1,5 @@
 import { requireUser } from "@/lib/session";
-import { db } from "@/lib/store";
+import { repo } from "@/lib/repo";
 import { contributeAction, withdrawAction } from "@/lib/actions";
 import { contribution } from "@supportlab/core";
 import { myMedia } from "@/lib/media";
@@ -11,7 +11,7 @@ export default async function ContributePage({ searchParams }: { searchParams: P
   const user = await requireUser();
   const sp = await searchParams;
   const { media } = await myMedia(user);
-  const mine = [...db.contributions.values()].filter((c) => c.userId === user.id);
+  const mine = await repo.listContributions({ userId: user.id });
   return (
     <>
       <header>

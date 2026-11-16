@@ -1,5 +1,5 @@
 import { requireUser } from "@/lib/session";
-import { db } from "@/lib/store";
+import { repo } from "@/lib/repo";
 import { approveReviewAction, rejectReviewAction } from "@/lib/actions";
 import { contribution } from "@supportlab/core";
 
@@ -8,8 +8,8 @@ const RESULT: Record<string, string> = { final_pass: "최종 합격", document_p
 export default async function AdminPage({ searchParams }: { searchParams: Promise<{ error?: string }> }) {
   await requireUser(); // 데모: 로그인한 사용자 누구나. 배포 시 관리자 권한 확인 필요
   const { error } = await searchParams;
-  const queue = [...db.contributions.values()].filter((c) => c.status === "submitted" || c.status === "in_review");
-  const done = [...db.contributions.values()].filter((c) => c.status === "approved" || c.status === "rejected");
+  const queue = await repo.listContributions({ statuses: ["submitted", "in_review"] });
+  const done = await repo.listContributions({ statuses: ["approved", "rejected"] });
   return (
     <>
       <header>

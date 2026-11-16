@@ -1,6 +1,6 @@
 import Link from "next/link";
 import { requireUser } from "@/lib/session";
-import { db, latestActivity } from "@/lib/store";
+import { repo } from "@/lib/repo";
 import { planScenesAction, uploadClipsAction, renderAction, scheduleAction, runTickNowAction, cancelPostAction } from "@/lib/actions";
 import { content } from "@supportlab/core";
 import { fmtLabel, md } from "@/lib/format";
@@ -15,15 +15,15 @@ const STATUS: Record<string, string> = { scheduled: "예약됨", container_creat
 export default async function StudioPage({ searchParams }: { searchParams: Promise<{ item?: string; error?: string }> }) {
   const user = await requireUser();
   const sp = await searchParams;
-  const act = latestActivity(user.id);
+  const act = await repo.latestActivity(user.id);
   if (!act?.plan) return <div className="card"><h1>먼저 업로드 일정을 만들어 주세요</h1><Link className="btn pri" href="/calendar">콘텐츠 캘린더</Link></div>;
   const contents = act.plan.items.filter((i) => i.kind === "content");
   const item = contents.find((i) => i.id === sp.item) ?? contents.find((i) => i.status !== "past") ?? contents[0]!;
-  const scenes = db.scenes.get(`${user.id}:${item.id}`);
-  const clips = db.clips.filter((c) => c.userId === user.id && c.planItemId === item.id);
+  const scenes = await repo.getScenes(user.id, item.id);
+  const clips = (await repo.listClips(user.id, item.id)).map((c) => ({ id: c.id, path: c.storageKey, durationSec: c.durationSec, hasAudio: c.hasAudio, sceneIndex: c.sceneIndex }));
   const match = scenes ? content.matchClips(scenes, clips) : undefined;
-  const renders = db.renders.filter((r) => r.userId === user.id && r.planItemId === item.id);
-  const posts = db.posts.filter((p) => p.userId === user.id && p.planItemId === item.id);
+  const renders = await repo.listRenders(user.id, item.id);
+  const posts = (await repo.listPosts(user.id)).filter((p) => p.planItemId === item.id);
   const caption = scenes ? content.draftCaption({ title: item.title, product: act.name.split(" ")[0] ?? "" }, scenes, ["서포터즈", act.name.split(" ")[0] ?? "", "대학생"]) : "";
   // 기본 게시 시각: 일정 날짜 오후 9시. 이미 지났으면 지금부터 1시간 뒤 (한국 시간)
   const planned = new Date(`${item.date}T21:00:00+09:00`).getTime();

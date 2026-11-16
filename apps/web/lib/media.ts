@@ -1,5 +1,5 @@
 import { feedback } from "@supportlab/core";
-import { db, latestActivity, type User } from "./store";
+import { repo, type User } from "./repo";
 
 /**
  * 내 게시물 지표.
@@ -15,15 +15,15 @@ export async function myMedia(user: User): Promise<{ media: feedback.MediaMetric
       /* 실패하면 예시 데이터로 */
     }
   }
-  const cached = db.demoMedia.get(user.id);
+  const cached = await repo.getDemoMedia(user.id);
   if (cached) return { media: cached, demo: true };
-  const act = latestActivity(user.id);
+  const act = await repo.latestActivity(user.id);
   const sample: [number, number, number][] = [[1820, 96, 12], [640, 41, 23], [380, 52, 4], [2380, 130, 18], [710, 38, 27]];
   const contents = act?.plan?.items.filter((i) => i.kind === "content") ?? [];
-  const media = (contents.length ? contents : []).slice(0, 5).map((it, k) => {
+  const media = contents.slice(0, 5).map((it, k) => {
     const [views, likes, saves] = sample[k % sample.length]!;
     return { id: `demo_${it.id}`, date: it.date, format: (it.format === "check" || !it.format ? "post" : it.format) as feedback.MediaMetrics["format"], title: it.title, views, likes, comments: Math.round(likes / 12), saves };
   });
-  db.demoMedia.set(user.id, media);
+  if (media.length) await repo.setDemoMedia(user.id, media);
   return { media, demo: true };
 }

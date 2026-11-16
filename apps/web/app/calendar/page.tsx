@@ -1,8 +1,8 @@
 import Link from "next/link";
 import { requireUser } from "@/lib/session";
-import { latestActivity, todayISO } from "@/lib/store";
+import { repo, todayISO } from "@/lib/repo";
 import { setDeadlineAction } from "@/lib/actions";
-import { shared } from "@supportlab/core";
+import { shared, type planner } from "@supportlab/core";
 import { dday, fmtLabel, md } from "@/lib/format";
 
 const WD = ["월", "화", "수", "목", "금", "토", "일"];
@@ -10,7 +10,7 @@ const WD = ["월", "화", "수", "목", "금", "토", "일"];
 export default async function CalendarPage({ searchParams }: { searchParams: Promise<{ error?: string }> }) {
   const user = await requireUser();
   const { error } = await searchParams;
-  const act = latestActivity(user.id);
+  const act = await repo.latestActivity(user.id);
   if (!act) return <div className="card"><h1>먼저 공고를 분석해 주세요</h1><Link className="btn pri" href="/notice">공고 분석</Link></div>;
   const plan = act.plan;
   const today = todayISO();
@@ -54,7 +54,7 @@ export default async function CalendarPage({ searchParams }: { searchParams: Pro
   );
 }
 
-function CalendarGrid({ plan, today }: { plan: NonNullable<ReturnType<typeof latestActivity>>["plan"] & object; today: string }) {
+function CalendarGrid({ plan, today }: { plan: planner.Plan; today: string }) {
   // 시작일이 속한 주의 월요일부터 마감일이 속한 주의 일요일까지
   const startDow = (shared.parseISODate(plan.start).getUTCDay() + 6) % 7;
   const first = shared.addDays(plan.start, -startDow);

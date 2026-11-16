@@ -13,13 +13,14 @@ npm run dev -w @supportlab/web   # 웹 앱 (http://localhost:3000)
 ```
 웹 앱 환경 변수는 `apps/web/.env.example`을 `apps/web/.env.local`로 복사해서 채우세요.
 아무것도 설정하지 않아도 데모 모드(메모리 저장소, 데모 게시, 예시 지표)로 모든 화면이 동작합니다.
+`SUPABASE_URL`과 `SUPABASE_SECRET_KEY`를 넣으면 Supabase 프로젝트 `ku_suporters`(서울 리전)의 DB와 Storage를 씁니다 — [docs/SUPABASE.md](docs/SUPABASE.md).
 영상 편집에는 서버에 `ffmpeg`가 필요합니다.
 
 ## 문서
 - [구현 우선순위](docs/ROADMAP.md)
 - [구조와 설계 원칙](docs/ARCHITECTURE.md)
 - [인스타그램 개발 모드 설정 (예약 게시·인사이트)](docs/INSTAGRAM_SETUP.md)
-- DB 스키마 초안: `supabase/migrations/`
+- [Supabase 설정](docs/SUPABASE.md) · 스키마: `supabase/migrations/`
 
 ## 화면 (apps/web)
 | 경로 | 기능 |
@@ -37,4 +38,4 @@ npm run dev -w @supportlab/web   # 웹 앱 (http://localhost:3000)
 
 ## 지금 상태
 `packages/core`에 핵심 기능이 UI와 분리된 모듈로 구현되어 있고, 테스트 45개가 통과합니다 (ffmpeg가 있으면 실제 9:16 자막 릴스 렌더 테스트 포함).
-`apps/web`에 Next.js 화면이 붙어 있고, 가입부터 예약 게시·검수까지 브라우저 테스트로 확인했습니다. 다음 단계는 메모리 저장소를 Supabase로 바꾸는 것입니다.
+`apps/web`에 Next.js 화면이 붙어 있고, 가입부터 예약 게시·검수까지 브라우저 테스트로 확인했습니다. 저장소는 Supabase(DB + Storage)와 메모리 모드를 환경 변수로 전환합니다.
