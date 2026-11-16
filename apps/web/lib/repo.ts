@@ -89,6 +89,8 @@ export interface FileStore {
   /** 메모리 모드의 파일 경로 */
   localPath(key: string): string;
   remove(key: string): Promise<void>;
+  /** 브라우저가 직접 올릴 수 있는 서명 업로드 주소. 메모리 모드에서는 undefined */
+  createUploadUrl(key: string): Promise<string | undefined>;
 }
 
 const DATA_DIR = process.env.SUPPORTLAB_DATA_DIR || "/tmp/supportlab";
@@ -196,6 +198,9 @@ class LocalFiles implements FileStore {
   }
   async remove() {
     /* 데모에서는 그대로 둔다 */
+  }
+  async createUploadUrl() {
+    return undefined;
   }
 }
 
@@ -389,6 +394,11 @@ class SupabaseFiles implements FileStore {
   }
   async remove(key: string) {
     await this.sb.storage.from(this.bucket).remove([key]);
+  }
+  async createUploadUrl(key: string) {
+    const { data, error } = await this.sb.storage.from(this.bucket).createSignedUploadUrl(key);
+    if (error) throw new Error(`업로드 주소 실패: ${error.message}`);
+    return data.signedUrl;
   }
 }
 

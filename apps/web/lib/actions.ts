@@ -4,15 +4,15 @@ import { cookies } from "next/headers";
 import { redirect } from "next/navigation";
 import { revalidatePath } from "next/cache";
 import { mkdir, readFile, writeFile } from "node:fs/promises";
-import { existsSync } from "node:fs";
 import { join } from "node:path";
 import { tmpdir } from "node:os";
 import { notice, skeleton, planner, account, content, publish, contribution } from "@supportlab/core";
-import { renderWithFfmpeg, probeClip } from "@supportlab/core/content/node";
+import { renderWithFfmpeg, probeWithFfmpeg } from "@supportlab/core/content/node";
 import { repo, files, newId, todayISO, type Activity } from "./repo";
 import { COOKIE, requireUser } from "./session";
 import { getLLM } from "./llm";
 import { publisherFor } from "./publisher";
+import { ffmpegPath, captionFont } from "./ffmpeg";
 
 const WORK_DIR = join(process.env.SUPPORTLAB_DATA_DIR || tmpdir(), "supportlab-work");
 
@@ -190,23 +190,11 @@ export async function uploadClipsAction(formData: FormData) {
     // 길이·오디오 확인은 로컬 임시 파일로
     const tmp = join(WORK_DIR, `${id}.${ext}`);
     await writeFile(tmp, buf);
-    const info = await probeClip(tmp);
+    const info = await probeWithFfmpeg(tmp, ffmpegPath());
     await files.put(storageKey, buf, value.type || "video/mp4");
     await repo.putClip({ id, userId: user.id, planItemId, sceneIndex, storageKey, durationSec: info.durationSec, hasAudio: info.hasAudio });
   }
   redirect(`/studio?item=${planItemId}`);
-}
-
-function fontFile(): string | undefined {
-  const candidates = [
-    process.env.CAPTION_FONT_FILE,
-    "/usr/share/fonts/opentype/noto/NotoSansCJK-Regular.ttc",
-    "/usr/share/fonts/opentype/noto/NotoSansCJK-Bold.ttc",
-    "/usr/share/fonts/opentype/noto/NotoSansCJK-Black.ttc",
-    "/System/Library/Fonts/AppleSDGothicNeo.ttc",
-    "C:/Windows/Fonts/malgun.ttf",
-  ].filter(Boolean) as string[];
-  return candidates.find((p) => existsSync(p));
 }
 
 export async function renderAction(formData: FormData) {
@@ -219,7 +207,7 @@ export async function renderAction(formData: FormData) {
     clips.map(async (c) => ({ id: c.id, path: await files.toLocal(c.storageKey), durationSec: c.durationSec, hasAudio: c.hasAudio, sceneIndex: c.sceneIndex })),
   );
   const m = content.matchClips(scenes, local);
-  const font = fontFile();
+  const font = captionFont();
   if (!font) redirect(`/studio?item=${planItemId}&error=font`);
   const plan = content.buildEditPlan(m.matches, { captions: formData.get("captions") !== "off" });
   if (plan.segments.length === 0) redirect(`/studio?item=${planItemId}&error=noclips`);
@@ -227,8 +215,9 @@ export async function renderAction(formData: FormData) {
   const out = join(WORK_DIR, `${id}.mp4`);
   await mkdir(WORK_DIR, { recursive: true });
   try {
-    await renderWithFfmpeg(plan, { outPath: out, fontFile: font!, workDir: join(WORK_DIR, id) });
-  } catch {
+    await renderWithFfmpeg(plan, { outPath: out, fontFile: font!, workDir: join(WORK_DIR, id), ffmpegPath: ffmpegPath() });
+  } catch (e) {
+    console.error("[render]", e);
     redirect(`/studio?item=${planItemId}&error=render`);
   }
   const storageKey = `renders/${user.id}/${id}.mp4`;
@@ -376,4 +365,25 @@ export async function approveReviewAction(formData: FormData) {
 }
 export async function rejectReviewAction(formData: FormData) {
   return review(formData, "reject");
+}
+
+/* ---------------- 브라우저 → Storage 직접 업로드 (배포 환경) ---------------- */
+
+/** 업로드할 클립의 서명 업로드 주소를 만든다. 영상은 서버를 거치지 않고 Storage로 바로 올라간다. */
+export async function signClipUploadAction(planItemId: string, sceneIndex: number, fileName: string) {
+  const user = await requireUser();
+  const ext = (fileName.split(".").pop() || "mp4").toLowerCase().replace(/[^a-z0-9]/g, "").slice(0, 5) || "mp4";
+  const storageKey = `clips/${user.id}/${planItemId}/${sceneIndex}_${newId("clip")}.${ext}`;
+  const signedUrl = await files.createUploadUrl(storageKey);
+  if (!signedUrl) throw new Error("직접 업로드는 Supabase 모드에서만 쓸 수 있어요");
+  return { storageKey, signedUrl };
+}
+
+/** 업로드가 끝난 클립을 등록한다 (길이·오디오는 서버가 내려받아 확인). */
+export async function registerClipAction(planItemId: string, sceneIndex: number, storageKey: string) {
+  const user = await requireUser();
+  if (!storageKey.startsWith(`clips/${user.id}/`)) throw new Error("잘못된 파일 경로예요");
+  const info = await probeWithFfmpeg(await files.toLocal(storageKey), ffmpegPath());
+  await repo.putClip({ id: newId("clip"), userId: user.id, planItemId, sceneIndex, storageKey, durationSec: info.durationSec, hasAudio: info.hasAudio });
+  revalidatePath("/studio");
 }

@@ -4,7 +4,7 @@ import { existsSync, mkdtempSync } from "node:fs";
 import { tmpdir } from "node:os";
 import { join } from "node:path";
 import { planScenes, matchClips, buildEditPlan, buildFfmpegJob, draftCaption, MAX_REELS_SEC } from "../src/content/index.js";
-import { renderWithFfmpeg, probeClip } from "../src/content/node.js";
+import { renderWithFfmpeg, probeClip, probeWithFfmpeg } from "../src/content/node.js";
 
 const scenes = planScenes({ title: "신제품 3초 리뷰", product: "꿀호떡칩", targetSec: 15, style: "review" });
 
@@ -44,7 +44,7 @@ describe("content: 장면 기획", () => {
     expect(Math.abs(p2.segments[0]!.start - (60 - scenes[0]!.durationSec) / 2)).toBeLessThanOrEqual(0.1);
   });
 
-  it("ffmpeg 인자: 9:16, 무음 트랙 보충, 자막은 textfile", () => {
+  it("ffmpeg 인자: 9:16, 무음 트랙 보충, 자막은 ASS 파일", () => {
     const m = matchClips(scenes.slice(0, 2), [
       { id: "a", path: "/v/a.mp4", durationSec: 5, hasAudio: true },
       { id: "b", path: "/v/b.mp4", durationSec: 5, hasAudio: false },
@@ -54,8 +54,11 @@ describe("content: 장면 기획", () => {
     expect(fc).toContain("scale=1080:1920");
     expect(fc).toContain("concat=n=2:v=1:a=1");
     expect(job.args).toContain("anullsrc=r=44100:cl=stereo");
-    expect(job.files).toHaveLength(2);
-    expect(job.files[0]!.content).toBe(scenes[0]!.onScreenText);
+    expect(fc).toContain("[vcat]ass='/tmp/w/captions.ass':fontsdir='/'[vout]");
+    expect(job.files).toHaveLength(1);
+    expect(job.files[0]!.content).toContain(scenes[0]!.onScreenText);
+    expect(job.files[0]!.content).toContain(scenes[1]!.onScreenText);
+    expect(job.files[0]!.content).toMatch(/Style: Cap,f,64/);
   });
 
   it("캡션 초안은 사용자가 직접 채울 빈칸을 남긴다", () => {
@@ -81,6 +84,10 @@ describe.runIf(hasFfmpeg() && FONT)("content: 실제 렌더 (ffmpeg)", () => {
     const out = join(dir, "out.mp4");
     await renderWithFfmpeg(plan, { outPath: out, fontFile: FONT!, workDir: join(dir, "w") });
     const r = await probeClip(out);
+    const r2 = await probeWithFfmpeg(out);
+    expect(r2).toMatchObject({ width: 1080, height: 1920, hasAudio: true });
+    expect(Math.abs(r2.durationSec - r.durationSec)).toBeLessThan(0.1);
+    expect((await probeWithFfmpeg(b)).hasAudio).toBe(false);
     expect(r).toMatchObject({ width: 1080, height: 1920, hasAudio: true });
     expect(r.durationSec).toBeGreaterThan(plan.totalSec - 0.3);
     expect(r.durationSec).toBeLessThan(plan.totalSec + 0.3);

@@ -1,6 +1,7 @@
 import Link from "next/link";
 import { requireUser } from "@/lib/session";
 import { repo } from "@/lib/repo";
+import { ClipUploader } from "@/components/ClipUploader";
 import { planScenesAction, uploadClipsAction, renderAction, scheduleAction, runTickNowAction, cancelPostAction } from "@/lib/actions";
 import { content } from "@supportlab/core";
 import { fmtLabel, md } from "@/lib/format";
@@ -11,6 +12,8 @@ const ERR: Record<string, string> = {
   render: "영상 편집에 실패했어요. 서버에 ffmpeg가 설치되어 있는지 확인해 주세요.",
 };
 const STATUS: Record<string, string> = { scheduled: "예약됨", container_created: "인스타 처리 중", ready: "게시 대기", published: "게시 완료", failed: "실패", canceled: "취소됨" };
+
+export const maxDuration = 60; // 영상 편집에 시간이 걸린다
 
 export default async function StudioPage({ searchParams }: { searchParams: Promise<{ item?: string; error?: string }> }) {
   const user = await requireUser();
@@ -79,13 +82,17 @@ export default async function StudioPage({ searchParams }: { searchParams: Promi
                   <td>
                     {m.clip ? <span className="tag k-post">올림 · {m.clip.durationSec.toFixed(1)}초</span> : <span className="tag">아직</span>}
                     {m.problem && m.clip && <div className="small" style={{ color: "var(--warn)" }}>{m.problem}</div>}
-                    <input type="file" name={`scene_${m.scene.index}`} accept="video/*" aria-label={`${m.scene.index}번 장면 영상`} />
+                    {repo.kind === "memory" && <input type="file" name={`scene_${m.scene.index}`} accept="video/*" aria-label={`${m.scene.index}번 장면 영상`} />}
                   </td>
                 </tr>
               ))}
             </tbody>
           </table>
-          <button className="btn" type="submit" style={{ alignSelf: "flex-start" }}>영상 올리기</button>
+          {repo.kind === "memory" ? (
+            <button className="btn" type="submit" style={{ alignSelf: "flex-start" }}>영상 올리기</button>
+          ) : (
+            <ClipUploader planItemId={item.id} scenes={match.matches.map((m) => ({ index: m.scene.index, label: content.SHOT_LABEL[m.scene.shot] }))} />
+          )}
         </form>
       )}
 

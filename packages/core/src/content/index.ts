@@ -206,16 +206,20 @@ export function buildFfmpegJob(plan: EditPlan, opts: { outPath: string; fontFile
       aLabel = `${inputIdx++}:a`;
     }
     let v = `[${vIn}:v]scale=${W}:${H}:force_original_aspect_ratio=decrease,pad=${W}:${H}:(ow-iw)/2:(oh-ih)/2:color=black,setsar=1,fps=${fps},format=yuv420p`;
-    if (seg.caption) {
-      const txt = `${opts.workDir.replace(/\/$/, "")}/caption_${i + 1}.txt`;
-      files.push({ path: txt, content: seg.caption });
-      v += `,drawtext=fontfile='${escFilterPath(opts.fontFile)}':textfile='${escFilterPath(txt)}':fontsize=64:fontcolor=white:box=1:boxcolor=black@0.55:boxborderw=24:x=(w-text_w)/2:y=h*0.72`;
-    }
     filters.push(`${v}[v${i}]`);
     filters.push(`[${aLabel}]aresample=44100,aformat=channel_layouts=stereo,atrim=0:${seg.duration},asetpts=PTS-STARTPTS[a${i}]`);
     concatInputs.push(`[v${i}][a${i}]`);
   });
-  filters.push(`${concatInputs.join("")}concat=n=${plan.segments.length}:v=1:a=1[vout][aout]`);
+  // 자막: 이어 붙인 영상 위에 ASS 자막을 한 번에 입힌다 (libass — 한글 글꼴은 fontsdir로 지정)
+  const captioned = plan.segments.some((s) => s.caption);
+  filters.push(`${concatInputs.join("")}concat=n=${plan.segments.length}:v=1:a=1[${captioned ? "vcat" : "vout"}][aout]`);
+  if (captioned) {
+    const ass = `${opts.workDir.replace(/\/$/, "")}/captions.ass`;
+    files.push({ path: ass, content: buildAss(plan, fontFamily(opts.fontFile)) });
+    const slash = opts.fontFile.lastIndexOf("/");
+    const dir = slash > 0 ? opts.fontFile.slice(0, slash) : slash === 0 ? "/" : ".";
+    filters.push(`[vcat]ass='${escFilterPath(ass)}':fontsdir='${escFilterPath(dir)}'[vout]`);
+  }
   args.push(
     "-filter_complex", filters.join(";"),
     "-map", "[vout]", "-map", "[aout]",
@@ -225,6 +229,40 @@ export function buildFfmpegJob(plan: EditPlan, opts: { outPath: string; fontFile
     opts.outPath,
   );
   return { args, files };
+}
+
+/** 글꼴 파일 이름에서 글꼴 이름을 추정한다 (Pretendard-Bold.otf → Pretendard). */
+function fontFamily(fontFile: string): string {
+  const base = fontFile.slice(fontFile.lastIndexOf("/") + 1).replace(/\.[a-z0-9]+$/i, "");
+  if (/notosanscjk/i.test(base)) return "Noto Sans CJK KR";
+  return base.split("-")[0] || "sans-serif";
+}
+
+function assTime(sec: number): string {
+  const cs = Math.round(sec * 100);
+  const h = Math.floor(cs / 360000), m = Math.floor((cs % 360000) / 6000), s = Math.floor((cs % 6000) / 100), c = cs % 100;
+  return `${h}:${String(m).padStart(2, "0")}:${String(s).padStart(2, "0")}.${String(c).padStart(2, "0")}`;
+}
+
+/** 장면별 화면 자막을 ASS 자막 파일로 만든다 (하단 28% 위치, 반투명 검은 상자). */
+export function buildAss(plan: EditPlan, family: string): string {
+  const esc = (t: string) => t.replace(/\\/g, "\\\\").replace(/[{}]/g, "").replace(/\r?\n/g, "\\N");
+  let t = 0;
+  const events: string[] = [];
+  for (const seg of plan.segments) {
+    if (seg.caption) events.push(`Dialogue: 0,${assTime(t)},${assTime(t + seg.duration)},Cap,,0,0,0,,${esc(seg.caption)}`);
+    t += seg.duration;
+  }
+  return [
+    "[Script Info]", "ScriptType: v4.00+", `PlayResX: ${plan.width}`, `PlayResY: ${plan.height}`, "WrapStyle: 0", "",
+    "[V4+ Styles]",
+    "Format: Name, Fontname, Fontsize, PrimaryColour, SecondaryColour, OutlineColour, BackColour, Bold, Italic, Underline, StrikeOut, ScaleX, ScaleY, Spacing, Angle, BorderStyle, Outline, Shadow, Alignment, MarginL, MarginR, MarginV, Encoding",
+    // BorderStyle 3 = 글자 뒤 상자, BackColour/OutlineColour = 검은색 45% 투명
+    `Style: Cap,${family},64,&H00FFFFFF,&H00FFFFFF,&H73000000,&H73000000,-1,0,0,0,100,100,0,0,3,18,0,2,80,80,${Math.round(plan.height * 0.22)},1`,
+    "",
+    "[Events]", "Format: Layer, Start, End, Style, Name, MarginL, MarginR, MarginV, Effect, Text",
+    ...events, "",
+  ].join("\n");
 }
 
 /* ------------------------------------------------------------------ */

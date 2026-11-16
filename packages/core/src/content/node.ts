@@ -32,6 +32,25 @@ export async function renderWithFfmpeg(plan: EditPlan, opts: RenderOptions): Pro
   return { outPath: opts.outPath };
 }
 
+/**
+ * ffprobe 없이 ffmpeg만으로 길이·오디오·해상도를 읽는다.
+ * 서버리스 환경(Vercel 등)에서는 ffmpeg-static 바이너리 하나만 넣으면 되도록.
+ */
+export async function probeWithFfmpeg(path: string, ffmpegPath = "ffmpeg"): Promise<{ durationSec: number; hasAudio: boolean; width?: number; height?: number }> {
+  const err = await new Promise<string>((resolve, reject) => {
+    const p = spawn(ffmpegPath, ["-hide_banner", "-i", path], { stdio: ["ignore", "ignore", "pipe"] });
+    let s = "";
+    p.stderr.on("data", (d) => (s += String(d)));
+    p.on("error", reject);
+    p.on("close", () => resolve(s)); // 출력 파일이 없어 종료 코드는 1이지만 정보는 stderr에 있다
+  });
+  const d = err.match(/Duration:\s*(\d+):(\d+):(\d+(?:\.\d+)?)/);
+  if (!d) throw new Error("영상 정보를 읽지 못했어요");
+  const durationSec = Number(d[1]) * 3600 + Number(d[2]) * 60 + Number(d[3]);
+  const v = err.match(/Video:.*?(\d{2,5})x(\d{2,5})/);
+  return { durationSec, hasAudio: /Stream #.*Audio:/.test(err), width: v ? Number(v[1]) : undefined, height: v ? Number(v[2]) : undefined };
+}
+
 /** ffprobe로 영상 길이·오디오 유무를 읽는다 (업로드 직후 UploadedClip을 만들 때 사용). */
 export async function probeClip(path: string, ffprobePath = "ffprobe"): Promise<{ durationSec: number; hasAudio: boolean; width?: number; height?: number }> {
   const out = await new Promise<string>((resolve, reject) => {
