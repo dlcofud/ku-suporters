@@ -1,7 +1,7 @@
 import "./globals.css";
 import Link from "next/link";
 import type { ReactNode } from "react";
-import { Nav } from "@/components/Nav";
+import { Nav, MobileTabs } from "@/components/Nav";
 import { currentUser, currentActivity } from "@/lib/session";
 import { repo, todayISO } from "@/lib/repo";
 import { selectActivityAction } from "@/lib/actions";
@@ -23,15 +23,17 @@ export default async function RootLayout({ children }: { children: ReactNode }) 
   return (
     <html lang="ko">
       <head>
+        <meta name="viewport" content="width=device-width,initial-scale=1,viewport-fit=cover" />
         <link rel="preconnect" href="https://fonts.googleapis.com" />
-        <link href="https://fonts.googleapis.com/css2?family=IBM+Plex+Sans+KR:wght@400;500;600;700&family=Space+Grotesk:wght@500;600;700&display=swap" rel="stylesheet" />
+        <link rel="preconnect" href="https://fonts.gstatic.com" crossOrigin="" />
+        <link href="https://fonts.googleapis.com/css2?family=Black+Han+Sans&family=Gothic+A1:wght@400;500;700;800&display=swap" rel="stylesheet" />
       </head>
       <body>
         <div className="shell">
-          <aside className="side">
+          <aside className={user ? "side" : "side guest"} id="menu" aria-label="메뉴">
             <Link href="/" className="logo">
               <i>
-                <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="#fff" strokeWidth="2.2" strokeLinecap="round" strokeLinejoin="round" aria-hidden="true"><path d="M4 17l5-5 4 4 7-8" /><path d="M15 8h5v5" /></svg>
+                <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="#1C2140" strokeWidth="2.4" strokeLinecap="round" strokeLinejoin="round" aria-hidden="true"><path d="M4 17l5-5 4 4 7-8" /><path d="M15 8h5v5" /></svg>
               </i>
               서포트랩
             </Link>
@@ -69,10 +71,10 @@ export default async function RootLayout({ children }: { children: ReactNode }) 
                 <div className="card credit">
                   <div className="row between">
                     <span className="small muted">남은 크레딧</span>
-                    <span className="tag k-reels">무료</span>
+                    <span className="tag k-hl">무료</span>
                   </div>
                   <span className="num huge">{bal.available}</span>
-                  {bal.incoming > 0 && <span className="small" style={{ color: "var(--acc)", fontWeight: 600 }}>지급 예정 +{bal.incoming}</span>}
+                  {bal.incoming > 0 && <span className="small" style={{ fontWeight: 800 }}>지급 예정 +{bal.incoming}</span>}
                   <div className="bar thin"><i style={{ width: `${fill}%` }} /></div>
                   <Link href="/contribute" className="small">합격 경험 공유하고 크레딧 받기</Link>
                 </div>
@@ -82,6 +84,7 @@ export default async function RootLayout({ children }: { children: ReactNode }) 
           </aside>
           <main className="main">{children}</main>
         </div>
+        {user && cur && <MobileTabs />}
       </body>
     </html>
   );
