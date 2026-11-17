@@ -58,7 +58,7 @@ export async function signup(formData: FormData) {
   }
   await repo.ledger.grantSignupBonus(userId);
   await startSession(userId);
-  redirect("/notice");
+  redirect("/"); // 처음 왔으면 첫 화면이 "어떤 서포터즈에 지원하나요?"
 }
 
 export async function loginAction(formData: FormData) {
@@ -133,6 +133,16 @@ export async function analyzeNoticeAction(formData: FormData) {
   const user = await requireUser();
   let text = String(formData.get("text") || "");
   let sourceUrl = String(formData.get("url") || "").trim() || undefined;
+  // 새 화면은 입력창이 하나: 주소 한 줄이면 링크로, 아니면 공고 내용으로 본다
+  const input = String(formData.get("input") || "").trim();
+  if (input) {
+    if (/^https?:\/\/\S+$/i.test(input)) sourceUrl = input;
+    else {
+      text = input;
+      const firstUrl = input.match(/https?:\/\/[^\s)]+/i)?.[0];
+      if (firstUrl && !sourceUrl) sourceUrl = firstUrl;
+    }
+  }
   let pageTitle: string | undefined;
   let posters: string[] = [];
   // 링크만 넣었으면 그 페이지를 읽어 온다 (본문을 직접 붙여넣었다면 그걸 우선)
@@ -220,7 +230,7 @@ export async function analyzeNoticeAction(formData: FormData) {
   (await cookies()).set(ACT_COOKIE, actId, { httpOnly: true, sameSite: "lax", path: "/", maxAge: 60 * 60 * 24 * 365 });
   revalidatePath("/", "layout");
   const notes = [formNote, ocrNote].filter(Boolean).join("&");
-  redirect(notes ? `/notice?${notes}` : "/notice");
+  redirect(notes ? `/notice/result?${notes}` : "/notice/result");
 }
 
 /** "달콤제과 서포터즈 13기 모집 | 링커리어" → "달콤제과 서포터즈 13기 모집" */
@@ -244,7 +254,7 @@ export async function setDeadlineAction(formData: FormData) {
   const user = await requireUser();
   const act = await activityOrRedirect(user.id);
   const deadline = String(formData.get("deadline") || "");
-  if (!/^\d{4}-\d{2}-\d{2}$/.test(deadline)) redirect("/");
+  if (!/^\d{4}-\d{2}-\d{2}$/.test(deadline)) redirect("/calendar");
   act.analysis.deadline = deadline;
   const old = act.plan;
   act.plan = safePlan(deadline, act.name);
@@ -261,7 +271,7 @@ export async function setDeadlineAction(formData: FormData) {
   }
   await repo.saveActivity(act);
   revalidatePath("/", "layout");
-  redirect(act.plan ? "/" : "/?error=deadline");
+  redirect(act.plan ? "/calendar" : "/calendar?error=deadline");
 }
 
 /* ---------------- 지원서 뼈대 ---------------- */
@@ -333,7 +343,7 @@ export async function applySuggestionAction(formData: FormData) {
     await repo.saveActivity(act);
   }
   revalidatePath("/", "layout");
-  redirect(itemId ? `/?day=${act.plan?.items.find((i) => i.id === itemId)?.date ?? ""}` : "/");
+  redirect(itemId ? `/calendar?day=${act.plan?.items.find((i) => i.id === itemId)?.date ?? ""}` : "/calendar");
 }
 
 /* ---------------- 콘텐츠 제작 ---------------- */
@@ -441,7 +451,7 @@ export async function saveCaptionAction(formData: FormData) {
 export async function topicsAction(formData: FormData) {
   const user = await requireUser();
   const act = await activityOrRedirect(user.id);
-  if (!act.plan) redirect("/");
+  if (!act.plan) redirect("/calendar");
   const interests = String(formData.get("interests") || "").trim().slice(0, 200);
   const slots = act.plan!.items
     .filter((i) => i.kind === "content" && i.status !== "past" && i.format && i.format !== "check")
@@ -461,7 +471,7 @@ export async function topicsAction(formData: FormData) {
   revalidatePath("/", "layout");
   const q = new URLSearchParams({ topics: String(n) });
   if (r.note) q.set("note", r.note);
-  redirect(`/?${q.toString()}`);
+  redirect(`/calendar?${q.toString()}`);
 }
 
 export async function uploadClipsAction(formData: FormData) {

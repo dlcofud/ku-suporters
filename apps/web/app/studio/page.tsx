@@ -22,7 +22,7 @@ export default async function StudioPage({ searchParams }: { searchParams: Promi
   const user = await requireUser();
   const sp = await searchParams;
   const act = await currentActivity(user.id);
-  if (!act?.plan) return <div className="card"><h1>먼저 업로드 일정을 만들어 주세요</h1><Link className="btn pri" href="/">콘텐츠 캘린더</Link></div>;
+  if (!act?.plan) return <div className="card"><h1>먼저 업로드 일정을 만들어 주세요</h1><Link className="btn pri" href="/calendar">콘텐츠 캘린더</Link></div>;
   const contents = act.plan.items.filter((i) => i.kind === "content");
   const item = contents.find((i) => i.id === sp.item) ?? contents.find((i) => i.status !== "past") ?? contents[0]!;
   const scenes = await repo.getScenes(user.id, item.id);

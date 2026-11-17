@@ -4,9 +4,11 @@ import type { ReactNode } from "react";
 import { Nav, MobileTabs } from "@/components/Nav";
 import { currentUser, currentActivity, rolesOf } from "@/lib/session";
 import { repo, todayISO } from "@/lib/repo";
-import { selectActivityAction, logout } from "@/lib/actions";
+import { logout } from "@/lib/actions";
+import { SideActs, type SideAct } from "@/components/SideActs";
+import { summarize, goHref } from "@/lib/overview";
 import { syncSubscription } from "@/lib/billing";
-import { credits, shared } from "@supportlab/core";
+import { credits } from "@supportlab/core";
 import { dday } from "@/lib/format";
 import { APP_VERSION } from "@/lib/releases";
 
@@ -22,6 +24,14 @@ export default async function RootLayout({ children }: { children: ReactNode }) 
   const acts = user ? await repo.listActivities(user.id) : [];
   const cur = user ? await currentActivity(user.id) : undefined;
   const today = todayISO();
+  const sideActs: SideAct[] = summarize(acts, today).map((a) => ({
+    id: a.id,
+    name: a.name,
+    stage: a.stage,
+    dday: a.daysLeft === undefined ? "분석 중" : a.daysLeft < 0 ? "마감" : dday(a.daysLeft),
+    hot: a.daysLeft !== undefined && a.daysLeft >= 0 && a.daysLeft <= 7,
+    href: goHref(a.id, "/calendar"),
+  }));
   // 크레딧 막대: 가입 보너스 대비 남은 양 (보너스보다 많으면 가득)
   const fill = bal ? Math.min(100, (bal.available / Math.max(credits.CREDIT_POLICY.signupBonus, bal.available)) * 100) : 0;
   return (
@@ -44,29 +54,11 @@ export default async function RootLayout({ children }: { children: ReactNode }) 
 
             {user && (
               <Link href="/notice" className="btn newact">
-                <span aria-hidden="true" style={{ fontSize: 18, lineHeight: 1 }}>+</span> 새 활동 분석하기
+                <span aria-hidden="true" style={{ fontSize: 18, lineHeight: 1 }}>+</span> 새 서포터즈 추가
               </Link>
             )}
 
-            {acts.length > 0 && (
-              <div className="navgroup">
-                <span className="navlabel">내 활동</span>
-                {acts.map((a) => {
-                  const d = a.plan ? shared.diffDays(today, a.plan.deadline) : a.analysis.deadline ? shared.diffDays(today, a.analysis.deadline) : undefined;
-                  const on = a.id === cur?.id;
-                  return (
-                    <form key={a.id} action={selectActivityAction}>
-                      <input type="hidden" name="activityId" value={a.id} />
-                      <input type="hidden" name="next" value="/" />
-                      <button type="submit" className={on ? "nav act on" : "nav act"} aria-current={on ? "true" : undefined}>
-                        <span className="actname">{a.name}</span>
-                        <span className={on && d !== undefined && d <= 21 ? "dd hot" : "dd"}>{d === undefined ? "분석 중" : d < 0 ? "마감" : dday(d)}</span>
-                      </button>
-                    </form>
-                  );
-                })}
-              </div>
-            )}
+            {user && <SideActs acts={sideActs} currentId={cur?.id} />}
 
             {user && <Nav hasActivity={!!cur} roles={rolesOf(user)} />}
 

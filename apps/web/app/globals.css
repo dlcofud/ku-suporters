@@ -277,3 +277,50 @@ label>.lbl{display:block}
   .tabs a.on{background:var(--hl);color:var(--ink);font-weight:800;box-shadow:inset 0 0 0 1.5px var(--ink)}
 }
 @media (prefers-reduced-motion:reduce){*{transition:none!important;animation:none!important;scroll-behavior:auto!important}}
+
+/* ---- 통합 캘린더 (모든 서포터즈) ---- */
+.btn.sm{min-height:36px;padding:0 10px}
+.who{display:inline-block;font-style:normal;font-size:11px;font-weight:800;line-height:1.4;border:1px solid var(--ink);border-radius:3px;padding:0 3px;margin-left:4px;background:var(--surface);color:var(--ink);vertical-align:1px}
+.chip.k-dead .who{border-color:var(--red);color:var(--red)}
+.clash{font-size:11px;font-weight:800;color:var(--red)}
+.ruler.multi{gap:12px}
+.ruler.multi .rrow{display:grid;grid-template-columns:160px minmax(0,1fr);gap:14px;align-items:end}
+.ruler.multi .rname{display:flex;flex-direction:column;min-width:0;text-decoration:none;color:var(--ink);padding-bottom:2px}
+.ruler.multi .rname b{font-size:14px;overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
+.ruler.multi ol{min-height:44px}
+.actcard{text-decoration:none;gap:6px;min-height:132px}
+.actcard:hover{box-shadow:4px 4px 0 var(--hl),4px 4px 0 1.5px var(--ink);color:var(--ink)}
+.nav.act .stage{font-size:12px;font-weight:500;color:#AEB4CF;overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
+.nav.act.on .stage{color:var(--ink-2)}
+@media (max-width:720px){
+  .ruler.multi .rrow{grid-template-columns:1fr}
+  .ruler.multi .ends{padding-left:0 !important}
+}
+
+/* ---- 어떤 서포터즈에 지원하나요? (첫 방문 · 새 서포터즈 추가) ---- */
+.start{max-width:780px;width:100%;margin:6vh auto 0;display:flex;flex-direction:column;gap:22px}
+.start-head{display:flex;flex-direction:column;gap:10px;align-items:flex-start}
+.start-head h1{font-size:44px;line-height:1.2}
+.start-head .lede{font-weight:500;font-size:17px;color:var(--sub);margin:0}
+.start-box{display:flex;flex-direction:column;gap:12px;background:var(--surface);border:2px solid var(--ink);border-radius:14px;padding:14px;box-shadow:6px 6px 0 var(--hl),6px 6px 0 2px var(--ink)}
+.start-input{display:flex;flex-direction:column;gap:6px;font-size:13px;font-weight:800}
+.start-input textarea{border:0;resize:vertical;min-height:76px;font:inherit;font-size:16px;font-weight:500;padding:8px 4px;outline:none;box-shadow:none;background:transparent}
+.start-input textarea:focus-visible{outline:2px solid var(--ink);outline-offset:2px;border-radius:6px}
+.start-row{display:flex;flex-wrap:wrap;gap:10px;align-items:stretch}
+.start-go{min-height:56px;padding:0 26px;font-size:16px}
+.start-box details summary{cursor:pointer;font-weight:700;color:var(--sub)}
+.filepick{flex:1 1 220px;display:flex;flex-direction:row;justify-content:flex-start;text-align:left;align-items:center;gap:10px;min-height:56px;padding:0 14px;border:1.5px dashed var(--ink);border-radius:10px;background:var(--paper);cursor:pointer;position:relative;min-width:0}
+.filepick:hover,.filepick:focus-within{background:var(--hlbg)}
+.filepick.on{border-style:solid;background:var(--hlbg)}
+.filepick .fp-text{display:flex;flex-direction:column;min-width:0;line-height:1.35}
+.filepick .fp-text .small{color:var(--sub);overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
+.sr-file{position:absolute;inset:0;opacity:0;cursor:pointer;width:100%}
+.start-steps{margin:0;padding:0;list-style:none;display:grid;grid-template-columns:repeat(3,minmax(0,1fr));gap:12px}
+.start-steps li{background:var(--surface);border:1px solid var(--rule);border-radius:10px;padding:14px;display:flex;flex-direction:column;gap:4px;font-size:13px;color:var(--sub)}
+.start-steps b{font-size:14px;color:var(--ink)}
+@media (max-width:720px){
+  .start{margin-top:0}
+  .start-head h1{font-size:30px}
+  .start-steps{grid-template-columns:1fr}
+  .start-go{width:100%}
+}
