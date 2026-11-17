@@ -1,7 +1,16 @@
 /** 릴리즈 노트. 새 기능을 합칠 때 맨 위에 한 줄씩 추가해 주세요. */
-export const APP_VERSION = "0.8";
+export const APP_VERSION = "0.9";
 
 export const RELEASES: { version: string; date: string; items: string[] }[] = [
+  {
+    version: "0.9",
+    date: "2026-11-17",
+    items: [
+      "공고 포스터 이미지의 글자도 읽어요. 링크를 넣으면 페이지의 포스터를 골라 읽고, 이미지를 직접 올릴 수도 있어요",
+      "이미지를 읽을 수 있는 AI(Gemma 4 · Claude)가 있으면 AI로, 없으면 무료 글자 인식(tesseract, 한국어+영어)으로 읽어요",
+      "'우대 사항: …'처럼 포스터에 흔한 한 줄 항목도 읽고, 활동 이름은 페이지 제목을 먼저 써요",
+    ],
+  },
   {
     version: "0.8",
     date: "2026-11-17",

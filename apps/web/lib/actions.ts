@@ -14,7 +14,8 @@ import { ACT_COOKIE, requireUser, currentActivity, startSession, endSession } fr
 import { auth } from "@supportlab/core";
 import { hashPassword, verifyPassword } from "@supportlab/core/auth/node";
 import { LoginIdTakenError } from "./repo";
-import { fetchNotice, NoticeFetchError } from "./fetchNotice";
+import { fetchNotice, fetchImage, NoticeFetchError } from "./fetchNotice";
+import { readImagesText, imageType, type OcrImage } from "./ocr";
 import { getLLM } from "./llm";
 import { publisherFor } from "./publisher";
 import { ffmpegPath, captionFont } from "./ffmpeg";
@@ -131,6 +132,7 @@ export async function analyzeNoticeAction(formData: FormData) {
   let text = String(formData.get("text") || "");
   let sourceUrl = String(formData.get("url") || "").trim() || undefined;
   let pageTitle: string | undefined;
+  let posters: string[] = [];
   // 링크만 넣었으면 그 페이지를 읽어 온다 (본문을 직접 붙여넣었다면 그걸 우선)
   if (text.trim().length < 20 && sourceUrl) {
     let failure: string | undefined;
@@ -139,10 +141,33 @@ export async function analyzeNoticeAction(formData: FormData) {
       text = page.text;
       pageTitle = page.title;
       sourceUrl = page.finalUrl;
+      posters = page.posters;
     } catch (e) {
       failure = e instanceof NoticeFetchError ? e.message : "페이지를 가져오지 못했어요. 본문을 붙여 넣어 주세요";
     }
     if (failure) redirect(`/notice?error=fetch&msg=${encodeURIComponent(failure)}&url=${encodeURIComponent(sourceUrl)}`);
+  }
+  // 공고 이미지 글자 읽기: 직접 올린 이미지 + 페이지의 포스터 (핵심 정보가 이미지에만 있는 공고가 많다)
+  const images: OcrImage[] = [];
+  for (const f of formData.getAll("images")) {
+    if (!(f instanceof File) || f.size === 0 || f.size > 8 * 1024 * 1024 || images.length >= 4) continue;
+    const data = Buffer.from(await f.arrayBuffer());
+    const mediaType = imageType(f.name, f.type, data.subarray(0, 16));
+    if (mediaType) images.push({ data, mediaType });
+  }
+  for (const u of posters) {
+    if (images.length >= 4) break;
+    const img = await fetchImage(u);
+    if (img) images.push(img);
+  }
+  let ocrNote = "";
+  let ocrUsage = { inputTokens: 0, outputTokens: 0 };
+  if (images.length) {
+    const ocr = await readImagesText(images);
+    const read = ocr.texts.filter((t) => t.trim().length >= 10).length;
+    if (read) text = notice.withImageText(text, ocr.texts);
+    if (ocr.tier === "paid") ocrUsage = ocr.usage;
+    ocrNote = `ocr=${ocr.engine}&oi=${images.length}&or=${read}`;
   }
   if (text.trim().length < 20) redirect(sourceUrl ? "/notice?error=short" : "/notice?error=empty");
   // 지원서 양식 파일 (선택)
@@ -162,8 +187,12 @@ export async function analyzeNoticeAction(formData: FormData) {
   try {
     const year = Number(todayISO().slice(0, 4));
     const r = await notice.analyzeNoticeWithLLM(text, getLLM(), { referenceYear: year, sourceUrl });
-    await repo.ledger.settle(hold, r.usage, r.tier);
-    const name = String(formData.get("name") || "").trim() || r.analysis.title || cleanTitle(pageTitle) || "새 활동";
+    // 이미지 읽기에 쓴 AI 사용량도 함께 정산한다 (예약한 크레딧 안에서)
+    await repo.ledger.settle(hold, { inputTokens: r.usage.inputTokens + ocrUsage.inputTokens, outputTokens: r.usage.outputTokens + ocrUsage.outputTokens }, r.tier === "paid" || ocrUsage.inputTokens > 0 ? "paid" : r.tier);
+    // 페이지 제목이 활동 이름처럼 보이면 그걸 먼저 (본문 첫 줄은 '자세한 내용은 포스터를…' 같은 안내문일 때가 많다)
+    const pt = cleanTitle(pageTitle);
+    const looksLikeName = (t?: string) => !!t && /모집|서포터즈|기자단|대외활동|공모|앰버서더|홍보단|크리에이터|인턴/.test(t);
+    const name = String(formData.get("name") || "").trim() || (looksLikeName(pt) ? pt : undefined) || (looksLikeName(r.analysis.title) ? r.analysis.title : undefined) || pt || r.analysis.title || "새 활동";
     const act: Activity = {
       id: newId("act"),
       userId: user.id,
@@ -188,7 +217,8 @@ export async function analyzeNoticeAction(formData: FormData) {
   }
   (await cookies()).set(ACT_COOKIE, actId, { httpOnly: true, sameSite: "lax", path: "/", maxAge: 60 * 60 * 24 * 365 });
   revalidatePath("/", "layout");
-  redirect(formNote ? `/notice?${formNote}` : "/notice");
+  const notes = [formNote, ocrNote].filter(Boolean).join("&");
+  redirect(notes ? `/notice?${notes}` : "/notice");
 }
 
 /** "달콤제과 서포터즈 13기 모집 | 링커리어" → "달콤제과 서포터즈 13기 모집" */
