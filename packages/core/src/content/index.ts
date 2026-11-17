@@ -98,6 +98,86 @@ export interface UploadedClip {
   hasAudio: boolean;
   /** 사용자가 어느 장면용으로 올렸는지 (없으면 업로드 순서대로 배정) */
   sceneIndex?: number;
+  /** ffmpeg로 잰 구간별 특징 (있으면 장면에 맞는 구간을 골라 쓴다) */
+  features?: ClipFeatures;
+}
+
+/* ------------------------------------------------------------------ */
+/* 구간 고르기 (AI 편집)                                                 */
+/* ------------------------------------------------------------------ */
+
+/**
+ * 클립을 step초 단위로 잰 특징. content/node.ts 의 analyzeClipFeatures 가 ffmpeg로 만든다.
+ * - motion: 앞 프레임과 얼마나 달라졌는지 (ffmpeg scene 점수, 0~1)
+ * - loud:   소리 크기 (RMS dBFS, 무음이면 -90 근처)
+ * - silences: 말·소리가 없는 구간 (silencedetect)
+ */
+export interface ClipFeatures {
+  step: number;
+  durationSec: number;
+  motion: number[];
+  loud: number[];
+  silences: { start: number; end: number }[];
+}
+
+export interface SegmentPick {
+  start: number;
+  duration: number;
+  /** 화면에 보여 줄 이유 (예: "움직임이 가장 많은 구간") */
+  reason: string;
+  score: number;
+}
+
+const ROLE_REASON: Record<Scene["role"], string> = {
+  hook: "움직임과 소리가 가장 큰 구간",
+  context: "말소리가 끊기지 않는 구간",
+  demo: "움직임·소리가 살아 있는 구간",
+  result: "화면이 가장 안정된 구간",
+  cta: "말소리가 끊기지 않는 구간",
+};
+
+/** 장면 역할마다 무엇을 중요하게 볼지 (움직임, 소리 크기, 말소리 비율, 안정감) */
+const ROLE_WEIGHT: Record<Scene["role"], { motion: number; loud: number; speech: number; still: number }> = {
+  hook: { motion: 0.55, loud: 0.35, speech: 0.1, still: 0 },
+  context: { motion: 0, loud: 0.25, speech: 0.75, still: 0 },
+  demo: { motion: 0.45, loud: 0.35, speech: 0.2, still: 0 },
+  result: { motion: 0, loud: 0.2, speech: 0.1, still: 0.7 },
+  cta: { motion: 0, loud: 0.25, speech: 0.75, still: 0 },
+};
+
+const mean = (a: number[]) => (a.length ? a.reduce((x, y) => x + y, 0) / a.length : 0);
+/** -60dB 이하는 0, -10dB 이상은 1 */
+const loudNorm = (db: number) => Math.min(1, Math.max(0, (db + 60) / 50));
+const inSilence = (t: number, sil: ClipFeatures["silences"]) => sil.some((x) => t >= x.start && t < x.end);
+
+/**
+ * 장면 역할에 맞는 구간을 고른다.
+ * 창(길이 need초)을 step씩 밀면서 점수를 매기고 가장 높은 곳을 쓴다.
+ * - 훅: 움직임·소리가 큰 곳 / 말하는 장면: 무음이 적은 곳 / 결과: 흔들림 없는 곳
+ * - 말 중간에서 시작·끝나지 않게, 경계가 무음에 걸리면 가산점
+ * - 첫 0.3초는 버튼 누르는 흔들림이 많아 약간 감점
+ */
+export function pickSegment(f: ClipFeatures, need: number, role: Scene["role"]): SegmentPick {
+  const duration = Math.min(need, f.durationSec);
+  const lastStart = Math.max(0, f.durationSec - duration);
+  const w = ROLE_WEIGHT[role];
+  const maxMotion = Math.max(1e-6, ...f.motion);
+  const n = Math.max(1, Math.round(duration / f.step));
+  let best: SegmentPick = { start: Math.round((lastStart / 2) * 10) / 10, duration, reason: "가운데 구간", score: -1 };
+  for (let i = 0; i * f.step <= lastStart + 1e-9; i++) {
+    const start = i * f.step;
+    const mo = mean(f.motion.slice(i, i + n)) / maxMotion;
+    const lo = mean(f.loud.slice(i, i + n).map(loudNorm));
+    let voiced = 0;
+    for (let k = 0; k < n; k++) if (!inSilence(start + k * f.step, f.silences)) voiced++;
+    const speech = voiced / n;
+    let score = w.motion * mo + w.loud * lo + w.speech * speech + w.still * (1 - mo);
+    const talky = w.speech >= 0.5;
+    if (talky && (inSilence(start, f.silences) || inSilence(start + duration - f.step, f.silences))) score += 0.05;
+    if (start < 0.3) score -= 0.05;
+    if (score > best.score + 1e-9) best = { start: Math.round(start * 100) / 100, duration, reason: ROLE_REASON[role], score: Math.round(score * 1000) / 1000 };
+  }
+  return best;
 }
 
 export interface ClipMatch {
@@ -132,6 +212,8 @@ export interface EditSegment {
   duration: number;
   hasAudio: boolean;
   caption: string;
+  /** 이 구간을 고른 이유 (구간 분석을 했을 때만) */
+  reason?: string;
 }
 
 export interface EditPlan {
@@ -149,10 +231,20 @@ export function buildEditPlan(matches: ClipMatch[], opts: { captions?: boolean; 
   const segments: EditSegment[] = [];
   for (const m of matches) {
     if (!m.clip) continue;
-    const duration = Math.min(m.scene.durationSec, m.clip.durationSec);
-    // 클립 가운데 부분을 쓴다(시작·끝의 흔들림을 피함)
-    const start = Math.max(0, Math.round(((m.clip.durationSec - duration) / 2) * 10) / 10);
-    segments.push({ clipPath: m.clip.path, start, duration, hasAudio: m.clip.hasAudio, caption: opts.captions === false ? "" : m.scene.onScreenText });
+    let duration = Math.min(m.scene.durationSec, m.clip.durationSec);
+    let start: number;
+    let reason: string | undefined;
+    if (m.clip.features && m.clip.durationSec > duration + 0.2) {
+      // 클립을 재 둔 특징으로 장면 역할에 맞는 구간을 고른다
+      const p = pickSegment(m.clip.features, duration, m.scene.role);
+      start = p.start;
+      duration = p.duration;
+      reason = p.reason;
+    } else {
+      // 특징이 없으면 클립 가운데 부분을 쓴다(시작·끝의 흔들림을 피함)
+      start = Math.max(0, Math.round(((m.clip.durationSec - duration) / 2) * 10) / 10);
+    }
+    segments.push({ clipPath: m.clip.path, start, duration, hasAudio: m.clip.hasAudio, caption: opts.captions === false ? "" : m.scene.onScreenText, reason });
   }
   let total = 0;
   const capped: EditSegment[] = [];

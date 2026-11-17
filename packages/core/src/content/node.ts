@@ -8,7 +8,7 @@
 
 import { spawn } from "node:child_process";
 import { mkdir, writeFile } from "node:fs/promises";
-import type { EditPlan } from "./index.js";
+import type { ClipFeatures, EditPlan } from "./index.js";
 import { buildFfmpegJob } from "./index.js";
 
 export interface RenderOptions {
@@ -68,4 +68,79 @@ export async function probeClip(path: string, ffprobePath = "ffprobe"): Promise<
     width: video?.width,
     height: video?.height,
   };
+}
+
+function runFfmpeg(ffmpegPath: string, args: string[]): Promise<string> {
+  return new Promise<string>((resolve, reject) => {
+    const p = spawn(ffmpegPath, args, { stdio: ["ignore", "ignore", "pipe"] });
+    let s = "";
+    p.stderr.on("data", (d) => (s += String(d)));
+    p.on("error", reject);
+    p.on("close", (code) => (code === 0 ? resolve(s) : reject(new Error(`ffmpeg 분석 실패 (${code}): ${s.slice(-400)}`))));
+  });
+}
+
+/** ffmpeg metadata=print / ametadata=print 출력에서 (시각, 값) 쌍을 읽는다 */
+export function parseMetadataLog(log: string, key: string): { t: number; v: number }[] {
+  const out: { t: number; v: number }[] = [];
+  let t: number | undefined;
+  for (const line of log.split(/\r?\n/)) {
+    const pt = line.match(/pts_time:([\d.]+)/);
+    if (pt) t = Number(pt[1]);
+    const i = line.indexOf(`${key}=`);
+    if (i >= 0 && t !== undefined) {
+      const raw = line.slice(i + key.length + 1).trim();
+      const v = raw === "-inf" ? -90 : Number(raw);
+      if (!Number.isNaN(v)) out.push({ t, v });
+    }
+  }
+  return out;
+}
+
+/** silencedetect 출력에서 무음 구간을 읽는다 (끝나지 않은 무음은 영상 끝까지) */
+export function parseSilences(log: string, durationSec: number): { start: number; end: number }[] {
+  const out: { start: number; end: number }[] = [];
+  let open: number | undefined;
+  for (const line of log.split(/\r?\n/)) {
+    const s = line.match(/silence_start:\s*(-?[\d.]+)/);
+    if (s) open = Math.max(0, Number(s[1]));
+    const e = line.match(/silence_end:\s*([\d.]+)/);
+    if (e && open !== undefined) {
+      out.push({ start: open, end: Number(e[1]) });
+      open = undefined;
+    }
+  }
+  if (open !== undefined) out.push({ start: open, end: durationSec });
+  return out;
+}
+
+/**
+ * 클립을 0.25초 단위로 재서 구간 고르기에 쓸 특징을 만든다. ffmpeg 하나로 동작한다(GPU 불필요).
+ *  1) 영상: 작게 줄여 초당 4프레임만 보고 scene 점수(앞 프레임과의 차이)를 읽는다
+ *  2) 소리: 0.25초마다 RMS 크기, 그리고 -35dB 아래로 0.35초 이상 이어지는 무음 구간
+ */
+export async function analyzeClipFeatures(path: string, info: { durationSec: number; hasAudio: boolean }, ffmpegPath = "ffmpeg"): Promise<ClipFeatures> {
+  const step = 0.25;
+  const bins = Math.max(1, Math.ceil(info.durationSec / step));
+  const vlog = await runFfmpeg(ffmpegPath, ["-hide_banner", "-nostats", "-i", path, "-an", "-vf", "fps=4,scale=96:-2,select='gte(scene,0)',metadata=print", "-f", "null", "-"]);
+  const motion = new Array<number>(bins).fill(0);
+  for (const { t, v } of parseMetadataLog(vlog, "lavfi.scene_score")) {
+    const i = Math.min(bins - 1, Math.floor(t / step));
+    motion[i] = Math.max(motion[i]!, v);
+  }
+  const loud = new Array<number>(bins).fill(-90);
+  let silences: ClipFeatures["silences"] = [{ start: 0, end: info.durationSec }];
+  if (info.hasAudio) {
+    const alog = await runFfmpeg(ffmpegPath, [
+      "-hide_banner", "-nostats", "-i", path, "-vn",
+      "-af", "aresample=16000,asetnsamples=n=4000:p=0,astats=metadata=1:reset=1,ametadata=print:key=lavfi.astats.Overall.RMS_level,silencedetect=noise=-35dB:d=0.35",
+      "-f", "null", "-",
+    ]);
+    for (const { t, v } of parseMetadataLog(alog, "lavfi.astats.Overall.RMS_level")) {
+      const i = Math.min(bins - 1, Math.floor(t / step + 1e-6));
+      loud[i] = v;
+    }
+    silences = parseSilences(alog, info.durationSec);
+  }
+  return { step, durationSec: info.durationSec, motion, loud, silences };
 }

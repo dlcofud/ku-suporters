@@ -6,8 +6,8 @@ import { revalidatePath } from "next/cache";
 import { mkdir, readFile, writeFile } from "node:fs/promises";
 import { join } from "node:path";
 import { tmpdir } from "node:os";
-import { notice, skeleton, planner, account, content, publish, contribution } from "@supportlab/core";
-import { renderWithFfmpeg, probeWithFfmpeg } from "@supportlab/core/content/node";
+import { notice, skeleton, planner, account, content, publish, contribution, trends } from "@supportlab/core";
+import { renderWithFfmpeg, probeWithFfmpeg, analyzeClipFeatures } from "@supportlab/core/content/node";
 import { repo, files, newId, todayISO, type Activity } from "./repo";
 import { COOKIE, ACT_COOKIE, requireUser, currentActivity } from "./session";
 import { fetchNotice, NoticeFetchError } from "./fetchNotice";
@@ -239,7 +239,15 @@ export async function renderAction(formData: FormData) {
   const clips = await repo.listClips(user.id, planItemId);
   // ffmpeg는 로컬 파일이 필요하므로 저장소에서 내려받아 경로로 바꾼다
   const local = await Promise.all(
-    clips.map(async (c) => ({ id: c.id, path: await files.toLocal(c.storageKey), durationSec: c.durationSec, hasAudio: c.hasAudio, sceneIndex: c.sceneIndex })),
+    clips.map(async (c) => {
+      const path = await files.toLocal(c.storageKey);
+      // 장면에 맞는 구간을 고르려고 클립을 잰다. 실패해도 가운데 구간으로 편집은 계속한다
+      const features = await analyzeClipFeatures(path, c, ffmpegPath()).catch((e) => {
+        console.error("[render] 구간 분석 실패", e);
+        return undefined;
+      });
+      return { id: c.id, path, durationSec: c.durationSec, hasAudio: c.hasAudio, sceneIndex: c.sceneIndex, features };
+    }),
   );
   const m = content.matchClips(scenes, local);
   const font = captionFont();
@@ -421,4 +429,87 @@ export async function registerClipAction(planItemId: string, sceneIndex: number,
   const info = await probeWithFfmpeg(await files.toLocal(storageKey), ffmpegPath());
   await repo.putClip({ id: newId("clip"), userId: user.id, planItemId, sceneIndex, storageKey, durationSec: info.durationSec, hasAudio: info.hasAudio });
   revalidatePath("/studio");
+}
+
+
+/* ---------------- 합격 후기 분석 (팀 도구) ---------------- */
+
+const REVIEW_RESULTS = ["최종 합격", "서류 합격", "불합격", "확인 필요"];
+
+/** 후기 본문을 코드북으로 코딩해 'AI 초안'으로 저장한다. 본문은 저장하지 않는다. */
+export async function codeReviewAction(formData: FormData) {
+  const user = await requireUser();
+  const url = String(formData.get("url") || "").trim();
+  const text = String(formData.get("text") || "");
+  if (!/^https?:\/\//.test(url)) redirect("/reviews?error=url");
+  if (text.trim().length < 80) redirect("/reviews?error=short");
+  const dup = (await repo.listCodedReviews()).find((r) => r.meta.url === url);
+  if (dup) redirect(`/reviews/${dup.id}?dup=1`);
+  const result = String(formData.get("result") || "");
+  const meta: trends.ReviewMeta = {
+    url,
+    sourceName: String(formData.get("sourceName") || "").trim() || hostLabel(url),
+    title: String(formData.get("title") || "").trim() || undefined,
+    org: String(formData.get("org") || "").trim() || undefined,
+    activity: String(formData.get("activity") || "").trim() || undefined,
+    field: String(formData.get("field") || "").trim() || undefined,
+    result: REVIEW_RESULTS.includes(result) ? result : undefined,
+  };
+  let coded: trends.CodingResult;
+  let failed = false;
+  try {
+    coded = await trends.codeReviewWithLLM(text, meta, getLLM());
+  } catch (e) {
+    // AI 호출이 실패해도 작업을 날리지 않게 규칙 기반 초안으로 저장하고 알려 준다
+    console.error("[reviews] AI 코딩 실패", e);
+    coded = trends.codeReviewByRules(text);
+    failed = true;
+  }
+  const now = new Date().toISOString();
+  const r: trends.CodedReview = { id: newId("rv"), meta, ai: { ...coded, codedAt: now }, status: "AI 초안", createdBy: user.id, createdAt: now };
+  await repo.saveCodedReview(r);
+  revalidatePath("/reviews");
+  revalidatePath("/trends");
+  redirect(`/reviews/${r.id}${failed ? "?aierror=1" : ""}`);
+}
+
+/** 사람이 점수를 확인·수정하고 '검수 완료'로 바꾼다 */
+export async function verifyReviewAction(formData: FormData) {
+  const user = await requireUser();
+  const id = String(formData.get("id") || "");
+  const r = await repo.getCodedReview(id);
+  if (!r) redirect("/reviews");
+  const scores = Object.fromEntries(
+    trends.CODES.map((c) => {
+      const v = Number(formData.get(c));
+      return [c, v === 2 ? 2 : v === 1 ? 1 : 0];
+    }),
+  ) as Record<skeleton.RubricCode, trends.Score>;
+  const field = String(formData.get("field") || "").trim();
+  if (field) r.meta.field = field;
+  const org = String(formData.get("org") || "").trim();
+  if (org) r.meta.org = org;
+  const activity = String(formData.get("activity") || "").trim();
+  if (activity) r.meta.activity = activity;
+  const result = String(formData.get("result") || "");
+  if (REVIEW_RESULTS.includes(result)) r.meta.result = result;
+  r.human = { scores, reviewer: user.nickname, reviewedAt: new Date().toISOString() };
+  r.status = "검수 완료";
+  await repo.saveCodedReview(r);
+  revalidatePath("/reviews");
+  revalidatePath("/trends");
+  redirect(`/reviews/${r.id}?saved=1`);
+}
+
+function hostLabel(url: string): string {
+  try {
+    const h = new URL(url).hostname.replace(/^www\./, "");
+    if (h.includes("linkareer")) return "링커리어 커뮤니티";
+    if (h.includes("blog.naver")) return "네이버 블로그";
+    if (h.includes("brunch")) return "브런치";
+    if (h.includes("campuspick")) return "캠퍼스픽";
+    return h;
+  } catch {
+    return "출처 확인 필요";
+  }
 }

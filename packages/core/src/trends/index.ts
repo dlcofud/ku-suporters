@@ -191,3 +191,4 @@ export function formatMixHint(report: TrendReport): { reels: number; cardnews: n
   const rest = 1 - reels;
   return { reels, cardnews: rest * 0.6, post: rest * 0.4 };
 }
+export * from "./coding.js";
