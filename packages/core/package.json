@@ -19,7 +19,9 @@
     "./content": "./src/content/index.ts",
     "./content/node": "./src/content/node.ts",
     "./publish": "./src/publish/index.ts",
-    "./notice/html": "./src/notice/html.ts"
+    "./notice/html": "./src/notice/html.ts",
+    "./auth": "./src/auth/index.ts",
+    "./auth/node": "./src/auth/node.ts"
   },
   "scripts": {
     "test": "vitest run",

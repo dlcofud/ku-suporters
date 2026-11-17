@@ -9,7 +9,10 @@ import { tmpdir } from "node:os";
 import { notice, skeleton, planner, account, content, publish, contribution, trends } from "@supportlab/core";
 import { renderWithFfmpeg, probeWithFfmpeg, analyzeClipFeatures } from "@supportlab/core/content/node";
 import { repo, files, newId, todayISO, type Activity } from "./repo";
-import { COOKIE, ACT_COOKIE, requireUser, currentActivity } from "./session";
+import { ACT_COOKIE, requireUser, currentActivity, startSession, endSession } from "./session";
+import { auth } from "@supportlab/core";
+import { hashPassword, verifyPassword } from "@supportlab/core/auth/node";
+import { LoginIdTakenError } from "./repo";
 import { fetchNotice, NoticeFetchError } from "./fetchNotice";
 import { getLLM } from "./llm";
 import { publisherFor } from "./publisher";
@@ -25,17 +28,91 @@ async function activityOrRedirect(userId: string, to = "/notice"): Promise<Activ
 
 /* ---------------- 가입 ---------------- */
 
+/* ---------------- 가입 · 로그인 · 계정 ---------------- */
+
+const throttle = new auth.LoginThrottle();
+const back = (path: string, error: string, extra: Record<string, string> = {}) =>
+  redirect(`${path}?${new URLSearchParams({ error, ...extra }).toString()}`);
+
 export async function signup(formData: FormData) {
-  const nickname = String(formData.get("nickname") || "").trim().slice(0, 20) || "서포터";
-  const user = await repo.createUser(nickname);
-  await repo.ledger.grantSignupBonus(user.id);
-  (await cookies()).set(COOKIE, user.id, { httpOnly: true, sameSite: "lax", path: "/", maxAge: 60 * 60 * 24 * 30 });
+  const idCheck = auth.validateLoginId(String(formData.get("loginId") || ""));
+  const keep = { id: String(formData.get("loginId") || "").slice(0, 20), nick: String(formData.get("nickname") || "").slice(0, 20) };
+  if (!idCheck.ok) back("/", idCheck.error, keep);
+  const loginId = (idCheck as { value: string }).value;
+  const pw = String(formData.get("password") || "");
+  const pwCheck = auth.validatePassword(pw, loginId);
+  if (!pwCheck.ok) back("/", (pwCheck as { error: string }).error, keep);
+  if (pw !== String(formData.get("password2") || "")) back("/", "비밀번호 확인이 달라요. 같은 비밀번호를 두 번 넣어 주세요.", keep);
+  const nickname = String(formData.get("nickname") || "").trim().slice(0, 20) || loginId;
+  let userId: string;
+  try {
+    const user = await repo.createUser(nickname, { loginId, passwordHash: await hashPassword(pw) });
+    userId = user.id;
+  } catch (e) {
+    if (e instanceof LoginIdTakenError) back("/", "이미 쓰고 있는 아이디예요. 다른 아이디를 정해 주세요.", keep);
+    throw e;
+  }
+  await repo.ledger.grantSignupBonus(userId);
+  await startSession(userId);
   redirect("/notice");
 }
 
+export async function loginAction(formData: FormData) {
+  const loginId = String(formData.get("loginId") || "").trim().toLowerCase();
+  const pw = String(formData.get("password") || "");
+  if (!loginId || !pw) back("/login", "아이디와 비밀번호를 넣어 주세요.", { id: loginId });
+  const wait = throttle.lockedFor(loginId);
+  if (wait) back("/login", `여러 번 틀려서 잠시 잠겼어요. ${Math.ceil(wait / 60)}분 뒤에 다시 해 주세요.`, { id: loginId });
+  const found = await repo.findLogin(loginId);
+  const ok = await verifyPassword(pw, found?.passwordHash);
+  if (!found || !ok) {
+    throttle.fail(loginId);
+    // 아이디가 없는지 비밀번호가 틀렸는지 알려 주지 않는다 (아이디 존재 여부를 숨김)
+    back("/login", "아이디 또는 비밀번호가 맞지 않아요.", { id: loginId });
+  }
+  throttle.success(loginId);
+  await startSession(found!.user.id);
+  const next = String(formData.get("next") || "/");
+  redirect(next.startsWith("/") && !next.startsWith("//") ? next : "/");
+}
+
 export async function logout() {
-  (await cookies()).delete(COOKIE);
-  redirect("/");
+  await endSession();
+  redirect("/login?bye=1");
+}
+
+/** 계정 설정: 닉네임만으로 가입한 예전 계정이 아이디·비밀번호를 처음 정하거나, 비밀번호를 바꾼다 */
+export async function credentialsAction(formData: FormData) {
+  const user = await requireUser();
+  const pw = String(formData.get("password") || "");
+  let loginId = user.loginId;
+  if (!loginId) {
+    const idCheck = auth.validateLoginId(String(formData.get("loginId") || ""));
+    if (!idCheck.ok) back("/settings", idCheck.error);
+    loginId = (idCheck as { value: string }).value;
+  } else {
+    const ok = await verifyPassword(String(formData.get("current") || ""), await repo.getPasswordHash(user.id));
+    if (!ok) back("/settings", "지금 비밀번호가 맞지 않아요.");
+  }
+  const pwCheck = auth.validatePassword(pw, loginId);
+  if (!pwCheck.ok) back("/settings", (pwCheck as { error: string }).error);
+  if (pw !== String(formData.get("password2") || "")) back("/settings", "새 비밀번호 확인이 달라요.");
+  try {
+    await repo.setCredentials(user.id, { loginId: user.loginId ? undefined : loginId, passwordHash: await hashPassword(pw) });
+  } catch (e) {
+    if (e instanceof LoginIdTakenError) back("/settings", "이미 쓰고 있는 아이디예요. 다른 아이디를 정해 주세요.");
+    throw e;
+  }
+  revalidatePath("/", "layout");
+  redirect(`/settings?saved=${user.loginId ? "pw" : "id"}`);
+}
+
+export async function nicknameAction(formData: FormData) {
+  const user = await requireUser();
+  const nickname = String(formData.get("nickname") || "").trim().slice(0, 20);
+  if (nickname) await repo.setNickname(user.id, nickname);
+  revalidatePath("/", "layout");
+  redirect("/settings?saved=nick");
 }
 
 /* ---------------- 공고 분석 ---------------- */
