@@ -4,7 +4,7 @@ import { todayISO } from "@/lib/repo";
 import { signup, setDeadlineAction } from "@/lib/actions";
 import { credits, shared, trends, type planner } from "@supportlab/core";
 import { fmtLabel } from "@/lib/format";
-import { loadCurated } from "@/lib/trends";
+import { loadAllReviews } from "@/lib/trends";
 import { DayChecklist } from "@/components/DayChecklist";
 
 const WD = ["월", "화", "수", "목", "금", "토", "일"];
@@ -58,7 +58,7 @@ export default async function Home({ searchParams }: { searchParams: Promise<{ d
   // 경향 분석 기준 포맷: 팀 수집 시트에서 비율이 높은 두 포맷
   let mixText = "릴스 위주";
   try {
-    const mix = trends.formatMixHint(trends.buildTrendReport(await loadCurated()));
+    const mix = trends.formatMixHint(trends.buildTrendReport(await loadAllReviews()));
     const top = (Object.entries(mix) as [keyof typeof MIX_LABEL, number][]).sort((a, b) => b[1] - a[1]).slice(0, 2);
     mixText = top.map(([k]) => MIX_LABEL[k]).join(" + ");
   } catch {

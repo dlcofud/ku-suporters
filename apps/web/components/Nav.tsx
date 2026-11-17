@@ -20,6 +20,7 @@ const TOOLS: [string, string][] = [
   ["/studio", "콘텐츠 제작"],
   ["/account", "계정 만들기"],
   ["/contribute", "합격 경험 공유"],
+  ["/reviews", "후기 분석 (팀)"],
   ["/admin", "검수 (관리자)"],
 ];
 

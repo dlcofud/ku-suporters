@@ -10,7 +10,7 @@ import { mkdir, writeFile } from "node:fs/promises";
 import { existsSync } from "node:fs";
 import { dirname, join } from "node:path";
 import { randomUUID } from "node:crypto";
-import { credits, type contribution as C, type notice as N, type planner as P, type skeleton as S, type publish as PB, type feedback as F, type content as CT, type account as A } from "@supportlab/core";
+import { credits, type contribution as C, type notice as N, type planner as P, type skeleton as S, type publish as PB, type feedback as F, type content as CT, type account as A, type trends as T } from "@supportlab/core";
 
 /* ------------------------------------------------------------------ */
 /* 타입                                                                 */
@@ -80,6 +80,10 @@ export interface Repo {
   saveContribution(c: C.Contribution): Promise<void>;
   getDemoMedia(userId: string): Promise<F.MediaMetrics[] | undefined>;
   setDemoMedia(userId: string, media: F.MediaMetrics[]): Promise<void>;
+  /** 팀이 코딩한 합격 후기 (최신순) */
+  listCodedReviews(): Promise<T.CodedReview[]>;
+  getCodedReview(id: string): Promise<T.CodedReview | undefined>;
+  saveCodedReview(r: T.CodedReview): Promise<void>;
 }
 
 export interface FileStore {
@@ -111,6 +115,7 @@ class MemoryRepo implements Repo {
   private posts: PB.ScheduledPost[] = [];
   private contributions = new Map<string, C.Contribution>();
   private demo = new Map<string, F.MediaMetrics[]>();
+  private coded = new Map<string, T.CodedReview>();
   ledger = new credits.CreditLedger(new credits.MemoryCreditStore());
 
   async createUser(nickname: string) {
@@ -183,6 +188,15 @@ class MemoryRepo implements Repo {
   }
   async setDemoMedia(u: string, m: F.MediaMetrics[]) {
     this.demo.set(u, m);
+  }
+  async listCodedReviews() {
+    return [...this.coded.values()].sort((a, b) => (a.createdAt < b.createdAt ? 1 : -1));
+  }
+  async getCodedReview(id: string) {
+    return this.coded.get(id);
+  }
+  async saveCodedReview(r: T.CodedReview) {
+    this.coded.set(r.id, r);
   }
 }
 
@@ -375,6 +389,20 @@ class SupabaseRepo implements Repo {
   }
   async setDemoMedia(u: string, m: F.MediaMetrics[]) {
     must(await this.sb.from("demo_media").upsert({ user_id: u, media: m }), "demo.set");
+  }
+  async listCodedReviews() {
+    const r = must(await this.sb.from("coded_reviews").select("data").order("created_at", { ascending: false }).limit(500), "coded.list");
+    return (r ?? []).map((x) => x.data as T.CodedReview);
+  }
+  async getCodedReview(id: string) {
+    const r = must(await this.sb.from("coded_reviews").select("data").eq("id", id).maybeSingle(), "coded.get");
+    return (r?.data as T.CodedReview | undefined) ?? undefined;
+  }
+  async saveCodedReview(c: T.CodedReview) {
+    must(
+      await this.sb.from("coded_reviews").upsert({ id: c.id, url: c.meta.url, status: c.status, created_by: c.createdBy, data: c, created_at: c.createdAt, updated_at: new Date().toISOString() }),
+      "coded.save",
+    );
   }
 }
 

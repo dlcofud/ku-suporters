@@ -1,9 +1,10 @@
 import { trends, skeleton } from "@supportlab/core";
-import { loadCurated } from "@/lib/trends";
+import Link from "next/link";
+import { loadAllReviews } from "@/lib/trends";
 
 export default async function TrendsPage({ searchParams }: { searchParams: Promise<{ field?: string; verified?: string }> }) {
   const { field, verified } = await searchParams;
-  const all = await loadCurated();
+  const all = await loadAllReviews();
   const report = trends.buildTrendReport(all, { field: field || undefined, verifiedOnly: verified === "1" });
   const fields = [...new Set(all.map((r) => r.field).filter(Boolean))];
   return (
@@ -22,7 +23,7 @@ export default async function TrendsPage({ searchParams }: { searchParams: Promi
         <label className="check" style={{ alignSelf: "flex-end" }}><input type="checkbox" name="verified" value="1" defaultChecked={verified === "1"} />검수 완료만</label>
         <button className="btn" type="submit" style={{ alignSelf: "flex-end" }}>적용</button>
       </form>
-      <div className="note">표본 {report.sampleSize}건 · 검수 완료 {report.verifiedCount}건. 원문은 저장하지 않고 출처·요약·점수만 씁니다.</div>
+      <div className="note">표본 {report.sampleSize}건 · 검수 완료 {report.verifiedCount}건. 원문은 저장하지 않고 출처·요약·점수만 씁니다. 팀원은 <Link href="/reviews">후기 분석</Link>에서 새 후기를 AI로 코딩하고 검수할 수 있어요.</div>
       <section className="grid g2" style={{ alignItems: "start" }}>
         <div className="card">
           <h2>합격 요인 (0~2점 평균)</h2>
