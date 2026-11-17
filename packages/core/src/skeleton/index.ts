@@ -61,7 +61,7 @@ export interface Skeleton {
 }
 
 export function classifyQuestion(q: string): QuestionType {
-  if (/지원\s*동기|지원하게\s*된|이유/.test(q)) return "motivation";
+  if (/지원\s*동기|지원한\s*동기|동기를|지원하게\s*된|지원한\s*이유|이유/.test(q)) return "motivation";
   if (/콘텐츠|아이디어|기획|만들고\s*싶은/.test(q)) return "content_idea";
   if (/역량|강점|경험|능력|기여/.test(q)) return "competency";
   if (/자기\s*소개|소개해/.test(q)) return "self_intro";

@@ -105,7 +105,7 @@ export default async function FeedbackPage() {
               <blockquote className="quote">“{sentence}”</blockquote>
               <span className="small muted">실제 숫자만 써요. 기간·숫자를 바꾸지 말고 그대로 쓰세요.</span>
               <div className="row">
-                <Link className="btn pri" href={`/skeleton?achievement=${encodeURIComponent(sentence)}`}>지원서 뼈대에 넣기</Link>
+                <Link className="btn pri" href={`/skeleton?achievement=${encodeURIComponent(sentence)}`}>지원서 코치에게 보내기</Link>
                 <CopyButton text={sentence} />
               </div>
             </div>

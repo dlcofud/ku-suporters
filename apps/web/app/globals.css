@@ -191,6 +191,50 @@ label>.lbl{display:block}
 .pending .spin{margin-top:3px}
 @media (prefers-reduced-motion:reduce){.spin{animation:none;border-right-color:currentColor;opacity:.5}}
 
+/* ---- 지원서 작성 (대화 + 양식) ---- */
+.apply{display:grid;grid-template-columns:minmax(320px,420px) minmax(0,1fr);gap:20px;align-items:start}
+.apply-tabs{display:none}
+.chat{position:sticky;top:16px;height:calc(100vh - 190px);min-height:480px;max-height:860px;gap:10px;padding:16px}
+.chat-head{flex:none}
+.msgs{flex:1;overflow-y:auto;display:flex;flex-direction:column;gap:10px;padding:4px 2px;min-height:0}
+.msg{display:flex;flex-direction:column;gap:6px;max-width:92%}
+.msg.user{align-self:flex-end;align-items:flex-end}
+.bubble{white-space:pre-wrap;padding:10px 13px;border-radius:12px;border:1.5px solid var(--ink);background:var(--surface);line-height:1.6;font-size:14px}
+.msg.coach .bubble{border-top-left-radius:3px}
+.msg.user .bubble{background:var(--ink);color:#fff;border-top-right-radius:3px}
+.bubble.thinking{display:flex;gap:8px;align-items:center;background:var(--hlbg);font-weight:700}
+.edit-chip{align-self:flex-start;border:1.5px solid var(--ink);background:var(--hl);color:var(--ink);font:inherit;font-size:12px;font-weight:800;border-radius:999px;padding:3px 10px;cursor:pointer;text-align:left}
+.quick{display:flex;flex-wrap:wrap;gap:6px;flex:none}
+.chip-btn{border:1px solid var(--rule);background:var(--surface);color:var(--ink);font:inherit;font-size:12px;font-weight:700;border-radius:999px;padding:5px 10px;cursor:pointer}
+.chip-btn:hover{border-color:var(--ink);background:var(--hlbg)}
+.chip-btn:disabled{opacity:.5;cursor:not-allowed}
+.composer{display:flex;gap:8px;align-items:flex-end;flex:none}
+.composer textarea{min-height:64px;resize:none}
+.composer .btn{min-width:72px}
+.sheet{display:flex;flex-direction:column;gap:14px;min-width:0}
+.sheet-head h2{font-family:var(--display);font-weight:400;font-size:26px}
+.qcard{gap:10px;transition:box-shadow .3s}
+.qcard h3{font-size:16px;line-height:1.5}
+.qcard .qn{display:inline-flex;align-items:center;justify-content:center;min-width:26px;height:26px;margin-right:8px;border-radius:999px;border:1.5px solid var(--ink);font-size:13px;font-weight:800}
+.qcard.focus{box-shadow:5px 5px 0 var(--hl),5px 5px 0 1.5px var(--ink)}
+.qcard.focus .qn{background:var(--hl)}
+.qcard textarea{min-height:170px;line-height:1.75}
+.qcard textarea.typing{border-color:var(--ink);background:#FFFCEB;caret-color:transparent}
+.qcard.flash textarea{animation:flash 2.4s ease-out}
+@keyframes flash{0%{background:var(--hl)}100%{background:var(--surface)}}
+.link-btn{align-self:flex-start;border:0;background:none;padding:0;font:inherit;font-weight:800;color:var(--ink);text-decoration:underline;text-underline-offset:3px;cursor:pointer}
+.badge{display:inline-flex;align-items:center;justify-content:center;min-width:18px;height:18px;margin-left:6px;border-radius:999px;background:var(--red);color:#fff;font-style:normal;font-size:11px}
+@media (max-width:900px){
+  .apply{grid-template-columns:minmax(0,1fr)}
+  .apply-tabs{display:grid;grid-template-columns:1fr 1fr;border:1.5px solid var(--ink);border-radius:8px;overflow:hidden;position:sticky;top:0;z-index:5;background:var(--surface)}
+  .apply-tabs button{border:0;background:none;font:inherit;font-weight:800;color:var(--sub);padding:10px;min-height:44px;cursor:pointer}
+  .apply-tabs button.on{background:var(--hl);color:var(--ink)}
+  .chat,.sheet{display:none}
+  .chat.show{display:flex;position:static;height:calc(100vh - 230px);min-height:420px}
+  .sheet.show{display:flex}
+}
+@media (prefers-reduced-motion:reduce){.qcard.flash textarea{animation:none}}
+
 /* ---- 모바일 아래 탭 ---- */
 .tabs{display:none}
 
