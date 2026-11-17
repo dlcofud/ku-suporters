@@ -150,3 +150,36 @@ describe("수집 시트로 내보내기", () => {
     expect(back[0]!.reviewStatus).toBe("원문 재확인 필요");
   });
 });
+
+describe("OllamaClient", () => {
+  it("스키마를 format으로 넘기고 문맥 길이를 늘린다", async () => {
+    const { OllamaClient } = await import("../src/llm/index.js");
+    const orig = globalThis.fetch;
+    let body: Record<string, any> = {};
+    globalThis.fetch = (async (_u: string, init: RequestInit) => {
+      body = JSON.parse(String(init.body));
+      return new Response(JSON.stringify({ message: { content: '{"reply":"ok"}' }, prompt_eval_count: 10, eval_count: 3 }), { status: 200 });
+    }) as unknown as typeof fetch;
+    try {
+      const schema = { type: "object", properties: { reply: { type: "string" } }, required: ["reply"], additionalProperties: false };
+      const r = await new OllamaClient("gemma4:e4b", "http://localhost:11434/").complete({ system: "s", user: "u", maxOutputTokens: 20, schema });
+      expect(body.format).toEqual(schema);
+      expect(body.options.num_ctx).toBe(16384);
+      expect(body.messages[0].content).toContain("JSON 스키마");
+      expect(r).toMatchObject({ text: '{"reply":"ok"}', inputTokens: 10, outputTokens: 3, model: "gemma4:e4b" });
+    } finally {
+      globalThis.fetch = orig;
+    }
+  });
+
+  it("모델이 없으면 pull 하라고 알려 준다", async () => {
+    const { OllamaClient } = await import("../src/llm/index.js");
+    const orig = globalThis.fetch;
+    globalThis.fetch = (async () => new Response("model not found", { status: 404 })) as unknown as typeof fetch;
+    try {
+      await expect(new OllamaClient().complete({ system: "s", user: "u", maxOutputTokens: 5 })).rejects.toThrow("ollama pull gemma4:e4b");
+    } finally {
+      globalThis.fetch = orig;
+    }
+  });
+});
