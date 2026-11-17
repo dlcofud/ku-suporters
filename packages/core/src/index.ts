@@ -15,3 +15,4 @@ export * as account from "./account/index.js";
 export * as content from "./content/index.js";
 export * as publish from "./publish/index.js";
 // 서버 전용 렌더러는 "@supportlab/core/content/node" 에서 따로 import 한다.
+export * as apply from "./apply/index.js";

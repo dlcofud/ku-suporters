@@ -77,7 +77,7 @@ export default async function NoticePage({ searchParams }: { searchParams: Promi
               </div>
             ))}
             <div className="row">
-              <Link className="btn pri" href="/skeleton">지원서 뼈대 만들기</Link>
+              <Link className="btn pri" href="/skeleton">지원서 작성하기</Link>
               <Link className="btn" href="/">업로드 일정 보기</Link>
             </div>
           </div>

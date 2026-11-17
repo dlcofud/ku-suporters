@@ -10,7 +10,7 @@ import { mkdir, writeFile } from "node:fs/promises";
 import { existsSync } from "node:fs";
 import { dirname, join } from "node:path";
 import { randomUUID } from "node:crypto";
-import { credits, type contribution as C, type notice as N, type planner as P, type skeleton as S, type publish as PB, type feedback as F, type content as CT, type account as A, type trends as T } from "@supportlab/core";
+import { credits, type contribution as C, type notice as N, type planner as P, type skeleton as S, type publish as PB, type feedback as F, type content as CT, type account as A, type trends as T, type apply as AP } from "@supportlab/core";
 
 /* ------------------------------------------------------------------ */
 /* 타입                                                                 */
@@ -33,6 +33,8 @@ export interface Activity {
   plan?: P.Plan;
   skeleton?: S.Skeleton;
   accountKit?: A.AccountKit;
+  /** 지원서 코치와의 대화 + 문항별 글 */
+  application?: AP.Application;
   createdAt: string;
 }
 
@@ -298,7 +300,7 @@ class SupabaseRepo implements Repo {
   private toActivity(a: Record<string, any>): Activity {
     return {
       id: a.id, userId: a.user_id, name: a.name, sourceUrl: a.source_url ?? undefined, analysis: a.analysis, guides: a.guides ?? [],
-      plan: a.plan ?? undefined, skeleton: a.skeleton ?? undefined, accountKit: a.account_kit ?? undefined, createdAt: a.created_at,
+      plan: a.plan ?? undefined, skeleton: a.skeleton ?? undefined, accountKit: a.account_kit ?? undefined, application: a.application ?? undefined, createdAt: a.created_at,
     } as Activity;
   }
   async latestActivity(userId: string) {
@@ -312,7 +314,7 @@ class SupabaseRepo implements Repo {
     must(
       await this.sb.from("activities").upsert({
         id: a.id, user_id: a.userId, name: a.name, source_url: a.sourceUrl ?? null, analysis: a.analysis, guides: a.guides,
-        plan: a.plan ?? null, skeleton: a.skeleton ?? null, account_kit: a.accountKit ?? null, created_at: a.createdAt,
+        plan: a.plan ?? null, skeleton: a.skeleton ?? null, account_kit: a.accountKit ?? null, application: a.application ?? null, created_at: a.createdAt,
       }),
       "activities.save",
     );

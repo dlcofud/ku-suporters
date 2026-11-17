@@ -148,7 +148,7 @@ export default async function Home({ searchParams }: { searchParams: Promise<{ d
                 </>
               )}
               {i.kind === "content" && i.status === "past" && <Link className="btn" href="/feedback">이 콘텐츠 성과 보기</Link>}
-              {i.kind === "deadline" && <Link className="btn pri" href="/skeleton">지원서 뼈대 확인</Link>}
+              {i.kind === "deadline" && <Link className="btn pri" href="/skeleton">지원서 작성하기</Link>}
             </div>
           ))}
         </aside>
@@ -216,9 +216,9 @@ function Landing() {
       <section className="card dark" style={{ gap: 16, padding: 28 }}>
         <span className="eyebrow" style={{ color: "var(--hl)" }}>서포트랩</span>
         <h1 style={{ fontSize: 38, lineHeight: 1.18 }}>서포터즈 혜택은 많은데,<br /><span style={{ background: "var(--hl)", color: "var(--ink)", padding: "0 6px", borderRadius: 4 }}>하기 귀찮다면?</span></h1>
-        <p style={{ margin: 0, color: "#DDE1EE" }}>공고 링크만 넣으면 지원서 뼈대와 업로드 일정을 만들고, 콘텐츠 촬영·편집·예약 게시까지 함께해요.</p>
+        <p style={{ margin: 0, color: "#DDE1EE" }}>공고 링크만 넣으면 코치와 대화하며 지원서를 완성하고, 업로드 일정을 짜고, 콘텐츠 촬영·편집·예약 게시까지 함께해요.</p>
         <ol className="clean" style={{ margin: 0, color: "#DDE1EE", display: "grid", gap: 4 }}>
-          <li>공고 분석 → 지원서 뼈대</li>
+          <li>공고 분석 → 코치와 대화하며 지원서 작성</li>
           <li>마감일에서 거꾸로 짠 콘텐츠 캘린더</li>
           <li>장면 기획 · AI 편집 · 예약 게시</li>
           <li>반응을 보고 다음 할 일 제안</li>

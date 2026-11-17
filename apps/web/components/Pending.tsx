@@ -22,7 +22,9 @@ function useSubmitting(ref: RefObject<HTMLElement | null>): boolean {
     form.addEventListener("submit", on);
     return () => form.removeEventListener("submit", on);
   }, [ref]);
-  useEffect(() => setStarted(false), [path, query]);
+  useEffect(() => {
+    setStarted(false);
+  }, [path, query]);
   return pending || started;
 }
 
