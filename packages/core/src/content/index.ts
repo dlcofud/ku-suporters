@@ -42,27 +42,31 @@ export interface ScenePlanInput {
 
 const ROLE_SHARE: Record<Scene["role"], number> = { hook: 0.15, context: 0.2, demo: 0.35, result: 0.2, cta: 0.1 };
 
+/**
+ * 규칙 기반 장면 틀 (AI가 없거나 응답이 깨졌을 때 쓰는 대체용).
+ * 특정 제품군(예: 과자)에 묶이지 않도록 {p}(제품·주제)만 바꿔 끼운다. AI 장면 기획은 content/ai.ts
+ */
 const TEMPLATES: Record<NonNullable<ScenePlanInput["style"]>, Record<Scene["role"], { shot: ShotType; what: string; text: string; tip: string }>> = {
   review: {
-    hook: { shot: "close_up", what: "{p}를 카메라 바로 앞에 들이밀기", text: "{p} 솔직 리뷰 3초 컷", tip: "첫 장면에 제품이 바로 보여야 넘기지 않아요" },
-    context: { shot: "selfie", what: "어디서 샀는지, 왜 궁금했는지 한마디", text: "편의점 신상 발견!", tip: "말은 짧게, 표정은 크게" },
-    demo: { shot: "pov_hands", what: "포장 뜯고 한 입 먹는 장면", text: "식감 체크", tip: "소리(바삭함)가 들리게 마이크 가까이" },
-    result: { shot: "close_up", what: "단면이나 남은 양 보여주기", text: "내 점수는 ?/10", tip: "숫자로 평가하면 댓글이 늘어요" },
-    cta: { shot: "medium", what: "추천 대상 한 줄 + 손가락으로 저장 버튼 가리키기", text: "저장해 두고 편의점 갈 때 보기", tip: "저장을 부탁하면 정보형 반응이 늘어요" },
+    hook: { shot: "close_up", what: "{p}를 카메라 바로 앞에 보여 주기", text: "{p} 솔직 후기", tip: "첫 장면에 제품이 바로 보여야 넘기지 않아요" },
+    context: { shot: "selfie", what: "왜 써 보게 됐는지 한마디", text: "써 보게 된 이유", tip: "말은 짧게, 내 상황 위주로" },
+    demo: { shot: "pov_hands", what: "{p}를 실제로 쓰는 장면", text: "직접 써 봤어요", tip: "손과 제품이 같이 보이게, 소리도 살려요" },
+    result: { shot: "close_up", what: "써 본 뒤 달라진 점 보여 주기", text: "내 점수는 ?/10", tip: "숫자로 평가하면 댓글이 늘어요" },
+    cta: { shot: "medium", what: "추천하고 싶은 사람 한 줄 + 저장 버튼 가리키기", text: "필요할 때 보게 저장", tip: "저장을 부탁하면 정보형 반응이 늘어요" },
   },
   challenge: {
-    hook: { shot: "medium", what: "결과물을 먼저 보여주기", text: "{p}로 이거 만들기 성공?", tip: "결과를 먼저 보여주고 과정을 뒤에 붙여요" },
-    context: { shot: "wide", what: "준비물을 책상에 펼쳐 놓기", text: "준비물은 단 3개", tip: "위에서 내려다보는 구도가 깔끔해요" },
-    demo: { shot: "pov_hands", what: "만드는 과정을 빠르게", text: "순서대로 따라 해 보세요", tip: "한 동작당 1~2초로 빠르게 끊어요" },
-    result: { shot: "close_up", what: "완성품 클로즈업", text: "완성!", tip: "자연광에서 찍으면 색이 살아요" },
-    cta: { shot: "selfie", what: "같이 해 보자고 말하기", text: "#챌린지 같이 해요", tip: "참여를 부르는 한마디로 공유를 노려요" },
+    hook: { shot: "medium", what: "결과물을 먼저 보여 주기", text: "{p}로 이거 해 봤어요", tip: "결과를 먼저 보여 주고 과정을 뒤에 붙여요" },
+    context: { shot: "wide", what: "준비물을 책상에 펼쳐 놓기", text: "준비물은 이것뿐", tip: "위에서 내려다보는 구도가 깔끔해요" },
+    demo: { shot: "pov_hands", what: "과정을 빠르게", text: "순서대로 따라 해 보세요", tip: "한 동작당 1~2초로 빠르게 끊어요" },
+    result: { shot: "close_up", what: "결과 클로즈업", text: "완성!", tip: "자연광에서 찍으면 색이 살아요" },
+    cta: { shot: "selfie", what: "같이 해 보자고 말하기", text: "같이 해 봐요", tip: "참여를 부르는 한마디로 공유를 노려요" },
   },
   routine: {
-    hook: { shot: "selfie", what: "\"오늘 하루 {p}로 버티기\" 한마디", text: "대학생 하루 루틴 with {p}", tip: "첫 문장에 상황을 딱 말해요" },
-    context: { shot: "wide", what: "강의실·도서관 등 장소 보여주기", text: "시험 기간 3일 전", tip: "공감되는 상황이 조회수를 만들어요" },
-    demo: { shot: "pov_hands", what: "{p}를 꺼내 먹는 순간", text: "당 충전 타이밍", tip: "실제 생활 장면이어야 진정성이 보여요" },
-    result: { shot: "medium", what: "다시 공부하는 모습", text: "효과는 확실", tip: "과장하지 말고 솔직하게" },
-    cta: { shot: "close_up", what: "제품 이름이 보이게 마무리", text: "여러분의 시험 간식은?", tip: "질문으로 끝내면 댓글이 늘어요" },
+    hook: { shot: "selfie", what: "\"오늘 하루 {p}와 함께\" 한마디", text: "대학생 하루 with {p}", tip: "첫 문장에 상황을 딱 말해요" },
+    context: { shot: "wide", what: "강의실·도서관 등 내가 실제로 있는 장소", text: "오늘의 일정", tip: "공감되는 상황이 조회수를 만들어요" },
+    demo: { shot: "pov_hands", what: "{p}를 쓰는 순간", text: "이럴 때 꺼내요", tip: "실제 생활 장면이어야 진정성이 보여요" },
+    result: { shot: "medium", what: "하루를 마무리하는 모습", text: "오늘도 끝", tip: "과장하지 말고 솔직하게" },
+    cta: { shot: "close_up", what: "제품 이름이 보이게 마무리", text: "여러분은 언제 쓰세요?", tip: "질문으로 끝내면 댓글이 늘어요" },
   },
 };
 
@@ -367,3 +371,5 @@ export function draftCaption(input: ScenePlanInput, scenes: Scene[], hashtags: s
   const tags = hashtags.slice(0, 10).map((h) => (h.startsWith("#") ? h : `#${h}`)).join(" ");
   return `${hook}\n\n[여기에 내 경험 한 줄을 직접 써 주세요]\n\n${tags}`;
 }
+
+export * from "./ai.js";

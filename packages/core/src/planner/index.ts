@@ -25,6 +25,14 @@ export interface PlanItem {
   /** 남은 일수 (마감 기준) */
   dMinus: number;
   status: PlanItemStatus;
+  /** 사용자가 적은 아이디어·경험 (콘텐츠 제작에서 입력) */
+  idea?: string;
+  /** 콘텐츠 제작에서 정한 제품·주제 */
+  product?: string;
+  /** 저장한 캡션 */
+  caption?: string;
+  /** 주제를 AI가 활동에 맞춰 바꿨으면 true */
+  aiTopic?: boolean;
 }
 
 export interface Plan {

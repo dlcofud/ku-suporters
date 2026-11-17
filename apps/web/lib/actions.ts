@@ -6,7 +6,7 @@ import { revalidatePath } from "next/cache";
 import { mkdir, readFile, writeFile } from "node:fs/promises";
 import { join } from "node:path";
 import { tmpdir } from "node:os";
-import { notice, skeleton, planner, account, content, publish, contribution, trends, apply, billing } from "@supportlab/core";
+import { notice, skeleton, planner, account, content, publish, contribution, trends, apply, billing, credits } from "@supportlab/core";
 import { payments, syncSubscription } from "./billing";
 import { readFormFile, FormReadError } from "@supportlab/core/apply/node";
 import { renderWithFfmpeg, probeWithFfmpeg, analyzeClipFeatures } from "@supportlab/core/content/node";
@@ -18,7 +18,7 @@ import { LoginIdTakenError } from "./repo";
 import { fetchNotice, fetchImage, NoticeFetchError } from "./fetchNotice";
 import { readImagesText, imageType, type OcrImage } from "./ocr";
 import { manualMedia } from "./media";
-import { getLLM } from "./llm";
+import { getLLM, llmStatus } from "./llm";
 import { publisherFor } from "./publisher";
 import { ffmpegPath, captionFont } from "./ffmpeg";
 
@@ -246,7 +246,19 @@ export async function setDeadlineAction(formData: FormData) {
   const deadline = String(formData.get("deadline") || "");
   if (!/^\d{4}-\d{2}-\d{2}$/.test(deadline)) redirect("/");
   act.analysis.deadline = deadline;
+  const old = act.plan;
   act.plan = safePlan(deadline, act.name);
+  // 다시 계산해도 같은 날·같은 포맷 콘텐츠의 AI 주제·내 아이디어·캡션은 그대로 둔다
+  if (old && act.plan) {
+    for (const it of act.plan.items) {
+      const prev = old.items.find((o) => o.kind === "content" && it.kind === "content" && o.date === it.date && o.format === it.format);
+      if (!prev) continue;
+      if (prev.aiTopic) Object.assign(it, { title: prev.title, purpose: prev.purpose, aiTopic: true });
+      if (prev.idea) it.idea = prev.idea;
+      if (prev.caption) it.caption = prev.caption;
+      if (prev.product) it.product = prev.product;
+    }
+  }
   await repo.saveActivity(act);
   revalidatePath("/", "layout");
   redirect(act.plan ? "/" : "/?error=deadline");
@@ -326,16 +338,130 @@ export async function applySuggestionAction(formData: FormData) {
 
 /* ---------------- 콘텐츠 제작 ---------------- */
 
+/**
+ * AI 작업 하나를 크레딧과 함께 돌린다.
+ * - AI가 연결되지 않았거나(데모 모드) 크레딧이 모자라면 규칙 기반 결과를 준다 (크레딧 0)
+ * - AI가 실제로 만든 결과(source=ai)일 때만 크레딧을 정산하고, 규칙으로 대신했으면 잡아 둔 크레딧을 돌려준다
+ */
+async function withCredits<T>(userId: string, kind: credits.TaskKind, run: (llm: ReturnType<typeof getLLM>) => Promise<content.AiResult<T>>, rules: () => T): Promise<content.AiResult<T>> {
+  const rulesOnly = (note: string): content.AiResult<T> => ({ value: rules(), source: "rules", usage: { inputTokens: 0, outputTokens: 0 }, tier: "local", note });
+  if (llmStatus().mode === "demo") return rulesOnly("AI가 연결되지 않아 기본 틀로 만들었어요.");
+  const hold = await repo.ledger.hold(userId, kind, newId("job")).catch(() => null);
+  if (!hold) return rulesOnly("크레딧이 모자라서 기본 틀로 만들었어요. 크레딧 화면에서 충전할 수 있어요.");
+  try {
+    const r = await run(getLLM());
+    if (r.source === "ai") await repo.ledger.settle(hold, r.usage, r.tier);
+    else await repo.ledger.release(hold);
+    return r;
+  } catch (e) {
+    await repo.ledger.release(hold);
+    throw e;
+  }
+}
+
+function briefFor(act: Activity, item: planner.PlanItem, product: string, idea?: string): content.ContentBrief {
+  return {
+    activityName: act.name,
+    format: (item.format === "check" || !item.format ? "reels" : item.format) as content.MakeFormat,
+    title: item.title,
+    purpose: item.purpose,
+    product: product || act.name.split(" ")[0] || "제품",
+    idea,
+    notice: { activities: act.analysis.activities ?? [], preferred: act.analysis.preferred ?? [], signalKeywords: act.analysis.signalKeywords ?? [] },
+  };
+}
+
+function hashtagsFor(act: Activity): string[] {
+  return ["서포터즈", act.name.split(" ")[0] ?? "", "대학생"].filter(Boolean);
+}
+
+const studioUrl = (id: string, q: Record<string, string | undefined> = {}) => {
+  const p = new URLSearchParams({ item: id });
+  for (const [k, v] of Object.entries(q)) if (v) p.set(k, v);
+  return `/studio?${p.toString()}`;
+};
+
 export async function planScenesAction(formData: FormData) {
   const user = await requireUser();
   const planItemId = String(formData.get("planItemId") || "");
   const style = String(formData.get("style") || "review") as "review" | "challenge" | "routine";
   const targetSec = Number(formData.get("targetSec") || 15) as 15 | 20 | 30;
-  const product = String(formData.get("product") || "제품");
-  const act = await currentActivity(user.id);
-  const item = act?.plan?.items.find((i) => i.id === planItemId);
-  await repo.setScenes(user.id, planItemId, content.planScenes({ title: item?.title ?? "콘텐츠", product, targetSec, style }));
-  redirect(`/studio?item=${planItemId}`);
+  const product = String(formData.get("product") || "").trim().slice(0, 40);
+  const idea = String(formData.get("idea") || "").trim().slice(0, 600);
+  const act = await activityOrRedirect(user.id);
+  const item = act.plan?.items.find((i) => i.id === planItemId);
+  if (!item) redirect("/studio");
+  const brief = briefFor(act, item!, product, idea);
+  const r = await withCredits(user.id, "reels_plan", (llm) => content.planScenesAI(llm, brief, { targetSec, style }), () => content.planScenes({ title: item!.title, product: brief.product, targetSec, style }));
+  await repo.setScenes(user.id, planItemId, r.value);
+  if (idea !== (item!.idea ?? "") || product !== (item!.product ?? "")) {
+    item!.idea = idea || undefined;
+    item!.product = product || undefined;
+    await repo.saveActivity(act);
+  }
+  redirect(studioUrl(planItemId, { made: r.source, note: r.note }));
+}
+
+/** 캡션 코치: 내 경험으로만 캡션을 쓴다. 경험이 모자라면 질문을 돌려준다 */
+export async function captionAction(formData: FormData) {
+  const user = await requireUser();
+  const planItemId = String(formData.get("planItemId") || "");
+  const experience = String(formData.get("experience") || "").trim().slice(0, 800);
+  const act = await activityOrRedirect(user.id);
+  const item = act.plan?.items.find((i) => i.id === planItemId);
+  if (!item) redirect("/studio");
+  const scenes = (await repo.getScenes(user.id, planItemId)) ?? [];
+  const brief = briefFor(act, item!, item!.product ?? "", experience);
+  const tags = hashtagsFor(act);
+  const ask = [...experience].length < 6;
+  const r = ask
+    ? await content.captionAI(getLLM(), brief, scenes, "", tags) // 모델을 부르지 않고 질문만 돌려준다
+    : await withCredits(user.id, "content_draft", (llm) => content.captionAI(llm, brief, scenes, experience, tags), () => ({ caption: "", question: "" }));
+  // 크레딧·AI가 없어 규칙으로 대신했으면 경험을 그대로 넣은 기본 캡션
+  const caption = r.value.caption || content.draftCaption({ title: item!.title, product: brief.product }, scenes, tags).replace("[여기에 내 경험 한 줄을 직접 써 주세요]", experience);
+  item!.idea = experience || item!.idea;
+  item!.caption = caption;
+  await repo.saveActivity(act);
+  redirect(studioUrl(planItemId, { cap: r.source, ask: r.value.question || undefined, note: r.note }) + "#caption");
+}
+
+export async function saveCaptionAction(formData: FormData) {
+  const user = await requireUser();
+  const planItemId = String(formData.get("planItemId") || "");
+  const act = await activityOrRedirect(user.id);
+  const item = act.plan?.items.find((i) => i.id === planItemId);
+  if (item) {
+    item.caption = String(formData.get("caption") || "").slice(0, 2200);
+    await repo.saveActivity(act);
+  }
+  redirect(studioUrl(planItemId, { saved: "1" }) + "#caption");
+}
+
+/** 캘린더의 남은 콘텐츠 주제를 이 활동 공고에 맞춰 AI로 다시 짠다 */
+export async function topicsAction(formData: FormData) {
+  const user = await requireUser();
+  const act = await activityOrRedirect(user.id);
+  if (!act.plan) redirect("/");
+  const interests = String(formData.get("interests") || "").trim().slice(0, 200);
+  const slots = act.plan!.items
+    .filter((i) => i.kind === "content" && i.status !== "past" && i.format && i.format !== "check")
+    .map((i) => ({ id: i.id, date: i.date, format: i.format as content.MakeFormat, title: i.title }));
+  const ctx = { activityName: act.name, interests, notice: { activities: act.analysis.activities ?? [], preferred: act.analysis.preferred ?? [], signalKeywords: act.analysis.signalKeywords ?? [] } };
+  const r = await withCredits(user.id, "calendar_topics", (llm) => content.suggestTopicsAI(llm, ctx, slots), () => ({}) as Record<string, content.Topic>);
+  let n = 0;
+  for (const it of act.plan!.items) {
+    const t = r.value[it.id];
+    if (!t) continue;
+    it.title = t.title;
+    it.purpose = t.purpose;
+    it.aiTopic = true;
+    n++;
+  }
+  if (n) await repo.saveActivity(act);
+  revalidatePath("/", "layout");
+  const q = new URLSearchParams({ topics: String(n) });
+  if (r.note) q.set("note", r.note);
+  redirect(`/?${q.toString()}`);
 }
 
 export async function uploadClipsAction(formData: FormData) {
