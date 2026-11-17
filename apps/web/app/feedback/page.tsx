@@ -22,7 +22,7 @@ export default async function FeedbackPage({ searchParams }: { searchParams: Pro
   const { error, added } = await searchParams;
   const user = await requireUser();
   const act = await currentActivity(user.id);
-  if (!act?.plan) return <div className="card"><h1>먼저 업로드 일정을 만들어 주세요</h1><Link className="btn pri" href="/">콘텐츠 캘린더</Link></div>;
+  if (!act?.plan) return <div className="card"><h1>먼저 업로드 일정을 만들어 주세요</h1><Link className="btn pri" href="/calendar">콘텐츠 캘린더</Link></div>;
   const today = todayISO();
   const { media, source, igError } = await myMedia(user);
   const manual = source === "manual";

@@ -11,14 +11,15 @@ const I = (d: ReactNode) => (
 const ACTIVITY: [string, string, ReactNode][] = [
   ["/trends", "경향 분석", I(<><path d="M4 20V10" /><path d="M10 20V4" /><path d="M16 20v-7" /><path d="M3 20h18" /></>)],
   ["/skeleton", "지원서 작성", I(<><path d="M14 3H6a1 1 0 0 0-1 1v16a1 1 0 0 0 1 1h12a1 1 0 0 0 1-1V8z" /><path d="M14 3v5h5" /><path d="M9 13h6M9 17h4" /></>)],
-  ["/", "콘텐츠 캘린더", I(<><rect x="3" y="5" width="18" height="16" rx="2" /><path d="M3 10h18M8 3v4M16 3v4" /></>)],
+  ["/calendar", "콘텐츠 캘린더", I(<><rect x="3" y="5" width="18" height="16" rx="2" /><path d="M3 10h18M8 3v4M16 3v4" /></>)],
   ["/feedback", "성과 피드백", I(<><path d="M20 12a8 8 0 1 1-2.34-5.66" /><path d="M20 4v5h-5" /></>)],
 ];
 
 /** 그 밖의 도구 */
-const TOOLS: [string, string, ("admin" | "team")?][] = [
-  ["/studio", "콘텐츠 제작"],
-  ["/account", "계정 만들기"],
+/** 세 번째 값: 필요한 권한, 또는 "act"(서포터즈 하나를 고른 화면에서만 보임) */
+const TOOLS: [string, string, ("admin" | "team" | "act")?][] = [
+  ["/studio", "콘텐츠 제작", "act"],
+  ["/account", "계정 만들기", "act"],
   ["/contribute", "합격 경험 공유"],
   ["/reviews", "후기 분석 (팀)", "team"],
   ["/admin", "검수 (관리자)", "admin"],
@@ -27,10 +28,10 @@ const TOOLS: [string, string, ("admin" | "team")?][] = [
 /** roles: 서버에서 정한 권한. 메뉴만 숨기는 것이고, 실제 막는 건 각 페이지·액션의 requireRole */
 export function Nav({ hasActivity, roles = [] }: { hasActivity: boolean; roles?: ("admin" | "team")[] }) {
   const path = usePathname();
-  const isOn = (href: string) => (href === "/" ? path === "/" || path.startsWith("/calendar") : path.startsWith(href));
+  const isOn = (href: string) => (href === "/" ? path === "/" : path.startsWith(href));
   return (
     <>
-      {hasActivity && (
+      {hasActivity && path !== "/" && (
         <nav className="navgroup" aria-label="이 활동">
           <span className="navlabel">이 활동</span>
           {ACTIVITY.map(([href, label, icon]) => (
@@ -42,7 +43,7 @@ export function Nav({ hasActivity, roles = [] }: { hasActivity: boolean; roles?:
       )}
       <nav className="navgroup tools" aria-label="도구">
         <span className="navlabel">도구</span>
-        {TOOLS.filter(([, , need]) => !need || roles.includes(need)).map(([href, label]) => (
+        {TOOLS.filter(([, , need]) => !need || (need === "act" ? hasActivity && path !== "/" : roles.includes(need))).map(([href, label]) => (
           <Link key={href} href={href} className={isOn(href) ? "nav sm on" : "nav sm"} aria-current={isOn(href) ? "page" : undefined}>
             {label}
           </Link>
@@ -67,7 +68,7 @@ const TABS: [string, string, ReactNode][] = [
 
 export function MobileTabs() {
   const path = usePathname();
-  const isOn = (href: string) => (href === "/" ? path === "/" || path.startsWith("/calendar") : href !== "#menu" && path.startsWith(href));
+  const isOn = (href: string) => (href === "/" ? path === "/" : href !== "#menu" && path.startsWith(href));
   return (
     <nav className="tabs" aria-label="빠른 메뉴">
       {TABS.map(([href, label, icon]) =>
