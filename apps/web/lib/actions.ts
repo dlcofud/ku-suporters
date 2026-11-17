@@ -11,7 +11,7 @@ import { payments, syncSubscription } from "./billing";
 import { readFormFile, FormReadError } from "@supportlab/core/apply/node";
 import { renderWithFfmpeg, probeWithFfmpeg, analyzeClipFeatures } from "@supportlab/core/content/node";
 import { repo, files, newId, todayISO, type Activity } from "./repo";
-import { ACT_COOKIE, requireUser, currentActivity, startSession, endSession } from "./session";
+import { ACT_COOKIE, requireUser, requireRole, currentActivity, startSession, endSession } from "./session";
 import { auth } from "@supportlab/core";
 import { hashPassword, verifyPassword } from "@supportlab/core/auth/node";
 import { LoginIdTakenError } from "./repo";
@@ -635,9 +635,11 @@ export async function withdrawAction(formData: FormData) {
 }
 
 async function review(formData: FormData, decision: "approve" | "reject") {
-  const reviewer = await requireUser();
+  const reviewer = await requireRole("admin");
   let c = await repo.getContribution(String(formData.get("id") || ""));
   if (!c) redirect("/admin");
+  // 자기 공유는 자기가 검수하지 않는다 (크레딧을 스스로 주지 못하게)
+  if (c.userId === reviewer.id) redirect("/admin?error=" + encodeURIComponent("내가 올린 공유는 다른 관리자가 검수해야 해요."));
   const at = new Date().toISOString();
   if (c.status === "submitted") c = contribution.startReview(c, reviewer.id, at);
   const checks = Object.fromEntries(Object.keys(contribution.REVIEW_CHECKS).map((k) => [k, formData.get(`chk_${k}`) === "on"]));
@@ -691,7 +693,7 @@ const REVIEW_RESULTS = ["최종 합격", "서류 합격", "불합격", "확인 �
 
 /** 후기 본문을 코드북으로 코딩해 'AI 초안'으로 저장한다. 본문은 저장하지 않는다. */
 export async function codeReviewAction(formData: FormData) {
-  const user = await requireUser();
+  const user = await requireRole("team");
   const url = String(formData.get("url") || "").trim();
   const text = String(formData.get("text") || "");
   if (!/^https?:\/\//.test(url)) redirect("/reviews?error=url");
@@ -728,7 +730,7 @@ export async function codeReviewAction(formData: FormData) {
 
 /** 사람이 점수를 확인·수정하고 '검수 완료'로 바꾼다 */
 export async function verifyReviewAction(formData: FormData) {
-  const user = await requireUser();
+  const user = await requireRole("team");
   const id = String(formData.get("id") || "");
   const r = await repo.getCodedReview(id);
   if (!r) redirect("/reviews");

@@ -1,6 +1,7 @@
 import { cookies } from "next/headers";
 import { redirect } from "next/navigation";
 import { createSessionToken, readSessionToken } from "@supportlab/core/auth/node";
+import { auth } from "@supportlab/core";
 import { repo, type User, type Activity } from "./repo";
 
 /** 로그인 쿠키. 값은 "사용자ID.만료.서명" (서버 비밀값으로 서명해서 고칠 수 없다) */
@@ -44,6 +45,18 @@ export async function currentUser(): Promise<User | undefined> {
 export async function requireUser(): Promise<User> {
   const u = await currentUser();
   if (!u) redirect("/login");
+  return u;
+}
+
+/** 권한은 서버 환경 변수로만 준다: ADMIN_LOGIN_IDS(검수 관리자), TEAM_LOGIN_IDS(후기 분석 팀). 쉼표로 여러 명 */
+export function rolesOf(user: User | undefined): auth.Role[] {
+  return auth.rolesFor(user?.loginId, { admins: auth.parseIdList(process.env.ADMIN_LOGIN_IDS), team: auth.parseIdList(process.env.TEAM_LOGIN_IDS) });
+}
+
+/** 권한이 없으면 안내 화면으로 보낸다. 페이지와 서버 액션 모두에서 부른다 (액션은 화면 없이도 불릴 수 있다) */
+export async function requireRole(role: auth.Role): Promise<User> {
+  const u = await requireUser();
+  if (!rolesOf(u).includes(role)) redirect(`/forbidden?need=${role}`);
   return u;
 }
 

@@ -1,4 +1,4 @@
-import { requireUser } from "@/lib/session";
+import { requireRole } from "@/lib/session";
 import { repo } from "@/lib/repo";
 import { approveReviewAction, rejectReviewAction } from "@/lib/actions";
 import { contribution } from "@supportlab/core";
@@ -6,7 +6,7 @@ import { contribution } from "@supportlab/core";
 const RESULT: Record<string, string> = { final_pass: "최종 합격", document_pass: "서류 합격", fail: "불합격" };
 
 export default async function AdminPage({ searchParams }: { searchParams: Promise<{ error?: string }> }) {
-  await requireUser(); // 데모: 로그인한 사용자 누구나. 배포 시 관리자 권한 확인 필요
+  const me = await requireRole("admin");
   const { error } = await searchParams;
   const queue = await repo.listContributions({ statuses: ["submitted", "in_review"] });
   const done = await repo.listContributions({ statuses: ["approved", "rejected"] });
@@ -16,7 +16,7 @@ export default async function AdminPage({ searchParams }: { searchParams: Promis
         <span className="eyebrow">관리자</span>
         <h1>업로드 자료 검수</h1>
       </header>
-      <div className="note warn">데모 화면이에요. 배포할 때는 관리자 계정만 들어올 수 있게 막아야 해요.</div>
+      <p className="small muted" style={{ margin: 0 }}>관리자(@{me.loginId})만 볼 수 있어요. 승인하면 공유한 사람에게 크레딧이 지급되고, 증빙 이미지는 검수가 끝나면 지워요. 내가 올린 공유는 다른 관리자가 검수해야 해요.</p>
       {error && <div className="note warn">{error}</div>}
       {queue.length === 0 && <div className="card"><p className="muted" style={{ margin: 0 }}>검수할 자료가 없어요.</p></div>}
       {queue.map((c) => (

@@ -1,7 +1,16 @@
 /** 릴리즈 노트. 새 기능을 합칠 때 맨 위에 한 줄씩 추가해 주세요. */
-export const APP_VERSION = "0.11";
+export const APP_VERSION = "0.12";
 
 export const RELEASES: { version: string; date: string; items: string[] }[] = [
+  {
+    version: "0.12",
+    date: "2026-11-17",
+    items: [
+      "검수(관리자) 화면은 관리자만, 후기 분석은 팀원만 들어올 수 있어요. 권한은 서버 환경 변수(ADMIN_LOGIN_IDS · TEAM_LOGIN_IDS)로만 줘요",
+      "권한이 없는 메뉴는 보이지 않고, 주소로 들어오면 누구에게 권한을 받아야 하는지 알려 줘요",
+      "관리자도 자기가 올린 합격 경험 공유는 승인할 수 없어요 (크레딧을 스스로 주지 못하게)",
+    ],
+  },
   {
     version: "0.11",
     date: "2026-11-17",

@@ -1,7 +1,7 @@
 import Link from "next/link";
 import { notFound } from "next/navigation";
 import { trends } from "@supportlab/core";
-import { requireUser } from "@/lib/session";
+import { requireRole } from "@/lib/session";
 import { repo } from "@/lib/repo";
 import { verifyReviewAction } from "@/lib/actions";
 import { SubmitButton, PendingNote } from "@/components/Pending";
@@ -9,7 +9,7 @@ import { SubmitButton, PendingNote } from "@/components/Pending";
 const SCORE_LABEL = ["0 · 없음", "1 · 언급", "2 · 구체적"];
 
 export default async function ReviewDetail({ params, searchParams }: { params: Promise<{ id: string }>; searchParams: Promise<{ dup?: string; saved?: string; aierror?: string }> }) {
-  await requireUser();
+  await requireRole("team");
   const { id } = await params;
   const q = await searchParams;
   const r = await repo.getCodedReview(id);

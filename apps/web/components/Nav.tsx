@@ -16,15 +16,16 @@ const ACTIVITY: [string, string, ReactNode][] = [
 ];
 
 /** 그 밖의 도구 */
-const TOOLS: [string, string][] = [
+const TOOLS: [string, string, ("admin" | "team")?][] = [
   ["/studio", "콘텐츠 제작"],
   ["/account", "계정 만들기"],
   ["/contribute", "합격 경험 공유"],
-  ["/reviews", "후기 분석 (팀)"],
-  ["/admin", "검수 (관리자)"],
+  ["/reviews", "후기 분석 (팀)", "team"],
+  ["/admin", "검수 (관리자)", "admin"],
 ];
 
-export function Nav({ hasActivity }: { hasActivity: boolean }) {
+/** roles: 서버에서 정한 권한. 메뉴만 숨기는 것이고, 실제 막는 건 각 페이지·액션의 requireRole */
+export function Nav({ hasActivity, roles = [] }: { hasActivity: boolean; roles?: ("admin" | "team")[] }) {
   const path = usePathname();
   const isOn = (href: string) => (href === "/" ? path === "/" || path.startsWith("/calendar") : path.startsWith(href));
   return (
@@ -41,7 +42,7 @@ export function Nav({ hasActivity }: { hasActivity: boolean }) {
       )}
       <nav className="navgroup tools" aria-label="도구">
         <span className="navlabel">도구</span>
-        {TOOLS.map(([href, label]) => (
+        {TOOLS.filter(([, , need]) => !need || roles.includes(need)).map(([href, label]) => (
           <Link key={href} href={href} className={isOn(href) ? "nav sm on" : "nav sm"} aria-current={isOn(href) ? "page" : undefined}>
             {label}
           </Link>
