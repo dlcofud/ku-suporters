@@ -4,6 +4,7 @@ import { contributeAction, withdrawAction } from "@/lib/actions";
 import { contribution } from "@supportlab/core";
 import { myMedia } from "@/lib/media";
 import { fmtLabel, md } from "@/lib/format";
+import { SubmitButton, PendingNote } from "@/components/Pending";
 
 const STATUS: Record<string, string> = { submitted: "검수 대기", in_review: "검수 중", approved: "승인 · 지급 완료", rejected: "반려", withdrawn: "철회됨", draft: "작성 중" };
 
@@ -41,14 +42,14 @@ export default async function ContributePage({ searchParams }: { searchParams: P
           <label>합격 증빙 (문자·메일 캡처, 합격자만)<input type="file" name="proof" accept="image/*" /></label>
           <label className="check"><input type="checkbox" name="redacted" />증빙에서 이름·전화번호·이메일을 가렸어요</label>
           <label className="check"><input type="checkbox" name="shareStructure" />지원서 구조도 공유할게요 (+20, 원문 아님)</label>
-          <label>문항별 강조점 (한 줄에 하나 · <code>문항 | E1, E4</code>)<textarea name="structure" style={{ minHeight: 70 }} placeholder="지원 동기 | E8, E5" /></label>
+          <label><span className="lbl">문항별 강조점 (한 줄에 하나 · <code>문항 | E1, E4</code>)</span><textarea name="structure" style={{ minHeight: 70 }} placeholder="지원 동기 | E8, E5" /></label>
           <fieldset className="card" style={{ padding: 14 }}>
             <legend><b>필수 동의</b> <span className="small muted">(버전 {contribution.CONSENT_VERSION})</span></legend>
             {contribution.REQUIRED_CONSENTS.map((k) => (
               <label key={k} className="check"><input type="checkbox" name={`consent_${k}`} required /><span className="small">{contribution.CONSENT_TEXT[k]}</span></label>
             ))}
           </fieldset>
-          <button className="btn pri" type="submit">제출하기</button>
+          <SubmitButton pendingText="제출하는 중…">제출하기</SubmitButton>
         </form>
         <div className="grid">
           <div className="card">

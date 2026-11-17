@@ -3,6 +3,7 @@ import { requireUser, currentActivity } from "@/lib/session";
 import { repo } from "@/lib/repo";
 import { accountKitAction } from "@/lib/actions";
 import { fmtLabel } from "@/lib/format";
+import { SubmitButton, PendingNote } from "@/components/Pending";
 
 const FIELDS = ["F&B·식품", "뷰티·패션", "IT·테크", "금융", "언론·미디어", "음악·엔터", "기타"];
 
@@ -28,7 +29,7 @@ export default async function AccountPage() {
           <label className="check"><input type="radio" name="concept" value="0" defaultChecked />리뷰어형</label>
           <label className="check"><input type="radio" name="concept" value="1" />생활 밀착형</label>
           <label className="check"><input type="radio" name="concept" value="2" />분석가형</label>
-          <button className="btn pri" type="submit">계정 가이드 만들기</button>
+          <SubmitButton pendingText="만드는 중…">계정 가이드 만들기</SubmitButton>
         </div>
       </form>
       {kit && (

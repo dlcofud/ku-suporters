@@ -3,6 +3,7 @@ import { repo } from "@/lib/repo";
 import { analyzeNoticeAction } from "@/lib/actions";
 import { credits } from "@supportlab/core";
 import Link from "next/link";
+import { SubmitButton, PendingNote } from "@/components/Pending";
 
 const SUB: Record<string, string> = { application: "지원서", portfolio: "포트폴리오", sns_link: "SNS 링크", intro_video: "자기소개 영상", content_plan: "콘텐츠 기획서", pre_mission: "사전 미션" };
 const STAGE: Record<string, string> = { document: "서류", interview: "면접", pre_mission: "사전 과제", video: "영상 심사" };
@@ -29,7 +30,7 @@ export default async function NoticePage({ searchParams }: { searchParams: Promi
           공고 링크
           <div className="row" style={{ flexWrap: "nowrap" }}>
             <input type="url" name="url" defaultValue={url} placeholder="https://linkareer.com/activity/… 처럼 공고 페이지 주소를 붙여넣으세요" style={{ flex: 1 }} autoFocus />
-            <button className="btn pri" type="submit">분석하기</button>
+            <SubmitButton pendingText="분석 중…">분석하기</SubmitButton>
           </div>
         </label>
         <span className="small muted">링크만 넣으면 그 페이지의 공고 내용을 읽어서 분석해요. 공고 원문은 저장하지 않고, 뽑아낸 사실과 링크만 남겨요.</span>
@@ -43,10 +44,11 @@ export default async function NoticePage({ searchParams }: { searchParams: Promi
             </label>
             <div className="row between">
               <span className="small muted">규칙으로 다 찾으면 0 크레딧, 보강이 필요하면 최대 {est.max} 크레딧.</span>
-              <button className="btn" type="submit">붙여넣은 내용으로 분석</button>
+              <SubmitButton className="btn" pendingText="분석 중…">붙여넣은 내용으로 분석</SubmitButton>
             </div>
           </div>
         </details>
+        <PendingNote steps={["공고 페이지를 읽고 있어요", "마감일·제출물·문항을 찾고 있어요", "AI가 빠진 항목을 채우고 있어요", "업로드 일정을 짜고 있어요"]} hint="보통 5초~1분 걸려요. 로컬 모델은 처음에 더 걸릴 수 있어요." />
       </form>
       {act && (
         <section className="grid g2" style={{ alignItems: "start" }}>

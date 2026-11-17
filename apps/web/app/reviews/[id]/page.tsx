@@ -4,6 +4,7 @@ import { trends } from "@supportlab/core";
 import { requireUser } from "@/lib/session";
 import { repo } from "@/lib/repo";
 import { verifyReviewAction } from "@/lib/actions";
+import { SubmitButton, PendingNote } from "@/components/Pending";
 
 const SCORE_LABEL = ["0 · 없음", "1 · 언급", "2 · 구체적"];
 
@@ -92,7 +93,7 @@ export default async function ReviewDetail({ params, searchParams }: { params: P
         </section>
 
         <div className="row">
-          <button className="btn pri" type="submit">{r.human ? "검수 점수 다시 저장" : "검수 완료로 저장"}</button>
+          <SubmitButton pendingText="저장하는 중…">{r.human ? "검수 점수 다시 저장" : "검수 완료로 저장"}</SubmitButton>
           <Link className="btn" href="/reviews">목록으로</Link>
         </div>
       </form>

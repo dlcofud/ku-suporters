@@ -5,6 +5,7 @@ import { repo } from "@/lib/repo";
 import { codeReviewAction } from "@/lib/actions";
 import { llmStatus } from "@/lib/llm";
 import { AiCheck } from "@/components/AiCheck";
+import { SubmitButton, PendingNote } from "@/components/Pending";
 
 const ERR: Record<string, string> = {
   url: "후기 주소(https://…)를 넣어 주세요. 출처 표기에 꼭 필요해요.",
@@ -62,7 +63,8 @@ export default async function ReviewsPage({ searchParams }: { searchParams: Prom
           <label>후기 본문
             <textarea name="text" required style={{ minHeight: 220 }} placeholder="후기 페이지를 열어 본문을 복사해 붙여넣어 주세요. 분석에만 쓰고 저장하지 않아요." />
           </label>
-          <button className="btn pri" type="submit">AI로 코딩하기</button>
+          <SubmitButton pendingText="AI가 분석하는 중…">AI로 코딩하기</SubmitButton>
+          <PendingNote steps={["후기를 읽고 있어요", "코드북 E1~E8 기준으로 점수를 매기고 있어요", "근거와 요약을 우리 말로 쓰고 있어요"]} hint="Claude는 10초 안팎, 로컬 모델(Ollama)은 30초~2분 걸릴 수 있어요." />
           <p className="small muted" style={{ margin: 0 }}>본문은 저장하지 않아요. 남는 것은 출처·우리 말 요약·점수·키워드예요. 자동 크롤링 대신 직접 열어 본 후기만 넣어 주세요.</p>
         </form>
 

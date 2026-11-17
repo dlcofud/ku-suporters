@@ -178,6 +178,19 @@ video{max-width:100%;border-radius:8px;background:#000}
 .fbar .bar>i{background:#B9C0D6}
 .fbar .bar>i.top{background:var(--hl);box-shadow:inset -1.5px 0 0 var(--ink)}
 
+/* ---- 코드처럼 보여 줄 짧은 형식 예시 (한글이 섞여도 고정폭 글꼴을 쓰지 않는다) ---- */
+code{font-family:var(--sans);font-size:.92em;font-weight:700;background:#EEF1F7;border:1px solid var(--rule);border-radius:4px;padding:0 6px;white-space:nowrap}
+label>.lbl{display:block}
+
+/* ---- 작업 중 표시 ---- */
+.spin{display:inline-block;width:16px;height:16px;border-radius:999px;border:2.5px solid currentColor;border-right-color:transparent;animation:spin .8s linear infinite;flex:none}
+@keyframes spin{to{transform:rotate(360deg)}}
+.btn[aria-busy]{cursor:progress;opacity:1}
+.btn.pri[aria-busy]{background:var(--ink-2)}
+.pending{display:flex;gap:12px;align-items:flex-start;padding:12px 14px;border-radius:6px;border:1.5px solid var(--ink);background:var(--hlbg)}
+.pending .spin{margin-top:3px}
+@media (prefers-reduced-motion:reduce){.spin{animation:none;border-right-color:currentColor;opacity:.5}}
+
 /* ---- 모바일 아래 탭 ---- */
 .tabs{display:none}
 
