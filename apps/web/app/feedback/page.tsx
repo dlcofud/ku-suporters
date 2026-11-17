@@ -43,7 +43,7 @@ export default async function FeedbackPage() {
         <div className="card stat"><span className="small muted">올린 콘텐츠</span><span className="num big">{s.count}개</span></div>
         <div className="card stat"><span className="small muted">평균 조회수</span><span className="num big">{n(s.avgViews)}</span></div>
         <div className="card stat"><span className="small muted">총 저장 수</span><span className="num big">{n(s.totalSaves)}</span></div>
-        <div className="card stat dark"><span className="small" style={{ color: "#C9CDD8" }}>가장 잘 된 포맷</span><span className="num big">{s.topByViews ? fmtLabel(s.topByViews.format) : "-"}</span></div>
+        <div className="card stat dark"><span className="small" style={{ color: "#DDE1EE" }}>가장 잘 된 포맷</span><span className="num big" style={{ color: "var(--hl)" }}>{s.topByViews ? fmtLabel(s.topByViews.format) : "-"}</span></div>
       </section>
 
       <section className="fbwrap">
@@ -58,7 +58,7 @@ export default async function FeedbackPage() {
                 <div key={f.format} className="fbar">
                   <span>{fmtLabel(f.format)}</span>
                   <div className="bar" role="img" aria-label={`${fmtLabel(f.format)} 평균 조회수 ${n(f.avgViews)}`}>
-                    <i style={{ width: `${(f.avgViews / maxViews) * 100}%`, opacity: f.format === s.topByViews?.format ? 1 : 0.55 }} />
+                    <i className={f.format === s.topByViews?.format ? "top" : undefined} style={{ width: `${(f.avgViews / maxViews) * 100}%` }} />
                   </div>
                   <span className="num" style={{ textAlign: "right" }}>{n(f.avgViews)}</span>
                 </div>
@@ -93,7 +93,7 @@ export default async function FeedbackPage() {
         </div>
 
         <div className="grid" style={{ gap: 16, alignContent: "start" }}>
-          <span className="small muted" style={{ fontWeight: 600 }}>다음 행동</span>
+          <h2 style={{ fontSize: 17 }}>다음 행동</h2>
           {sug.length === 0 && <div className="card"><p className="muted" style={{ margin: 0 }}>지금 일정대로 가도 좋아요. 콘텐츠가 더 쌓이면 제안이 나와요.</p></div>}
           {sug.map((x, i) => {
             const [tag, cls] = SUG_TAG[x.kind];

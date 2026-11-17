@@ -81,9 +81,10 @@ export default async function Home({ searchParams }: { searchParams: Promise<{ d
   return (
     <>
       <header className="row between" style={{ alignItems: "flex-end" }}>
-        <div>
+        <div className="grid" style={{ gap: 4 }}>
           <span className="eyebrow">{act.name} · 콘텐츠 캘린더</span>
-          <h1>{daysLeft >= 0 ? `마감까지 ${daysLeft}일, 콘텐츠 ${left}개 남았어요` : "모집이 마감됐어요"}</h1>
+          <h1>{daysLeft > 0 ? <>마감까지 <span className="hl">{daysLeft}일</span></> : daysLeft === 0 ? <>오늘 <span className="red">마감</span>이에요</> : "모집이 마감됐어요"}</h1>
+          {daysLeft >= 0 && <p className="lede" style={{ margin: 0 }}>콘텐츠 {left}개 남았어요</p>}
         </div>
         <div className="row">
           <form action={setDeadlineAction}>
@@ -94,15 +95,17 @@ export default async function Home({ searchParams }: { searchParams: Promise<{ d
         </div>
       </header>
 
+      {daysLeft > 0 && <Ruler today={today} deadline={plan.deadline} items={plan.items} />}
+
       <section className="grid g4">
-        <div className="card stat"><span className="small muted">모집 마감</span><span className="num big" style={{ color: "var(--warn)" }}>{dotDate(plan.deadline)}</span></div>
+        <div className="card stat"><span className="small muted">모집 마감</span><span className="num big red">{dotDate(plan.deadline)}</span></div>
         <div className="card stat">
           <span className="small muted">진행률</span>
           <span className="num big">{done} / {contents.length}</span>
           <div className="bar thin"><i style={{ width: `${contents.length ? (done / contents.length) * 100 : 0}%` }} /></div>
         </div>
         <div className="card stat"><span className="small muted">업로드 간격</span><span className="num big">{plan.gapDays}~{plan.gapDays + 1}일</span></div>
-        <div className="card stat"><span className="small muted">경향 분석 기준 포맷</span><span style={{ fontWeight: 700, fontSize: 17 }}>{mixText}</span></div>
+        <div className="card stat"><span className="small muted">경향 분석 기준 포맷</span><span style={{ fontWeight: 800, fontSize: 17 }}>{mixText}</span></div>
       </section>
 
       <section className="calwrap">
@@ -127,7 +130,7 @@ export default async function Home({ searchParams }: { searchParams: Promise<{ d
         <aside className="card daypanel" aria-label={`${korDate(selected)} 할 일`}>
           <div className="row between">
             <b>{korDate(selected)} {WD_FULL[dow(selected)]}</b>
-            <span className="small" style={{ color: "var(--acc)", fontWeight: 600 }}>마감 {shared.diffDays(selected, plan.deadline) >= 0 ? `D-${shared.diffDays(selected, plan.deadline)}` : "지남"}</span>
+            <span className="small red" style={{ fontWeight: 800 }}>마감 {shared.diffDays(selected, plan.deadline) >= 0 ? `D-${shared.diffDays(selected, plan.deadline)}` : "지남"}</span>
           </div>
           {dayItems.length === 0 && <p className="muted" style={{ margin: 0 }}>이 날은 일정이 없어요. 쉬어 가거나 다음 콘텐츠를 미리 찍어 두세요.</p>}
           {dayItems.map((i) => (
@@ -159,6 +162,34 @@ export default async function Home({ searchParams }: { searchParams: Promise<{ d
   );
 }
 
+/** 맨 위 자: 오늘부터 마감까지 하루 한 눈금. 업로드 날은 포맷 색 칸, 마감은 빨간 펜 동그라미 */
+function Ruler({ today, deadline, items }: { today: string; deadline: string; items: planner.PlanItem[] }) {
+  const days: string[] = [];
+  for (let d = today; d <= deadline; d = shared.addDays(d, 1)) days.push(d);
+  const uploads = items.filter((i) => i.kind === "content" && i.date >= today);
+  return (
+    <section className="card ruler" aria-label={`오늘부터 마감까지 ${days.length - 1}일, 업로드 ${uploads.length}번`}>
+      <ol>
+        {days.map((d) => {
+          const it = items.find((i) => i.date === d && i.kind !== "deadline");
+          const wk = dow(d) === 1;
+          return (
+            <li key={d} className={wk ? "wk" : undefined} title={`${korDate(d)}${it ? ` · ${fmtLabel(it.format)} ${it.title}` : ""}${d === deadline ? " · 마감" : ""}`}>
+              {d === today && <i className="td" aria-hidden="true" />}
+              {d === deadline ? <i className="dl" aria-hidden="true" /> : it ? <i className={`up k-${it.format ?? "check"}`} aria-hidden="true" /> : null}
+            </li>
+          );
+        })}
+      </ol>
+      <div className="ends">
+        <span>오늘 {dotDate(today)}</span>
+        <span>업로드 {uploads.length}번 남음</span>
+        <span className="red">마감 {dotDate(deadline)}</span>
+      </div>
+    </section>
+  );
+}
+
 function DayCell({ d, today, selected, deadline, items }: { d: string; today: string; selected: string; deadline: string; items: planner.PlanItem[] }) {
   const n = Number(d.slice(8));
   const label = n === 1 ? `${Number(d.slice(5, 7))}/1` : String(n);
@@ -182,14 +213,20 @@ function DayCell({ d, today, selected, deadline, items }: { d: string; today: st
 function Landing() {
   return (
     <div className="grid g2" style={{ alignItems: "start" }}>
-      <section className="card dark" style={{ gap: 16 }}>
-        <span className="eyebrow" style={{ color: "#A5A7FA" }}>서포트랩</span>
-        <h1 style={{ fontSize: 34 }}>서포터즈 혜택은 많은데,<br />하기 귀찮다면?</h1>
-        <p style={{ margin: 0, color: "#C9CDD8" }}>공고 링크만 넣으면 지원서 뼈대와 업로드 일정을 만들고, 콘텐츠 촬영·편집·예약 게시까지 함께해요.</p>
+      <section className="card dark" style={{ gap: 16, padding: 28 }}>
+        <span className="eyebrow" style={{ color: "var(--hl)" }}>서포트랩</span>
+        <h1 style={{ fontSize: 38, lineHeight: 1.18 }}>서포터즈 혜택은 많은데,<br /><span style={{ background: "var(--hl)", color: "var(--ink)", padding: "0 6px", borderRadius: 4 }}>하기 귀찮다면?</span></h1>
+        <p style={{ margin: 0, color: "#DDE1EE" }}>공고 링크만 넣으면 지원서 뼈대와 업로드 일정을 만들고, 콘텐츠 촬영·편집·예약 게시까지 함께해요.</p>
+        <ol className="clean" style={{ margin: 0, color: "#DDE1EE", display: "grid", gap: 4 }}>
+          <li>공고 분석 → 지원서 뼈대</li>
+          <li>마감일에서 거꾸로 짠 콘텐츠 캘린더</li>
+          <li>장면 기획 · AI 편집 · 예약 게시</li>
+          <li>반응을 보고 다음 할 일 제안</li>
+        </ol>
       </section>
       <form action={signup} className="card">
-        <h2>시작하기</h2>
-        <p className="muted" style={{ margin: 0 }}>가입하면 <b>{credits.CREDIT_POLICY.signupBonus} 크레딧</b>을 무료로 드려요.</p>
+        <h2 className="display" style={{ fontSize: 26 }}>시작하기</h2>
+        <p className="muted" style={{ margin: 0 }}>가입하면 <b className="hl">{credits.CREDIT_POLICY.signupBonus} 크레딧</b>을 무료로 드려요.</p>
         <label>
           닉네임
           <input type="text" name="nickname" placeholder="예: 채령" required maxLength={20} />

@@ -1,7 +1,17 @@
 /** 릴리즈 노트. 새 기능을 합칠 때 맨 위에 한 줄씩 추가해 주세요. */
-export const APP_VERSION = "0.3";
+export const APP_VERSION = "0.4";
 
 export const RELEASES: { version: string; date: string; items: string[] }[] = [
+  {
+    version: "0.4",
+    date: "2026-11-17",
+    items: [
+      "화면 디자인을 모눈 스터디 플래너처럼 바꿨어요 (남색 펜 · 형광펜 · 마감은 빨간 펜)",
+      "캘린더 맨 위에 오늘부터 마감까지 하루 한 눈금인 자를 넣었어요",
+      "모바일에서 아래 탭(캘린더·제작·성과·지원서·메뉴)으로 오갈 수 있어요",
+      "글자 대비, 키보드 포커스 표시, 움직임 줄이기 설정을 점검했어요",
+    ],
+  },
   {
     version: "0.3",
     date: "2026-11-16",
