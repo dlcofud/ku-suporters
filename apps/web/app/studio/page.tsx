@@ -5,6 +5,7 @@ import { ClipUploader } from "@/components/ClipUploader";
 import { planScenesAction, uploadClipsAction, renderAction, scheduleAction, runTickNowAction, cancelPostAction } from "@/lib/actions";
 import { content } from "@supportlab/core";
 import { fmtLabel, md } from "@/lib/format";
+import { SubmitButton, PendingNote } from "@/components/Pending";
 
 const ERR: Record<string, string> = {
   font: "자막용 한글 글꼴을 찾지 못했어요. 서버의 CAPTION_FONT_FILE 환경 변수에 글꼴 경로를 넣어 주세요.",
@@ -61,7 +62,7 @@ export default async function StudioPage({ searchParams }: { searchParams: Promi
           <label style={{ flex: 1 }}>길이
             <select name="targetSec" defaultValue="15"><option value="15">15초</option><option value="20">20초</option><option value="30">30초</option></select>
           </label>
-          <button className="btn pri" type="submit" style={{ alignSelf: "flex-end" }}>{scenes ? "장면 다시 짜기" : "찍을 장면 받기"}</button>
+          <SubmitButton pendingText="장면 짜는 중…" style={{ alignSelf: "flex-end" }}>{scenes ? "장면 다시 짜기" : "찍을 장면 받기"}</SubmitButton>
         </form>
       </section>
 
@@ -89,7 +90,10 @@ export default async function StudioPage({ searchParams }: { searchParams: Promi
             </tbody>
           </table>
           {repo.kind === "memory" ? (
-            <button className="btn" type="submit" style={{ alignSelf: "flex-start" }}>영상 올리기</button>
+            <>
+              <SubmitButton className="btn" pendingText="올리는 중…" style={{ alignSelf: "flex-start" }}>영상 올리기</SubmitButton>
+              <PendingNote steps={["영상을 올리고 있어요", "영상 길이와 소리를 확인하고 있어요"]} hint="영상이 크면 1분 넘게 걸릴 수 있어요. 창을 닫지 말아 주세요." />
+            </>
           ) : (
             <ClipUploader planItemId={item.id} scenes={match.matches.map((m) => ({ index: m.scene.index, label: content.SHOT_LABEL[m.scene.shot] }))} />
           )}
@@ -101,10 +105,13 @@ export default async function StudioPage({ searchParams }: { searchParams: Promi
           <input type="hidden" name="planItemId" value={item.id} />
           <div>
             <h2>AI 편집</h2>
-            <span className="small muted">장면 길이에 맞춰 자르고, 9:16으로 맞추고, 화면 자막을 넣어 하나의 릴스로 만들어요 (오픈소스 ffmpeg).{!match.ready && " 빠진 장면은 건너뛰어요."}</span>
+            <span className="small muted">장면마다 움직임·말소리를 재서 장면에 맞는 구간을 고르고, 9:16으로 맞추고, 화면 자막을 넣어 하나의 릴스로 만들어요 (오픈소스 ffmpeg).{!match.ready && " 빠진 장면은 건너뛰어요."}</span>
           </div>
           <label className="check"><input type="checkbox" name="captions" value="on" defaultChecked />화면 자막 넣기</label>
-          <button className="btn pri" type="submit">편집하기</button>
+          <SubmitButton pendingText="편집하는 중…">편집하기</SubmitButton>
+          <div style={{ flexBasis: "100%" }}>
+            <PendingNote steps={["클립마다 움직임과 소리를 재고 있어요", "장면에 맞는 구간을 고르고 있어요", "9:16으로 맞추고 자막을 넣고 있어요", "릴스 한 편으로 이어 붙이고 있어요"]} hint="15초 릴스 기준 보통 20초~1분 걸려요." />
+          </div>
         </form>
       )}
 
@@ -120,7 +127,7 @@ export default async function StudioPage({ searchParams }: { searchParams: Promi
             <label>캡션 (빈칸은 직접 채워 주세요)<textarea name="caption" defaultValue={caption} /></label>
             <label>게시 시각 (한국 시간)<input type="datetime-local" name="publishAt" defaultValue={defaultAt} required /></label>
             {!user.ig && <div className="note">인스타 계정을 연결하지 않아 <b>데모 게시</b>로 동작해요. 실제 게시는 <Link href="/account">계정 만들기</Link>에서 연결해 주세요.</div>}
-            <button className="btn pri" type="submit">예약하기</button>
+            <SubmitButton pendingText="예약하는 중…">예약하기</SubmitButton>
           </form>
         </section>
       ))}

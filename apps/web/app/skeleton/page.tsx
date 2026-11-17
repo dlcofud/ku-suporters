@@ -2,6 +2,7 @@ import Link from "next/link";
 import { requireUser, currentActivity } from "@/lib/session";
 import { repo } from "@/lib/repo";
 import { skeletonAction } from "@/lib/actions";
+import { SubmitButton, PendingNote } from "@/components/Pending";
 
 export default async function SkeletonPage({ searchParams }: { searchParams: Promise<{ achievement?: string }> }) {
   const { achievement } = await searchParams;
@@ -18,7 +19,7 @@ export default async function SkeletonPage({ searchParams }: { searchParams: Pro
       {achievement && <div className="note ok">성과 피드백의 성과 문장을 ‘내 경험’에 넣어 뒀어요. 뼈대를 만들면 맞는 문항에 추천돼요.</div>}
       <form action={skeletonAction} className="card">
         <label>
-          내 경험 (한 줄에 하나 · <code>제목 | 설명 | 성과1, 성과2</code>)
+          <span className="lbl">내 경험 (한 줄에 하나 · <code>제목 | 설명 | 성과1, 성과2</code>)</span>
           <textarea name="experiences" defaultValue={achievement ? `서포터즈 준비 계정 운영 | ${achievement.slice(0, 300)}` : undefined} placeholder={"개인 맛집 블로그 | 식품 리뷰 블로그 운영 | 월 방문자 1.2만\n과 학생회 기획국 | 축제 홍보물 제작"} />
         </label>
         <label>
@@ -28,8 +29,9 @@ export default async function SkeletonPage({ searchParams }: { searchParams: Pro
         <label className="check"><input type="checkbox" name="hasChannel" defaultChecked />활동용 SNS 계정이 있어요</label>
         <div className="row between">
           <span className="small muted">완성 문장은 만들지 않아요. 구조와 강조점만 제안하고, 문장은 직접 채워요.</span>
-          <button className="btn pri" type="submit">뼈대 만들기</button>
+          <SubmitButton pendingText="뼈대 만드는 중…">뼈대 만들기</SubmitButton>
         </div>
+        <PendingNote steps={["공고 문항을 읽고 있어요", "내 경험을 문항에 맞춰 보고 있어요", "AI가 강조할 점을 다듬고 있어요"]} hint="AI를 쓰면 10초~1분쯤 걸려요. 로컬 모델은 처음에 더 걸릴 수 있어요." />
       </form>
       {s && (
         <>
