@@ -32,7 +32,7 @@ export async function POST(req: Request) {
   } else {
     const hold = await repo.ledger.hold(user.id, "coach_turn", newId("job")).catch((e) => (e instanceof credits.InsufficientCreditsError ? null : Promise.reject(e)));
     if (!hold) {
-      notice = "크레딧이 모자라서 이번 답은 규칙 기반 코치가 했어요.";
+      notice = "크레딧이 모자라서 이번 답은 규칙 기반 코치가 했어요. 크레딧 화면에서 충전할 수 있어요.";
       result = apply.coachTurnByRules(app, ctx, message);
     } else {
       try {

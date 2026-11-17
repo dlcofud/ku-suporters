@@ -5,6 +5,7 @@ import { Nav, MobileTabs } from "@/components/Nav";
 import { currentUser, currentActivity } from "@/lib/session";
 import { repo, todayISO } from "@/lib/repo";
 import { selectActivityAction, logout } from "@/lib/actions";
+import { syncSubscription } from "@/lib/billing";
 import { credits, shared } from "@supportlab/core";
 import { dday } from "@/lib/format";
 import { APP_VERSION } from "@/lib/releases";
@@ -14,7 +15,10 @@ export const dynamic = "force-dynamic";
 
 export default async function RootLayout({ children }: { children: ReactNode }) {
   const user = await currentUser();
+  // 구독 갱신일이 지났으면 먼저 이번 달 크레딧을 채운다 (같은 달은 한 번만)
+  const sub = user ? await syncSubscription(user.id).catch(() => undefined) : undefined;
   const bal = user ? await repo.ledger.balance(user.id) : undefined;
+  const planName = sub?.status === "active" ? (sub.planId === "pro" ? "프로" : "베이직") : "무료";
   const acts = user ? await repo.listActivities(user.id) : [];
   const cur = user ? await currentActivity(user.id) : undefined;
   const today = todayISO();
@@ -71,12 +75,15 @@ export default async function RootLayout({ children }: { children: ReactNode }) 
                 <div className="card credit">
                   <div className="row between">
                     <span className="small muted">남은 크레딧</span>
-                    <span className="tag k-hl">무료</span>
+                    <Link href="/credits" className="tag k-hl" style={{ textDecoration: "none" }} title="요금제">{planName}</Link>
                   </div>
                   <span className="num huge">{bal.available}</span>
                   {bal.incoming > 0 && <span className="small" style={{ fontWeight: 800 }}>지급 예정 +{bal.incoming}</span>}
                   <div className="bar thin"><i style={{ width: `${fill}%` }} /></div>
-                  <Link href="/contribute" className="small">합격 경험 공유하고 크레딧 받기</Link>
+                  <div className="row between small">
+                    <Link href="/credits" style={{ fontWeight: 800 }}>충전 · 내역</Link>
+                    <Link href="/contribute">공유하고 받기</Link>
+                  </div>
                 </div>
                 {!user.loginId && <Link href="/settings" className="side-warn">아이디·비밀번호를 정해 주세요 →</Link>}
                 <div className="account">

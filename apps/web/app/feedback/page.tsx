@@ -6,6 +6,8 @@ import { myMedia } from "@/lib/media";
 import { fmtLabel } from "@/lib/format";
 import { SuggestionCard } from "@/components/SuggestionCard";
 import { CopyButton } from "@/components/CopyButton";
+import { addMediaAction, removeMediaAction } from "@/lib/actions";
+import { SubmitButton } from "@/components/Pending";
 
 const SUG_TAG: Record<feedback.Suggestion["kind"], [string, string]> = {
   switch_format: ["일정 조정 제안", "k-reels"],
@@ -16,12 +18,14 @@ const SUG_TAG: Record<feedback.Suggestion["kind"], [string, string]> = {
 const dot = (iso: string) => `${Number(iso.slice(5, 7))}.${iso.slice(8, 10)}`;
 const n = (v: number) => Math.round(v).toLocaleString("ko-KR");
 
-export default async function FeedbackPage() {
+export default async function FeedbackPage({ searchParams }: { searchParams: Promise<{ error?: string; added?: string }> }) {
+  const { error, added } = await searchParams;
   const user = await requireUser();
   const act = await currentActivity(user.id);
   if (!act?.plan) return <div className="card"><h1>먼저 업로드 일정을 만들어 주세요</h1><Link className="btn pri" href="/">콘텐츠 캘린더</Link></div>;
   const today = todayISO();
-  const { media, demo } = await myMedia(user);
+  const { media, source, igError } = await myMedia(user);
+  const manual = source === "manual";
   const s = feedback.summarize(media);
   const sug = feedback.suggest(s, act.plan);
   const start = media.map((m) => m.date).sort()[0] ?? today;
@@ -34,10 +38,22 @@ export default async function FeedbackPage() {
       <header className="row between" style={{ alignItems: "flex-end" }}>
         <div>
           <span className="eyebrow">{act.name} · 성과 피드백 · {Number(today.slice(5, 7))}월 {Number(today.slice(8, 10))}일 기준</span>
-          <h1>{s.topByViews ? `${fmtLabel(s.topByViews.format)} 반응이 가장 좋아요` : "아직 올린 콘텐츠가 없어요"}</h1>
+          <h1>{s.topByViews ? `${fmtLabel(s.topByViews.format)} 반응이 가장 좋아요` : "아직 성과가 없어요"}</h1>
         </div>
-        {demo ? <span className="tag pill" title="인스타 계정을 연결하면 실제 지표로 바뀌어요">예시 데이터</span> : <span className="tag pill k-post">인스타 연결됨</span>}
+        {manual ? <span className="tag pill" title="인스타를 연결하면 자동으로 가져와요">직접 입력</span> : <span className="tag pill k-post">인스타 연결됨</span>}
       </header>
+      {igError && <div className="note warn">인스타에서 지표를 가져오지 못해 직접 입력한 숫자를 보여 줘요. 계정 연결을 다시 확인해 주세요.</div>}
+      {added && <div className="note ok" role="status">게시물 성과를 더했어요.</div>}
+      {media.length === 0 && (
+        <div className="card hi">
+          <h2>올린 게시물의 숫자를 알려 주세요</h2>
+          <p style={{ margin: 0 }}>성과 피드백은 실제 숫자로만 만들어요. 두 가지 방법이 있어요.</p>
+          <ul className="clean">
+            <li><b>인스타 연결</b> · 조회수·좋아요·저장 수를 자동으로 가져와요 (<Link href="/account">계정 연결하기</Link>)</li>
+            <li><b>직접 입력</b> · 인스타 앱의 '인사이트 보기'에 나오는 숫자를 아래에 적어 주세요</li>
+          </ul>
+        </div>
+      )}
 
       <section className="grid g4">
         <div className="card stat"><span className="small muted">올린 콘텐츠</span><span className="num big">{s.count}개</span></div>
@@ -73,7 +89,7 @@ export default async function FeedbackPage() {
             </div>
             <div style={{ overflowX: "auto" }}>
               <table>
-                <thead><tr><th>날짜</th><th>포맷</th><th>제목</th><th style={{ textAlign: "right" }}>조회수</th><th style={{ textAlign: "right" }}>좋아요</th><th style={{ textAlign: "right" }}>저장</th><th>원본</th></tr></thead>
+                <thead><tr><th>날짜</th><th>포맷</th><th>제목</th><th style={{ textAlign: "right" }}>조회수</th><th style={{ textAlign: "right" }}>좋아요</th><th style={{ textAlign: "right" }}>저장</th><th>원본</th>{manual && <th></th>}</tr></thead>
                 <tbody>
                   {rows.map((m) => (
                     <tr key={m.id}>
@@ -84,6 +100,14 @@ export default async function FeedbackPage() {
                       <td className="num" style={{ textAlign: "right", fontWeight: 500 }}>{n(m.likes)}</td>
                       <td className="num" style={{ textAlign: "right", fontWeight: 500 }}>{n(m.saves)}</td>
                       <td>{m.permalink ? <a href={m.permalink} target="_blank" rel="noreferrer">보기</a> : <span className="muted">-</span>}</td>
+                      {manual && (
+                        <td>
+                          <form action={removeMediaAction}>
+                            <input type="hidden" name="id" value={m.id} />
+                            <button type="submit" className="link-btn small" aria-label={`${m.title ?? "게시물"} 지우기`}>지우기</button>
+                          </form>
+                        </td>
+                      )}
                     </tr>
                   ))}
                 </tbody>
@@ -110,7 +134,30 @@ export default async function FeedbackPage() {
               </div>
             </div>
           )}
-          {demo && <div className="note small">인스타 계정을 연결하면 실제 조회수·저장 수로 바뀌어요. <Link href="/account">계정 연결하기</Link></div>}
+          {manual && (
+            <form id="add" action={addMediaAction} className="card">
+              <h2 style={{ fontSize: 17 }}>게시물 성과 직접 넣기</h2>
+              <p className="small muted" style={{ margin: 0 }}>인스타 앱에서 게시물 → '인사이트 보기'의 숫자를 적어 주세요. 인스타를 연결하면 자동으로 가져와요.</p>
+              {error && <p className="note warn small" role="alert" style={{ margin: 0 }}>{error}</p>}
+              <div className="grid g2">
+                <label>올린 날짜<input type="date" name="date" required max={today} defaultValue={today} /></label>
+                <label>포맷
+                  <select name="format" required defaultValue="reels">
+                    <option value="reels">릴스</option><option value="cardnews">카드뉴스</option><option value="post">게시물</option>
+                  </select>
+                </label>
+              </div>
+              <label>제목 (내가 알아볼 이름)<input type="text" name="title" maxLength={80} placeholder="예: 신제품 언박싱 릴스" /></label>
+              <div className="grid g2">
+                <label>조회수<input type="number" name="views" min={0} required inputMode="numeric" /></label>
+                <label>좋아요<input type="number" name="likes" min={0} required inputMode="numeric" /></label>
+                <label>댓글<input type="number" name="comments" min={0} defaultValue={0} inputMode="numeric" /></label>
+                <label>저장<input type="number" name="saves" min={0} defaultValue={0} inputMode="numeric" /></label>
+              </div>
+              <label>원본 링크 (선택)<input type="url" name="permalink" placeholder="https://www.instagram.com/reel/…" /></label>
+              <SubmitButton className="btn" pendingText="더하는 중…">성과 더하기</SubmitButton>
+            </form>
+          )}
         </div>
       </section>
     </>

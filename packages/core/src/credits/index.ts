@@ -16,6 +16,7 @@ export type CreditReason =
   | "contribution_proof"
   | "contribution_structure"
   | "subscription_refill"
+  | "purchase"
   | "task_hold"
   | "task_settle"
   | "task_release"

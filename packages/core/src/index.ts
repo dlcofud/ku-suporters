@@ -18,3 +18,4 @@ export * as publish from "./publish/index.js";
 export * as apply from "./apply/index.js";
 export * as auth from "./auth/index.js";
 // 비밀번호 해시·로그인 토큰은 서버 전용 "@supportlab/core/auth/node" 에서 import 한다.
+export * as billing from "./billing/index.js";
