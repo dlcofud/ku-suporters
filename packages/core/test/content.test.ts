@@ -9,14 +9,17 @@ import { renderWithFfmpeg, probeClip, probeWithFfmpeg } from "../src/content/nod
 
 const scenes = planScenes({ title: "신제품 3초 리뷰", product: "꿀호떡칩", targetSec: 15, style: "review" });
 
-function hasFfmpeg() {
+function hasBin(bin: string) {
   try {
-    execFileSync("ffmpeg", ["-version"], { stdio: "ignore" });
+    execFileSync(bin, ["-version"], { stdio: "ignore" });
     return true;
   } catch {
     return false;
   }
 }
+const hasFfmpeg = () => hasBin("ffmpeg");
+// CI는 ffmpeg-static(ffmpeg 하나)만 연결한다. ffprobe 비교는 깔려 있을 때만 한다
+const HAS_FFPROBE = hasBin("ffprobe");
 const FONT = [fileURLToPath(new URL("../../../apps/web/assets/fonts/Pretendard-Bold.otf", import.meta.url)), "/usr/share/fonts/opentype/noto/NotoSansCJK-Regular.ttc", "/usr/share/fonts/opentype/noto/NotoSansCJK-Black.ttc"].find(existsSync);
 
 describe("content: 장면 기획", () => {
@@ -74,8 +77,9 @@ describe.runIf(hasFfmpeg() && FONT)("content: 실제 렌더 (ffmpeg)", () => {
     const b = join(dir, "b.mp4");
     execFileSync("ffmpeg", ["-y", "-loglevel", "error", "-f", "lavfi", "-i", "testsrc=size=1280x720:rate=30:duration=4", "-f", "lavfi", "-i", "sine=frequency=440:duration=4", "-shortest", "-c:v", "libx264", "-c:a", "aac", a]);
     execFileSync("ffmpeg", ["-y", "-loglevel", "error", "-f", "lavfi", "-i", "testsrc2=size=1280x720:rate=24:duration=4", "-c:v", "libx264", b]);
-    const pa = await probeClip(a);
-    const pb = await probeClip(b);
+    // 앱 서버와 같은 방식(ffmpeg만)으로 읽는다
+    const pa = await probeWithFfmpeg(a);
+    const pb = await probeWithFfmpeg(b);
     expect(pb.hasAudio).toBe(false);
     const two = planScenes({ title: "t", product: "꿀호떡칩", targetSec: 15 }).slice(0, 2);
     const plan = buildEditPlan(matchClips(two, [
@@ -84,12 +88,14 @@ describe.runIf(hasFfmpeg() && FONT)("content: 실제 렌더 (ffmpeg)", () => {
     ]).matches);
     const out = join(dir, "out.mp4");
     await renderWithFfmpeg(plan, { outPath: out, fontFile: FONT!, workDir: join(dir, "w") });
-    const r = await probeClip(out);
-    const r2 = await probeWithFfmpeg(out);
-    expect(r2).toMatchObject({ width: 1080, height: 1920, hasAudio: true });
-    expect(Math.abs(r2.durationSec - r.durationSec)).toBeLessThan(0.1);
-    expect((await probeWithFfmpeg(b)).hasAudio).toBe(false);
+    const r = await probeWithFfmpeg(out);
     expect(r).toMatchObject({ width: 1080, height: 1920, hasAudio: true });
+    if (HAS_FFPROBE) {
+      // ffprobe가 있으면 두 방식이 같은 값을 읽는지도 확인
+      const r2 = await probeClip(out);
+      expect(r2).toMatchObject({ width: 1080, height: 1920, hasAudio: true });
+      expect(Math.abs(r2.durationSec - r.durationSec)).toBeLessThan(0.1);
+    }
     expect(r.durationSec).toBeGreaterThan(plan.totalSec - 0.3);
     expect(r.durationSec).toBeLessThan(plan.totalSec + 0.3);
   }, 60_000);
