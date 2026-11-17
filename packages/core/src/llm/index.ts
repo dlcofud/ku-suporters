@@ -10,6 +10,11 @@ export interface LLMRequest {
   maxOutputTokens: number;
   /** true면 JSON 하나만 출력하도록 요청한다. */
   json?: boolean;
+  /**
+   * JSON 스키마. 주면 지원하는 모델에서 응답이 이 모양을 반드시 따르게 한다(구조화 출력).
+   * 객체마다 additionalProperties:false, required 를 모두 적어야 한다. minimum/maxLength 같은 제약은 쓰지 않는다.
+   */
+  schema?: Record<string, unknown>;
 }
 
 export interface LLMResponse {
@@ -70,7 +75,7 @@ export class OllamaClient implements LLMClient {
       body: JSON.stringify({
         model: this.model,
         stream: false,
-        format: req.json ? "json" : undefined,
+        format: req.schema ?? (req.json ? "json" : undefined),
         options: { num_predict: req.maxOutputTokens },
         messages: [
           { role: "system", content: req.system },
@@ -90,6 +95,59 @@ export class OllamaClient implements LLMClient {
       inputTokens: data.prompt_eval_count ?? estimateTokens(req.system + req.user),
       outputTokens: data.eval_count ?? estimateTokens(text),
       model: this.model,
+    };
+  }
+}
+
+/**
+ * Anthropic Claude API 클라이언트 (Messages API, fetch만 사용).
+ * schema를 주면 구조화 출력(output_config.format = json_schema)으로 깨지지 않는 JSON을 받는다.
+ * 키는 서버 환경 변수로만 넘긴다. 브라우저에서 만들지 말 것.
+ */
+export class AnthropicClient implements LLMClient {
+  readonly tier = "paid" as const;
+  constructor(
+    private readonly apiKey: string,
+    readonly model: string = "claude-haiku-5-5",
+    private readonly opts: { baseUrl?: string; version?: string; fetchImpl?: typeof fetch } = {},
+  ) {
+    if (!apiKey) throw new Error("ANTHROPIC_API_KEY가 비어 있어요");
+  }
+  async complete(req: LLMRequest): Promise<LLMResponse> {
+    const body: Record<string, unknown> = {
+      model: this.model,
+      max_tokens: req.maxOutputTokens,
+      system: req.json && !req.schema ? `${req.system}\n\nJSON 객체 하나만 출력하세요. 다른 말은 쓰지 마세요.` : req.system,
+      messages: [{ role: "user", content: req.user }],
+    };
+    if (req.schema) body.output_config = { format: { type: "json_schema", schema: req.schema } };
+    const f = this.opts.fetchImpl ?? fetch;
+    const res = await f(`${this.opts.baseUrl ?? "https://api.anthropic.com"}/v1/messages`, {
+      method: "POST",
+      headers: {
+        "content-type": "application/json",
+        "x-api-key": this.apiKey,
+        "anthropic-version": this.opts.version ?? "2023-06-01",
+      },
+      body: JSON.stringify(body),
+    });
+    if (!res.ok) {
+      const detail = await res.text().catch(() => "");
+      throw new Error(`Claude API 오류 ${res.status}: ${detail.slice(0, 300)}`);
+    }
+    const data = (await res.json()) as {
+      content?: { type: string; text?: string }[];
+      usage?: { input_tokens?: number; output_tokens?: number };
+      stop_reason?: string;
+      model?: string;
+    };
+    if (data.stop_reason === "refusal") throw new Error("모델이 이 요청을 처리하지 않았어요");
+    const text = (data.content ?? []).filter((c) => c.type === "text").map((c) => c.text ?? "").join("");
+    return {
+      text,
+      inputTokens: data.usage?.input_tokens ?? estimateTokens(req.system + req.user),
+      outputTokens: data.usage?.output_tokens ?? estimateTokens(text),
+      model: data.model ?? this.model,
     };
   }
 }
