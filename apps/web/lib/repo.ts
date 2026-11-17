@@ -98,6 +98,8 @@ export interface Repo {
   /** 인스타를 연결하지 않은 사용자가 직접 입력한 게시물 성과 (DB 테이블 이름은 예전 그대로 demo_media) */
   getManualMedia(userId: string): Promise<F.MediaMetrics[] | undefined>;
   setManualMedia(userId: string, media: F.MediaMetrics[]): Promise<void>;
+  /** DB가 응답하는지 가볍게 확인한다 (무료 Supabase 자동 멈춤 방지용 /api/health) */
+  ping(): Promise<void>;
   /** 크레딧 원장 항목 (사용 내역) */
   ledgerEntries(userId: string): Promise<credits.LedgerEntry[]>;
   saveOrder(o: B.Order): Promise<void>;
@@ -144,6 +146,7 @@ class MemoryRepo implements Repo {
   private subs = new Map<string, B.Subscription>();
   private creditStore = new credits.MemoryCreditStore();
   ledger = new credits.CreditLedger(this.creditStore);
+  async ping() {}
   async ledgerEntries(u: string) {
     return this.creditStore.list(u);
   }
@@ -341,6 +344,10 @@ class SupabaseRepo implements Repo {
   constructor(private sb: SupabaseClient) {
     this.creditStore = new SupabaseCreditStore(sb);
     this.ledger = new credits.CreditLedger(this.creditStore);
+  }
+  async ping() {
+    // 행을 읽지 않고 개수만 묻는 가장 가벼운 요청
+    must(await this.sb.from("app_users").select("id", { count: "exact", head: true }), "ping");
   }
   async ledgerEntries(u: string) {
     return this.creditStore.list(u);

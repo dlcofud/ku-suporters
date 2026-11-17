@@ -1,0 +1,29 @@
+# 무료 Supabase는 7일 동안 요청이 없으면 프로젝트를 자동으로 멈춘다.
+# 하루 한 번 배포 사이트의 /api/health 를 불러 DB에 가벼운 요청을 보낸다.
+# 주소를 바꾸려면 저장소 Settings → Secrets and variables → Actions → Variables 에 SITE_URL 을 넣는다.
+name: keepalive
+
+on:
+  schedule:
+    - cron: "17 3 * * *" # 매일 한국 시간 12:17
+  workflow_dispatch: {}
+
+permissions: {}
+
+jobs:
+  ping:
+    runs-on: ubuntu-latest
+    timeout-minutes: 5
+    steps:
+      - name: Ping /api/health
+        env:
+          SITE_URL: ${{ vars.SITE_URL || 'https://ku-suporters.vercel.app' }}
+        run: |
+          for i in 1 2 3; do
+            code=$(curl -sS -o body.json -w '%{http_code}' --max-time 60 "$SITE_URL/api/health" || echo 000)
+            echo "시도 $i: HTTP $code $(cat body.json 2>/dev/null)"
+            [ "$code" = "200" ] && exit 0
+            sleep 20
+          done
+          echo "::error::$SITE_URL/api/health 가 응답하지 않아요. Supabase 프로젝트가 멈췄는지 대시보드에서 확인해 주세요."
+          exit 1
