@@ -12,6 +12,9 @@ const nextConfig = {
   outputFileTracingRoot: join(here, "../.."),
   outputFileTracingIncludes: {
     "/studio": ["../../node_modules/ffmpeg-static/ffmpeg", "./assets/fonts/**"],
+    // 팀 수집 시트 (저장소 루트 data/)
+    "/": ["../../data/curated.csv"],
+    "/trends": ["../../data/curated.csv"],
   },
   // core 패키지는 TypeScript 소스에서 "./x.js" 형태로 import 하므로 .ts 파일로 연결해 준다
   webpack: (config) => {

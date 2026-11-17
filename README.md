@@ -13,6 +13,17 @@
 3. **[docs/MODULES.md](docs/MODULES.md)** — 기능별 코드 위치, 담당, 다음 할 일
 4. **[docs/BACKLOG.md](docs/BACKLOG.md)** — 지금 가져갈 수 있는 작업 목록
 
+## 📋 합격 후기 수집 시트 (팀원 입력)
+팀이 직접 채우는 데이터는 코드와 따로 **[`data/`](data/) 폴더**에 있어요.
+
+| | 파일 | |
+|---|---|---|
+| ✏️ 입력용 엑셀 | **[data/수집시트.xlsx](data/수집시트.xlsx)** | 받아서 엑셀로 열기 (작성 방법 · 수집 · 코드북 탭) |
+| 👀 지금 데이터 | **[data/curated.csv](data/curated.csv)** | GitHub에서 바로 표로 보기 |
+| 📖 입력 방법 | **[data/README.md](data/README.md)** | 노란 칸만 입력, 원문 금지, 출처 필수 |
+
+앱의 **후기 분석 (팀)** 화면(`/reviews`)에서 AI가 먼저 점수를 매기고, 검수한 결과를 같은 열 순서의 CSV로 내보낼 수 있어요.
+
 ## 5분 안에 실행하기
 필요한 것: **Node.js 22** (`.nvmrc`), npm. 영상 편집용 ffmpeg는 `npm install` 때 자동으로 받아집니다.
 
@@ -24,6 +35,7 @@ npm run dev          # http://localhost:3000
 ```
 
 - **환경 변수 없이도 전부 동작합니다 (데모 모드).** 메모리 저장소 · 데모 게시 · 예시 지표를 씁니다. 서버를 껐다 켜면 데이터가 사라집니다.
+- **실제 AI**를 쓰려면 `apps/web/.env.local`에 `ANTHROPIC_API_KEY`를 넣어요. 없으면 공고 분석은 규칙 기반, 후기 분석은 규칙 기반 초안으로 동작해요. 키는 저장소·채팅에 올리지 마세요.
 - 실제 DB(Supabase)를 쓰려면 `apps/web/.env.example`을 `apps/web/.env.local`로 복사하고 `SUPABASE_SECRET_KEY`를 채웁니다. 키는 팀장에게 **개인 메시지로** 받으세요 — [docs/SUPABASE.md](docs/SUPABASE.md)
 
 | 명령 | 하는 일 |
@@ -42,10 +54,11 @@ npm run dev          # http://localhost:3000
 | 가입 | `/` | 닉네임 가입, 무료 50 크레딧 | +50 |
 | 지원 전 | `/notice` | **공고 링크만 붙여넣기** (또는 본문) → 마감일·우대사항·제출물 추출 → 행동 지침 | 규칙으로 끝나면 0 |
 | | `/trends` | 팀이 수집한 합격 후기 집계 (출처 표시) | 0 |
+| | `/reviews` | **후기 분석 (팀)**: 후기 본문 → AI가 코드북(E1~E8)으로 점수·근거 초안 → 사람 검수 → 사람-AI 일치도(κ) | 0 |
 | | `/skeleton` | 지원서 문항별 뼈대 (완성본이 아니라 구조) | 1 |
 | | `/account` | 서포터즈 전용 인스타 계정 가이드 · 인스타 연결 | 0 |
 | 활동 | `/` (메인) | 콘텐츠 캘린더: 마감일에서 거꾸로 짠 일정, 날짜별 할 일·체크리스트, 업로드 알림(.ics) | 0 |
-| | `/studio` | 장면 기획 → 촬영 영상 업로드 → AI 편집(ffmpeg) → 예약 게시 | 사용량만큼 |
+| | `/studio` | 장면 기획 → 촬영 영상 업로드 → AI 편집(ffmpeg: 장면 역할에 맞는 구간 자동 선택) → 예약 게시 | 사용량만큼 |
 | | `/feedback` | 성과 피드백 · 일정 반영 · 지원서용 성과 문장 | 사용량만큼 |
 | 보상 | `/contribute` | 합격 경험 공유 (동의 4종, 철회) → 검수 후 크레딧 | +10~50 |
 | 운영 | `/admin` | 업로드 자료 검수 | — |
@@ -62,6 +75,7 @@ ku-suporters/
 │  ├─ lib/repo.ts           저장소 (메모리 / Supabase 전환)
 │  └─ components/           공용 컴포넌트
 ├─ supabase/migrations/    DB 스키마
+├─ data/                   팀이 입력하는 합격 후기 수집 시트 (수집시트.xlsx, curated.csv)
 ├─ docs/                   설계·설정 문서
 └─ .github/                PR·이슈 템플릿, CI
 ```
@@ -74,6 +88,7 @@ ku-suporters/
 | [docs/MODULES.md](docs/MODULES.md) | 모듈별 안내·담당·다음 할 일 |
 | [docs/BACKLOG.md](docs/BACKLOG.md) | 작업 목록 (이슈로 옮길 후보) |
 | [docs/ROADMAP.md](docs/ROADMAP.md) | 우선순위와 그 이유 |
+| [docs/FEATURE_PRIORITY.md](docs/FEATURE_PRIORITY.md) | 핵심 기능 우선순위 (AI 연결 · 후기 분석 · 영상 편집, 조사 근거) |
 | [docs/ARCHITECTURE.md](docs/ARCHITECTURE.md) | 구조·데이터 흐름·설계 원칙 |
 | [docs/SUPABASE.md](docs/SUPABASE.md) | DB·Storage 설정 |
 | [docs/INSTAGRAM_SETUP.md](docs/INSTAGRAM_SETUP.md) | 인스타 개발 모드 (예약 게시·인사이트) |

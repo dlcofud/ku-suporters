@@ -1,7 +1,17 @@
 /** 릴리즈 노트. 새 기능을 합칠 때 맨 위에 한 줄씩 추가해 주세요. */
-export const APP_VERSION = "0.4";
+export const APP_VERSION = "0.5";
 
 export const RELEASES: { version: string; date: string; items: string[] }[] = [
+  {
+    version: "0.5",
+    date: "2026-11-17",
+    items: [
+      "실제 AI(Claude) 연결: 키를 넣으면 공고 분석·지원서 뼈대·후기 분석이 AI로 동작해요 (없으면 규칙 기반)",
+      "합격 후기 분석(팀): 후기를 붙여넣으면 AI가 코드북 E1~E8로 점수·근거를 먼저 매기고, 사람이 검수해요. 사람-AI 일치도(κ)도 보여 줘요",
+      "AI 영상 편집: 장면 역할에 맞춰 클립에서 움직임·말소리·안정감이 맞는 구간을 골라 써요",
+      "팀 수집 시트를 저장소 data/ 폴더로 옮기고 입력용 엑셀(수집시트.xlsx)을 추가했어요",
+    ],
+  },
   {
     version: "0.4",
     date: "2026-11-17",
