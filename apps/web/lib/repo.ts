@@ -10,7 +10,7 @@ import { mkdir, writeFile } from "node:fs/promises";
 import { existsSync } from "node:fs";
 import { dirname, join } from "node:path";
 import { randomUUID } from "node:crypto";
-import { credits, type contribution as C, type notice as N, type planner as P, type skeleton as S, type publish as PB, type feedback as F, type content as CT, type account as A, type trends as T, type apply as AP } from "@supportlab/core";
+import { credits, type contribution as C, type notice as N, type planner as P, type skeleton as S, type publish as PB, type feedback as F, type content as CT, type account as A, type trends as T, type apply as AP, type billing as B } from "@supportlab/core";
 
 /* ------------------------------------------------------------------ */
 /* 타입                                                                 */
@@ -95,8 +95,15 @@ export interface Repo {
   listContributions(filter: { userId?: string; statuses?: C.ContributionStatus[] }): Promise<C.Contribution[]>;
   getContribution(id: string): Promise<C.Contribution | undefined>;
   saveContribution(c: C.Contribution): Promise<void>;
-  getDemoMedia(userId: string): Promise<F.MediaMetrics[] | undefined>;
-  setDemoMedia(userId: string, media: F.MediaMetrics[]): Promise<void>;
+  /** 인스타를 연결하지 않은 사용자가 직접 입력한 게시물 성과 (DB 테이블 이름은 예전 그대로 demo_media) */
+  getManualMedia(userId: string): Promise<F.MediaMetrics[] | undefined>;
+  setManualMedia(userId: string, media: F.MediaMetrics[]): Promise<void>;
+  /** 크레딧 원장 항목 (사용 내역) */
+  ledgerEntries(userId: string): Promise<credits.LedgerEntry[]>;
+  saveOrder(o: B.Order): Promise<void>;
+  listOrders(userId: string): Promise<B.Order[]>;
+  getSubscription(userId: string): Promise<B.Subscription | undefined>;
+  saveSubscription(s: B.Subscription): Promise<void>;
   /** 팀이 코딩한 합격 후기 (최신순) */
   listCodedReviews(): Promise<T.CodedReview[]>;
   getCodedReview(id: string): Promise<T.CodedReview | undefined>;
@@ -133,7 +140,25 @@ class MemoryRepo implements Repo {
   private contributions = new Map<string, C.Contribution>();
   private demo = new Map<string, F.MediaMetrics[]>();
   private coded = new Map<string, T.CodedReview>();
-  ledger = new credits.CreditLedger(new credits.MemoryCreditStore());
+  private orders: B.Order[] = [];
+  private subs = new Map<string, B.Subscription>();
+  private creditStore = new credits.MemoryCreditStore();
+  ledger = new credits.CreditLedger(this.creditStore);
+  async ledgerEntries(u: string) {
+    return this.creditStore.list(u);
+  }
+  async saveOrder(o: B.Order) {
+    this.orders.push(o);
+  }
+  async listOrders(u: string) {
+    return this.orders.filter((o) => o.userId === u).sort((a, b) => (a.createdAt < b.createdAt ? 1 : -1));
+  }
+  async getSubscription(u: string) {
+    return this.subs.get(u);
+  }
+  async saveSubscription(x: B.Subscription) {
+    this.subs.set(x.userId, x);
+  }
 
   private hashes = new Map<string, string>();
   async createUser(nickname: string, creds?: { loginId: string; passwordHash: string }) {
@@ -223,10 +248,10 @@ class MemoryRepo implements Repo {
   async saveContribution(c: C.Contribution) {
     this.contributions.set(c.id, c);
   }
-  async getDemoMedia(u: string) {
+  async getManualMedia(u: string) {
     return this.demo.get(u);
   }
-  async setDemoMedia(u: string, m: F.MediaMetrics[]) {
+  async setManualMedia(u: string, m: F.MediaMetrics[]) {
     this.demo.set(u, m);
   }
   async listCodedReviews() {
@@ -312,8 +337,27 @@ class SupabaseCreditStore implements credits.CreditStore {
 class SupabaseRepo implements Repo {
   readonly kind = "supabase" as const;
   ledger: credits.CreditLedger;
+  private creditStore: SupabaseCreditStore;
   constructor(private sb: SupabaseClient) {
-    this.ledger = new credits.CreditLedger(new SupabaseCreditStore(sb));
+    this.creditStore = new SupabaseCreditStore(sb);
+    this.ledger = new credits.CreditLedger(this.creditStore);
+  }
+  async ledgerEntries(u: string) {
+    return this.creditStore.list(u);
+  }
+  async saveOrder(o: B.Order) {
+    must(await this.sb.from("orders").insert({ id: o.id, user_id: o.userId, data: o, created_at: o.createdAt }), "orders.save");
+  }
+  async listOrders(u: string) {
+    const r = must(await this.sb.from("orders").select("data").eq("user_id", u).order("created_at", { ascending: false }).limit(100), "orders.list");
+    return (r ?? []).map((x) => x.data as B.Order);
+  }
+  async getSubscription(u: string) {
+    const r = must(await this.sb.from("subscriptions").select("data").eq("user_id", u).maybeSingle(), "subs.get");
+    return (r?.data as B.Subscription | undefined) ?? undefined;
+  }
+  async saveSubscription(x: B.Subscription) {
+    must(await this.sb.from("subscriptions").upsert({ user_id: x.userId, data: x, updated_at: new Date().toISOString() }), "subs.save");
   }
   private toUser(r: Record<string, unknown>): User {
     return {
@@ -446,11 +490,11 @@ class SupabaseRepo implements Repo {
       "contributions.save",
     );
   }
-  async getDemoMedia(u: string) {
+  async getManualMedia(u: string) {
     const r = must(await this.sb.from("demo_media").select("media").eq("user_id", u).maybeSingle(), "demo.get");
     return (r?.media as F.MediaMetrics[] | undefined) ?? undefined;
   }
-  async setDemoMedia(u: string, m: F.MediaMetrics[]) {
+  async setManualMedia(u: string, m: F.MediaMetrics[]) {
     must(await this.sb.from("demo_media").upsert({ user_id: u, media: m }), "demo.set");
   }
   async listCodedReviews() {

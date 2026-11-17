@@ -6,7 +6,8 @@ import { revalidatePath } from "next/cache";
 import { mkdir, readFile, writeFile } from "node:fs/promises";
 import { join } from "node:path";
 import { tmpdir } from "node:os";
-import { notice, skeleton, planner, account, content, publish, contribution, trends, apply } from "@supportlab/core";
+import { notice, skeleton, planner, account, content, publish, contribution, trends, apply, billing } from "@supportlab/core";
+import { payments, syncSubscription } from "./billing";
 import { readFormFile, FormReadError } from "@supportlab/core/apply/node";
 import { renderWithFfmpeg, probeWithFfmpeg, analyzeClipFeatures } from "@supportlab/core/content/node";
 import { repo, files, newId, todayISO, type Activity } from "./repo";
@@ -16,6 +17,7 @@ import { hashPassword, verifyPassword } from "@supportlab/core/auth/node";
 import { LoginIdTakenError } from "./repo";
 import { fetchNotice, fetchImage, NoticeFetchError } from "./fetchNotice";
 import { readImagesText, imageType, type OcrImage } from "./ocr";
+import { manualMedia } from "./media";
 import { getLLM } from "./llm";
 import { publisherFor } from "./publisher";
 import { ffmpegPath, captionFont } from "./ffmpeg";
@@ -637,4 +639,102 @@ function hostLabel(url: string): string {
   } catch {
     return "출처 확인 필요";
   }
+}
+
+
+/* ---------------- 크레딧 충전 · 구독 ---------------- */
+
+/** 결제하기: 크레딧 묶음 또는 구독 시작. 지금은 테스트 결제라 실제 돈이 나가지 않는다 */
+export async function buyAction(formData: FormData) {
+  const user = await requireUser();
+  const item = String(formData.get("item") || "");
+  const method = String(formData.get("method") || "card") as billing.PayMethod;
+  const back = (e: string) => redirect(`/credits/checkout?item=${encodeURIComponent(item)}&error=${encodeURIComponent(e)}`);
+  if (!billing.PAY_METHODS.some((m) => m.id === method)) back("결제 수단을 골라 주세요.");
+  if (formData.get("agree") !== "on") back("결제 내용과 환불 안내에 동의해 주세요.");
+  const pack = billing.findPack(item);
+  const plan = item.startsWith("plan_") ? billing.findPlan(item.slice(5)) : undefined;
+  if (!pack && !plan) back("상품을 찾지 못했어요.");
+  if (plan) {
+    const cur = await syncSubscription(user.id);
+    if (cur?.status === "active") back(`이미 ${billing.findPlan(cur.planId)?.name ?? ""} 구독 중이에요. 바꾸려면 먼저 해지해 주세요.`);
+  }
+  const order: billing.Order = {
+    id: newId("ord"),
+    userId: user.id,
+    kind: pack ? "pack" : "subscription",
+    item,
+    itemName: pack ? `${pack.name} ${pack.credits}` : `${plan!.name} 구독`,
+    amount: pack ? pack.price : plan!.price,
+    credits: pack ? pack.credits : plan!.monthlyCredits,
+    method,
+    provider: payments.id,
+    status: "failed",
+    createdAt: new Date().toISOString(),
+  };
+  const res = await payments.charge({ orderId: order.id, amount: order.amount, method, itemName: order.itemName });
+  if (!res.ok) {
+    await repo.saveOrder(order);
+    back(res.reason);
+  }
+  order.status = "paid";
+  order.approvalId = (res as { approvalId: string }).approvalId;
+  await repo.saveOrder(order);
+  if (pack) {
+    await repo.ledger.grant(user.id, pack.credits, "purchase", { idempotencyKey: `order:${order.id}`, refId: order.id, memo: order.itemName });
+  } else {
+    const sub = billing.startSubscription(user.id, plan!.id, todayISO());
+    await repo.saveSubscription(sub);
+    await repo.ledger.grant(user.id, plan!.monthlyCredits, "subscription_refill", { idempotencyKey: `sub:${user.id}:${sub.startedAt}`, refId: order.id, memo: `${plan!.name} ${sub.startedAt.slice(0, 7)}` });
+  }
+  revalidatePath("/", "layout");
+  redirect(`/credits?paid=${order.id}`);
+}
+
+export async function cancelSubscriptionAction() {
+  const user = await requireUser();
+  const sub = await repo.getSubscription(user.id);
+  if (sub?.status === "active") await repo.saveSubscription(billing.cancelSubscription(sub, new Date()));
+  revalidatePath("/", "layout");
+  redirect("/credits?canceled=1");
+}
+
+
+/* ---------------- 성과 직접 입력 (인스타 연결 전) ---------------- */
+
+const FORMATS = ["reels", "cardnews", "post"] as const;
+const count = (v: FormDataEntryValue | null) => {
+  const n = Math.floor(Number(String(v ?? "").replace(/[,\s]/g, "")));
+  return Number.isFinite(n) && n >= 0 ? Math.min(n, 1_000_000_000) : NaN;
+};
+
+/** 내가 올린 게시물의 숫자를 직접 넣는다. 인스타를 연결하기 전에도 실제 성과로 피드백을 받을 수 있게 */
+export async function addMediaAction(formData: FormData) {
+  const user = await requireUser();
+  const back = (e: string) => redirect(`/feedback?error=${encodeURIComponent(e)}#add`);
+  const date = String(formData.get("date") || "");
+  const format = String(formData.get("format") || "") as (typeof FORMATS)[number];
+  const title = String(formData.get("title") || "").trim().slice(0, 80);
+  const permalink = String(formData.get("permalink") || "").trim();
+  const views = count(formData.get("views"));
+  const likes = count(formData.get("likes"));
+  const comments = count(formData.get("comments") || "0");
+  const saves = count(formData.get("saves") || "0");
+  if (!/^\d{4}-\d{2}-\d{2}$/.test(date) || date > todayISO()) back("올린 날짜를 오늘이나 그 전으로 넣어 주세요.");
+  if (!FORMATS.includes(format)) back("포맷을 골라 주세요.");
+  if ([views, likes, comments, saves].some((n) => Number.isNaN(n))) back("숫자 칸에는 0 이상의 숫자만 넣어 주세요.");
+  if (permalink && !/^https:\/\/(www\.)?instagram\.com\//.test(permalink)) back("원본 링크는 instagram.com 주소만 넣을 수 있어요.");
+  const list = await manualMedia(user.id);
+  list.push({ id: newId("m"), date, format, title: title || undefined, permalink: permalink || undefined, views, likes, comments, saves });
+  await repo.setManualMedia(user.id, list.slice(-100));
+  revalidatePath("/feedback");
+  redirect("/feedback?added=1");
+}
+
+export async function removeMediaAction(formData: FormData) {
+  const user = await requireUser();
+  const id = String(formData.get("id") || "");
+  await repo.setManualMedia(user.id, (await manualMedia(user.id)).filter((m) => m.id !== id));
+  revalidatePath("/feedback");
+  redirect("/feedback");
 }

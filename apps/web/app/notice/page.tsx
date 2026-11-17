@@ -10,7 +10,7 @@ const STAGE: Record<string, string> = { document: "서류", interview: "면접",
 const ERR: Record<string, string> = {
   short: "공고 내용을 조금 더 붙여넣어 주세요.",
   empty: "공고 링크를 넣거나 본문을 붙여넣어 주세요.",
-  credits: "크레딧이 부족해요. 합격 경험을 공유하면 크레딧을 받을 수 있어요.",
+  credits: "크레딧이 부족해요. 왼쪽 아래 '충전 · 내역'에서 충전하거나, 합격 경험을 공유하면 크레딧을 받을 수 있어요.",
 };
 
 export default async function NoticePage({ searchParams }: { searchParams: Promise<{ error?: string; msg?: string; url?: string; form?: string; fq?: string; ff?: string; fa?: string; formerror?: string; ocr?: string; oi?: string; or?: string }> }) {
