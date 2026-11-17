@@ -32,6 +32,10 @@ export function ApplyStudio({ initial, activityName, aiLabel, aiMode, prefill }:
   const [unseen, setUnseen] = useState(0);
   const [saved, setSaved] = useState<string>();
   const [newQ, setNewQ] = useState("");
+  const [formBusy, setFormBusy] = useState(false);
+  const [formMsg, setFormMsg] = useState<{ ok: boolean; text: string }>();
+  const [pasteOpen, setPasteOpen] = useState(false);
+  const [paste, setPaste] = useState("");
   const chatEnd = useRef<HTMLDivElement>(null);
   const cards = useRef<(HTMLElement | null)[]>([]);
   const [revealLast, setRevealLast] = useState<number | null>(null);
@@ -119,6 +123,27 @@ export function ApplyStudio({ initial, activityName, aiLabel, aiMode, prefill }:
       setDirty(new Set());
       setSaved(label);
       setTimeout(() => setSaved(undefined), 1800);
+    }
+  }
+
+  /** 지원서 양식 파일(또는 붙여넣은 문항)을 올려 문항을 합친다 */
+  async function uploadForm(fd: FormData) {
+    setFormBusy(true);
+    setFormMsg(undefined);
+    try {
+      const res = await fetch("/api/apply/form", { method: "POST", body: fd });
+      const data = (await res.json()) as { app?: PublicApp; added?: number; merged?: number; fields?: number; error?: string };
+      if (!res.ok || !data.app) throw new Error(data.error || "양식을 읽지 못했어요");
+      setApp(data.app);
+      setTexts(data.app.answers.map((a) => a.text));
+      setRevealLast(data.app.chat.length - 1);
+      setFormMsg({ ok: true, text: `문항 ${data.added ?? 0}개를 더하고 ${data.merged ?? 0}개를 합쳤어요${data.fields ? ` · 직접 채울 항목 ${data.fields}개` : ""}` });
+      setPaste("");
+      setPasteOpen(false);
+    } catch (e) {
+      setFormMsg({ ok: false, text: e instanceof Error ? e.message : "양식을 읽지 못했어요" });
+    } finally {
+      setFormBusy(false);
     }
   }
 
@@ -229,9 +254,43 @@ export function ApplyStudio({ initial, activityName, aiLabel, aiMode, prefill }:
             </article>
           );
         })}
-        <form className="card row" onSubmit={(e) => { e.preventDefault(); if (newQ.trim()) { save({ addQuestion: newQ }, "문항을 더했어요"); setNewQ(""); } }}>
-          <label style={{ flex: 1 }}>문항 추가 (공고에서 못 찾은 문항)<input type="text" value={newQ} onChange={(e) => setNewQ(e.target.value)} placeholder="예: 만들고 싶은 콘텐츠를 제안해 주세요 (300자)" /></label>
-          <button className="btn" type="submit" style={{ alignSelf: "flex-end" }}>더하기</button>
+        {app.formFields && app.formFields.length > 0 && (
+          <section className="card">
+            <div className="row between">
+              <h3>양식에서 직접 채울 항목</h3>
+              {app.formName && <span className="small muted">{app.formName}</span>}
+            </div>
+            <p className="small muted" style={{ margin: 0 }}>서술형이 아니라 칸을 채우는 항목이에요. 코치와 이야기한 경험은 여기에도 쓸 수 있어요.</p>
+            <ul className="fields">
+              {app.formFields.map((f) => (
+                <li key={f.title}><b>{f.title}</b>{f.detail && <span className="small muted"> — {f.detail}</span>}</li>
+              ))}
+            </ul>
+          </section>
+        )}
+        <section className="card formup">
+          <h3>지원서 양식 올리기</h3>
+          <p className="small muted" style={{ margin: 0 }}>로그인해야 받을 수 있는 양식이 있다면 받아서 올려 주세요. 서술형 문항과 글자 수를 읽어 위에 더하고, 공고 문항과 겹치면 하나로 합쳐요. 파일은 저장하지 않아요.</p>
+          <div className="row">
+            <label className="btn" style={{ cursor: formBusy ? "progress" : "pointer" }}>
+              {formBusy ? <><i className="spin" aria-hidden="true" /> 읽는 중…</> : "파일 고르기 (.docx · .hwpx)"}
+              <input type="file" accept=".docx,.hwpx,.txt" hidden disabled={formBusy} onChange={(e) => { const f = e.target.files?.[0]; if (f) { const fd = new FormData(); fd.set("file", f); uploadForm(fd); } e.target.value = ""; }} />
+            </label>
+            <button type="button" className="link-btn small" onClick={() => setPasteOpen((v) => !v)}>{pasteOpen ? "닫기" : "글로 붙여넣기"}</button>
+          </div>
+          {pasteOpen && (
+            <form className="grid" style={{ gap: 8 }} onSubmit={(e) => { e.preventDefault(); if (paste.trim()) { const fd = new FormData(); fd.set("text", paste); uploadForm(fd); } }}>
+              <textarea value={paste} onChange={(e) => setPaste(e.target.value)} placeholder={"1. 지원 동기를 작성해 주세요 (500자)\n2. 만들고 싶은 콘텐츠를 제안해 주세요 (300자)"} style={{ minHeight: 100 }} aria-label="양식 문항 붙여넣기" />
+              <button className="btn" type="submit" disabled={formBusy || !paste.trim()} style={{ justifySelf: "start" }}>문항 읽기</button>
+            </form>
+          )}
+          {formMsg && <p className={formMsg.ok ? "note ok small" : "note warn small"} role="status" style={{ margin: 0 }}>{formMsg.text}</p>}
+        </section>
+        <form className="card" onSubmit={(e) => { e.preventDefault(); if (newQ.trim()) { save({ addQuestion: newQ }, "문항을 더했어요"); setNewQ(""); } }}>
+          <div className="row" style={{ alignItems: "flex-end", flexWrap: "nowrap" }}>
+            <label style={{ flex: 1, minWidth: 0 }}>문항 하나 직접 추가<input type="text" value={newQ} onChange={(e) => setNewQ(e.target.value)} placeholder="예: 만들고 싶은 콘텐츠를 제안해 주세요 (300자)" /></label>
+            <button className="btn" type="submit">더하기</button>
+          </div>
         </form>
         <p className="small muted" style={{ margin: 0 }}>코치는 대화에서 말씀해 주신 사실만 써요. 숫자나 경험을 지어내지 않으니, 비어 있는 부분은 코치의 질문에 답하며 채워 주세요. 최종 제출 전에 꼭 내 말투로 한 번 더 다듬어 주세요.</p>
       </section>

@@ -13,9 +13,9 @@ const ERR: Record<string, string> = {
   credits: "크레딧이 부족해요. 합격 경험을 공유하면 크레딧을 받을 수 있어요.",
 };
 
-export default async function NoticePage({ searchParams }: { searchParams: Promise<{ error?: string; msg?: string; url?: string }> }) {
+export default async function NoticePage({ searchParams }: { searchParams: Promise<{ error?: string; msg?: string; url?: string; form?: string; fq?: string; ff?: string; fa?: string; formerror?: string }> }) {
   const user = await requireUser();
-  const { error, msg, url } = await searchParams;
+  const { error, msg, url, form, fq, ff, fa, formerror } = await searchParams;
   const act = await currentActivity(user.id);
   const est = credits.TASK_ESTIMATES.notice_analysis;
   return (
@@ -25,6 +25,12 @@ export default async function NoticePage({ searchParams }: { searchParams: Promi
         <h1>공고 분석</h1>
       </header>
       {error && <div className="note warn" role="alert">{error === "fetch" ? msg : ERR[error] ?? error}</div>}
+      {form === "ok" && (
+        <div className="note ok" role="status">
+          지원서 양식에서 서술형 문항 {fq}개{Number(fa) > 0 ? `(새로 더한 문항 ${fa}개)` : ""}와 직접 채울 항목 {ff}개를 읽었어요. <Link href="/skeleton"><b>지원서 작성하러 가기 →</b></Link>
+        </div>
+      )}
+      {formerror && <div className="note warn" role="alert">공고 분석은 했지만 양식 파일은 읽지 못했어요: {formerror} 지원서 작성 화면에서 다시 올리거나 문항을 붙여넣을 수 있어요.</div>}
       <form action={analyzeNoticeAction} className="card">
         <label>
           공고 링크
@@ -34,6 +40,11 @@ export default async function NoticePage({ searchParams }: { searchParams: Promi
           </div>
         </label>
         <span className="small muted">링크만 넣으면 그 페이지의 공고 내용을 읽어서 분석해요. 공고 원문은 저장하지 않고, 뽑아낸 사실과 링크만 남겨요.</span>
+        <label>
+          <span className="lbl">지원서 양식 파일 <span className="small muted" style={{ fontWeight: 400 }}>(선택 · .docx .hwpx)</span></span>
+          <input type="file" name="form" accept=".docx,.hwpx,.txt" />
+          <span className="small muted" style={{ fontWeight: 400 }}>로그인해야 받을 수 있는 양식이 많아요. 받은 양식을 올리면 서술형 문항과 글자 수를 읽어 지원서 작성에 넣어요. 공고 문항과 겹치면 하나로 합쳐요. 파일은 저장하지 않아요.</span>
+        </label>
         <details open={error === "fetch" || undefined}>
           <summary className="small" style={{ cursor: "pointer", fontWeight: 600 }}>링크로 안 될 때: 본문 직접 붙여넣기</summary>
           <div className="grid" style={{ marginTop: 12 }}>

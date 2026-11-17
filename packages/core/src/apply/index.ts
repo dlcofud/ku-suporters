@@ -18,6 +18,9 @@ import type { LLMClient } from "../llm/index.js";
 import { extractJson } from "../llm/index.js";
 import type { NoticeAnalysis } from "../notice/index.js";
 import { buildSkeleton, classifyQuestion, parseCharLimit, RUBRIC, type QuestionType, type RubricCode } from "../skeleton/index.js";
+import { sameQuestion, type FormField, type FormParse } from "./form.js";
+
+export * from "./form.js";
 
 export interface ApplyQuestion {
   id: number;
@@ -58,6 +61,10 @@ export interface Application {
   /** 대화에서 확인한 사실 (사용자 말 그대로 요약) */
   facts: string[];
   rule?: RuleState[];
+  /** 지원서 양식 파일에서 읽은 '직접 채울 항목' (인적사항 제외) */
+  formFields?: FormField[];
+  /** 양식 파일 이름 (표시용) */
+  formName?: string;
   updatedAt: string;
 }
 
@@ -139,6 +146,7 @@ export function buildCoachPrompt(app: Application, notice: NoticeAnalysis, activ
     '  예: "이 경험은 콘텐츠 제작과는 바로 이어져 보이지 않는데, 사람들의 반응을 이끌어 낸 장면이 있었다면 어떻게 연결할 수 있을까요?"',
     "- 답이 막연하면 장면을 묻습니다 (언제, 누구와, 무엇을, 그래서 어떻게 됐는지).",
     "- 한 문항의 재료가 모이면 초안을 쓰고 다음 문항으로 넘어가자고 제안합니다. 사용자가 원하면 다른 문항으로 바로 옮겨도 됩니다.",
+    "- 양식에 '직접 채울 항목'(예: 교내·외 활동, 사용 중인 제품)이 있으면, 대화에서 나온 경험이 그 칸에도 쓰일 수 있을 때 한 번 짚어 줍니다.",
     "",
     "[초안 작성 규칙]",
     "- 사실(경험·숫자·기관명·기간)은 대화와 facts에 있는 것만 씁니다. 없는 숫자나 경험을 절대 지어내지 마세요. 필요하면 글 대신 질문을 하세요.",
@@ -163,6 +171,7 @@ export function buildCoachPrompt(app: Application, notice: NoticeAnalysis, activ
       지금글글자수: charCount(app.answers[i]?.text ?? ""),
       마지막으로쓴쪽: app.answers[i]?.by ?? "coach",
     })),
+    양식에서직접채울항목: (app.formFields ?? []).map((f) => f.title),
     지금문항: app.focus,
     확인한사실: app.facts.slice(-40),
     최근대화: app.chat.slice(-14).map((m) => `${m.role === "coach" ? "코치" : "사용자"}: ${m.text}`),
@@ -356,4 +365,48 @@ export function addQuestion(app: Application, text: string): Application {
   if (app.focus < 0) app.focus = app.questions.length - 1;
   app.updatedAt = now();
   return app;
+}
+
+/**
+ * 지원서 양식 파일에서 읽은 문항을 지원서에 합친다.
+ *  - 이미 있는 문항(공고 문항)과 같은 문항이면 하나로 두고, 양식 쪽에 글자 수가 있으면 그걸 쓴다
+ *  - 양식에만 있는 문항은 뒤에 더한다
+ *  - '직접 채울 항목'은 따로 보관한다
+ * 이미 쓴 글은 지우지 않는다.
+ */
+export function importForm(app: Application, form: FormParse, fileName?: string): { app: Application; added: number; merged: number } {
+  let added = 0;
+  let merged = 0;
+  for (const f of form.questions) {
+    const i = app.questions.findIndex((q) => sameQuestion(q.text, f.text));
+    if (i >= 0) {
+      merged++;
+      const q = app.questions[i]!;
+      if (f.charLimit && !q.charLimit) {
+        q.charLimit = f.charLimit;
+        q.text = parseCharLimit(q.text) === undefined ? `${q.text} (${f.charLimit}자)` : q.text;
+      }
+      continue;
+    }
+    const text = f.charLimit && parseCharLimit(f.text) === undefined ? `${f.text} (${f.charLimit}자)` : f.text;
+    const sk = buildSkeleton({ questions: [text], profile: { experiences: [] } }).sections[0]!;
+    app.questions.push({ id: app.questions.length, text, charLimit: f.charLimit ?? parseCharLimit(text), type: classifyQuestion(text), emphasize: sk.emphasize.map((e) => e.code) });
+    app.answers.push({ text: "", by: "coach" });
+    app.rule?.push({ stage: "experience", notes: [] });
+    added++;
+  }
+  if (form.fields.length) app.formFields = form.fields;
+  if (fileName) app.formName = fileName.slice(0, 120);
+  const wasIdle = app.focus < 0;
+  if (wasIdle && app.questions.length) app.focus = app.answers.findIndex((a) => !a.text.trim());
+  if (app.focus < 0 && app.questions.length && wasIdle) app.focus = 0;
+  const parts = [
+    `${fileName ? `'${fileName}' 양식을` : "양식을"} 읽었어요.`,
+    added || merged ? `서술형 문항 ${form.questions.length}개를 찾았고, ${added ? `${added}개는 새로 더했어요` : ""}${added && merged ? ", " : ""}${merged ? `${merged}개는 공고 문항과 같아서 하나로 합쳤어요` : ""}.` : "서술형 문항은 찾지 못했어요.",
+    form.fields.length ? `직접 채울 항목도 ${form.fields.length}개 있어요 (${form.fields.slice(0, 3).map((f) => f.title.replace(/^\d+\.\s*/, "")).join(", ")}${form.fields.length > 3 ? " 등" : ""}). 지원서 양식 아래에 정리해 뒀어요.` : "",
+    wasIdle && app.focus >= 0 ? `\n\n그럼 ${app.focus + 1}번부터 해 볼게요. ${OPENER[app.questions[app.focus]!.type]}` : added ? "\n\n지금 문항을 마치면 새 문항도 같이 써 봐요." : "",
+  ].filter(Boolean);
+  app.chat.push({ role: "coach", text: parts.join(" ").replace(/ \n/g, "\n"), at: now() });
+  app.updatedAt = now();
+  return { app, added, merged };
 }

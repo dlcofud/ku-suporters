@@ -237,6 +237,8 @@ label>.lbl{display:block}
 .qcard textarea.typing{border-color:var(--ink);background:#FFFCEB;caret-color:transparent}
 .qcard.flash textarea{animation:flash 2.4s ease-out}
 @keyframes flash{0%{background:var(--hl)}100%{background:var(--surface)}}
+.fields{margin:0;padding-left:18px;display:grid;gap:6px;font-size:14px}
+.formup label.btn{display:inline-flex}
 .link-btn{align-self:flex-start;border:0;background:none;padding:0;font:inherit;font-weight:800;color:var(--ink);text-decoration:underline;text-underline-offset:3px;cursor:pointer}
 .badge{display:inline-flex;align-items:center;justify-content:center;min-width:18px;height:18px;margin-left:6px;border-radius:999px;background:var(--red);color:#fff;font-style:normal;font-size:11px}
 @media (max-width:900px){
