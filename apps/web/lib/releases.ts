@@ -1,7 +1,17 @@
 /** 릴리즈 노트. 새 기능을 합칠 때 맨 위에 한 줄씩 추가해 주세요. */
-export const APP_VERSION = "0.7";
+export const APP_VERSION = "0.8";
 
 export const RELEASES: { version: string; date: string; items: string[] }[] = [
+  {
+    version: "0.8",
+    date: "2026-11-17",
+    items: [
+      "지원서 양식 파일(.docx · .hwpx)을 올리면 서술형 문항과 글자 수를 읽어 지원서 작성에 넣어요. 공고 분석 때 같이 올려도 돼요",
+      "공고 문항과 양식 문항이 겹치면 하나로 합치고, 양식에만 있는 문항은 더해요",
+      "인적사항 말고 칸을 채우는 항목(사용 제품, SNS 계정, 교내·외 활동 등)은 '직접 채울 항목'으로 정리하고, 코치도 참고해요",
+      "양식 파일은 저장하지 않고 문항과 항목 이름만 읽어요",
+    ],
+  },
   {
     version: "0.7",
     date: "2026-11-17",

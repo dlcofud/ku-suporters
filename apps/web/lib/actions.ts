@@ -6,7 +6,8 @@ import { revalidatePath } from "next/cache";
 import { mkdir, readFile, writeFile } from "node:fs/promises";
 import { join } from "node:path";
 import { tmpdir } from "node:os";
-import { notice, skeleton, planner, account, content, publish, contribution, trends } from "@supportlab/core";
+import { notice, skeleton, planner, account, content, publish, contribution, trends, apply } from "@supportlab/core";
+import { readFormFile, FormReadError } from "@supportlab/core/apply/node";
 import { renderWithFfmpeg, probeWithFfmpeg, analyzeClipFeatures } from "@supportlab/core/content/node";
 import { repo, files, newId, todayISO, type Activity } from "./repo";
 import { ACT_COOKIE, requireUser, currentActivity, startSession, endSession } from "./session";
@@ -144,6 +145,17 @@ export async function analyzeNoticeAction(formData: FormData) {
     if (failure) redirect(`/notice?error=fetch&msg=${encodeURIComponent(failure)}&url=${encodeURIComponent(sourceUrl)}`);
   }
   if (text.trim().length < 20) redirect(sourceUrl ? "/notice?error=short" : "/notice?error=empty");
+  // 지원서 양식 파일 (선택)
+  let form: { name: string; parsed: apply.FormParse } | undefined;
+  let formNote = "";
+  const file = formData.get("form");
+  if (file instanceof File && file.size > 0) {
+    try {
+      form = { name: file.name, parsed: readFormFile(file.name, Buffer.from(await file.arrayBuffer())) };
+    } catch (e) {
+      formNote = `formerror=${encodeURIComponent(e instanceof FormReadError ? e.message : "양식 파일을 읽지 못했어요.")}`;
+    }
+  }
   const hold = await repo.ledger.hold(user.id, "notice_analysis", newId("job")).catch(() => null);
   if (!hold) redirect("/notice?error=credits");
   let actId: string;
@@ -162,6 +174,12 @@ export async function analyzeNoticeAction(formData: FormData) {
       createdAt: new Date().toISOString(),
     };
     if (r.analysis.deadline) act.plan = safePlan(r.analysis.deadline, name);
+    // 지원서 양식 파일을 같이 올렸으면 문항을 읽어 지원서에 합친다 (파일은 저장하지 않는다)
+    if (form) {
+      act.application = apply.startApplication({ activityName: name, notice: r.analysis });
+      const imp = apply.importForm(act.application, form.parsed, form.name);
+      formNote = `form=ok&fq=${form.parsed.questions.length}&ff=${form.parsed.fields.length}&fa=${imp.added}`;
+    }
     await repo.saveActivity(act);
     actId = act.id;
   } catch (e) {
@@ -170,7 +188,7 @@ export async function analyzeNoticeAction(formData: FormData) {
   }
   (await cookies()).set(ACT_COOKIE, actId, { httpOnly: true, sameSite: "lax", path: "/", maxAge: 60 * 60 * 24 * 365 });
   revalidatePath("/", "layout");
-  redirect("/notice");
+  redirect(formNote ? `/notice?${formNote}` : "/notice");
 }
 
 /** "달콤제과 서포터즈 13기 모집 | 링커리어" → "달콤제과 서포터즈 13기 모집" */
