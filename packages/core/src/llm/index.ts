@@ -67,23 +67,38 @@ export class OllamaClient implements LLMClient {
   constructor(
     readonly model: string = "gemma4:e4b",
     private readonly baseUrl: string = "http://localhost:11434",
+    /**
+     * 문맥 길이(토큰). Ollama는 메모리가 24GB 미만이면 기본 4,096이라 긴 후기·공고가 잘린다.
+     * 코드북 + 후기 본문이 들어가도록 기본 16,384로 올린다 (메모리가 부족하면 OLLAMA_NUM_CTX로 낮춘다).
+     */
+    private readonly numCtx: number = 16384,
   ) {}
   async complete(req: LLMRequest): Promise<LLMResponse> {
-    const res = await fetch(`${this.baseUrl}/api/chat`, {
+    // 작은 로컬 모델은 스키마를 프롬프트에도 보여 주면 더 잘 따른다 (Ollama 문서 권장)
+    const system = req.schema ? `${req.system}\n\n다음 JSON 스키마에 맞는 JSON만 출력하세요:\n${JSON.stringify(req.schema)}` : req.system;
+    const res = await fetch(`${this.baseUrl.replace(/\/$/, "")}/api/chat`, {
       method: "POST",
       headers: { "Content-Type": "application/json" },
       body: JSON.stringify({
         model: this.model,
         stream: false,
         format: req.schema ?? (req.json ? "json" : undefined),
-        options: { num_predict: req.maxOutputTokens },
+        // 생각(thinking) 출력을 끄고 답만 받는다
+        think: false,
+        options: { num_predict: req.maxOutputTokens, num_ctx: this.numCtx, temperature: req.schema || req.json ? 0.2 : 0.7 },
         messages: [
-          { role: "system", content: req.system },
+          { role: "system", content: system },
           { role: "user", content: req.user },
         ],
       }),
+    }).catch((e: unknown) => {
+      throw new Error(`Ollama에 연결하지 못했어요 (${this.baseUrl}). Ollama 앱이 켜져 있는지 확인해 주세요: ${e instanceof Error ? e.message : String(e)}`);
     });
-    if (!res.ok) throw new Error(`Ollama 오류: ${res.status}`);
+    if (!res.ok) {
+      const detail = await res.text().catch(() => "");
+      if (res.status === 404) throw new Error(`Ollama에 '${this.model}' 모델이 없어요. 터미널에서 ollama pull ${this.model} 을 먼저 실행해 주세요`);
+      throw new Error(`Ollama 오류 ${res.status}: ${detail.slice(0, 300)}`);
+    }
     const data = (await res.json()) as {
       message?: { content?: string };
       prompt_eval_count?: number;

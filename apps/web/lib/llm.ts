@@ -9,7 +9,7 @@ import { llm } from "@supportlab/core";
  */
 export function getLLM(): llm.LLMClient {
   if (process.env.ANTHROPIC_API_KEY) return new llm.AnthropicClient(process.env.ANTHROPIC_API_KEY, process.env.ANTHROPIC_MODEL || "claude-haiku-5-5");
-  if (process.env.OLLAMA_URL) return new llm.OllamaClient(process.env.OLLAMA_MODEL || "gemma4:e4b", process.env.OLLAMA_URL);
+  if (process.env.OLLAMA_URL) return new llm.OllamaClient(process.env.OLLAMA_MODEL || "gemma4:e4b", process.env.OLLAMA_URL, Number(process.env.OLLAMA_NUM_CTX) || 16384);
   return new llm.MockLLM(() => "{}", "paid");
 }
 
