@@ -48,3 +48,28 @@ export class LoginThrottle {
     this.fails.delete(key);
   }
 }
+
+/* ------------------------------------------------------------------ */
+/* 권한                                                                 */
+/* ------------------------------------------------------------------ */
+
+/** admin: 합격 경험 검수(크레딧 지급). team: 후기 분석(팀 데이터 입력·검수). admin은 team도 된다 */
+export type Role = "admin" | "team";
+
+/** "a, B ,c" → {"a","b","c"}. 아이디는 소문자로 비교한다 */
+export function parseIdList(raw: string | undefined): Set<string> {
+  return new Set((raw ?? "").split(/[,\s]+/).map((s) => s.trim().toLowerCase()).filter(Boolean));
+}
+
+/**
+ * 로그인 아이디로 권한을 정한다. 권한은 서버 환경 변수로만 준다 (사용자가 스스로 얻을 수 없게).
+ * 아이디가 없는 예전 계정(닉네임만)은 닉네임이 겹칠 수 있어 권한을 주지 않는다.
+ */
+export function rolesFor(loginId: string | undefined, lists: { admins: Set<string>; team: Set<string> }): Role[] {
+  if (!loginId) return [];
+  const id = loginId.toLowerCase();
+  const roles: Role[] = [];
+  if (lists.admins.has(id)) roles.push("admin", "team");
+  else if (lists.team.has(id)) roles.push("team");
+  return roles;
+}

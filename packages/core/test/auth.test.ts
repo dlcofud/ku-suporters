@@ -64,3 +64,20 @@ describe("로그인 시도 제한", () => {
     expect(th.lockedFor("b")).toBe(0);
   });
 });
+
+import { parseIdList, rolesFor } from "../src/auth/index.js";
+
+describe("권한", () => {
+  const lists = { admins: parseIdList(" Chaeryeong, boss "), team: parseIdList("member1,member2\nmember3") };
+  it("환경 변수 목록을 소문자로 읽는다", () => {
+    expect([...lists.admins]).toEqual(["chaeryeong", "boss"]);
+    expect(lists.team.size).toBe(3);
+    expect(parseIdList(undefined).size).toBe(0);
+  });
+  it("관리자는 팀 권한도 갖고, 목록에 없거나 아이디가 없으면 권한이 없다", () => {
+    expect(rolesFor("CHAERYEONG", lists)).toEqual(["admin", "team"]);
+    expect(rolesFor("member2", lists)).toEqual(["team"]);
+    expect(rolesFor("someone", lists)).toEqual([]);
+    expect(rolesFor(undefined, lists)).toEqual([]);
+  });
+});

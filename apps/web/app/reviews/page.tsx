@@ -1,6 +1,6 @@
 import Link from "next/link";
 import { trends, skeleton } from "@supportlab/core";
-import { requireUser } from "@/lib/session";
+import { requireRole } from "@/lib/session";
 import { repo } from "@/lib/repo";
 import { codeReviewAction } from "@/lib/actions";
 import { llmStatus } from "@/lib/llm";
@@ -13,7 +13,7 @@ const ERR: Record<string, string> = {
 };
 
 export default async function ReviewsPage({ searchParams }: { searchParams: Promise<{ error?: string }> }) {
-  await requireUser();
+  await requireRole("team");
   const { error } = await searchParams;
   const list = await repo.listCodedReviews();
   const done = list.filter((r) => r.status === "검수 완료");

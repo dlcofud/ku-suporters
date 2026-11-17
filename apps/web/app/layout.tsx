@@ -2,7 +2,7 @@ import "./globals.css";
 import Link from "next/link";
 import type { ReactNode } from "react";
 import { Nav, MobileTabs } from "@/components/Nav";
-import { currentUser, currentActivity } from "@/lib/session";
+import { currentUser, currentActivity, rolesOf } from "@/lib/session";
 import { repo, todayISO } from "@/lib/repo";
 import { selectActivityAction, logout } from "@/lib/actions";
 import { syncSubscription } from "@/lib/billing";
@@ -68,7 +68,7 @@ export default async function RootLayout({ children }: { children: ReactNode }) 
               </div>
             )}
 
-            {user && <Nav hasActivity={!!cur} />}
+            {user && <Nav hasActivity={!!cur} roles={rolesOf(user)} />}
 
             {user && bal && (
               <div className="sidefoot">
