@@ -54,7 +54,22 @@ button.nav.on{background:var(--hl)}
 .sidefoot{margin-top:auto;display:flex;flex-direction:column;gap:12px}
 .sidefoot>a{color:#C3C8DD}
 .sidefoot>a:hover{color:#fff}
+.sidefoot>a.btn,.sidefoot>a.btn:hover{color:var(--ink)}
 .card.credit{gap:8px;padding:16px;border-color:var(--surface)}
+
+/* ---- 계정 (사이드바 아래) ---- */
+.account{display:flex;align-items:center;gap:8px;padding:0 4px}
+.acc-name{flex:1;min-width:0;display:flex;align-items:center;gap:8px;color:#fff;text-decoration:none;font-weight:700;font-size:14px}
+.acc-name:hover{color:#fff;text-decoration:underline}
+.acc-name i{flex:none;width:30px;height:30px;border-radius:999px;background:var(--hl);color:var(--ink);font-style:normal;font-weight:800;display:inline-flex;align-items:center;justify-content:center}
+.acc-name span{min-width:0;display:flex;flex-direction:column;line-height:1.25;overflow:hidden}
+.acc-name small{color:#AEB4CF;font-weight:500;font-size:12px;overflow:hidden;text-overflow:ellipsis}
+.acc-out{flex:none;border:1px solid #4A5170;background:none;color:#E2E5F0;font:inherit;font-size:12px;font-weight:700;border-radius:6px;padding:6px 10px;min-height:32px;cursor:pointer}
+.acc-out:hover{border-color:#fff;color:#fff}
+.side-warn{display:block;padding:8px 10px;border-radius:6px;background:var(--hl);color:var(--ink);font-size:13px;font-weight:800;text-decoration:none}
+.side-warn:hover{color:var(--ink)}
+.auth-wrap{min-height:70vh;display:flex;align-items:center;justify-content:center}
+.auth-card{width:min(420px,100%)}
 
 /* ---- 글자 ---- */
 h1,h2,h3{margin:0;text-wrap:balance}
@@ -94,7 +109,7 @@ h3{font-size:16px;font-weight:800}
 .btn.wide{justify-content:space-between;padding:0 18px}
 .btn:disabled{opacity:.5;cursor:not-allowed}
 label{display:flex;flex-direction:column;gap:6px;font-weight:700;font-size:14px}
-input[type=text],input[type=url],input[type=datetime-local],input[type=date],input[type=number],textarea,select{font:inherit;font-weight:400;padding:10px 12px;border:1.5px solid var(--rule);border-radius:6px;background:var(--surface);color:var(--ink);width:100%;min-height:44px}
+input[type=text],input[type=url],input[type=password],input[type=email],input[type=datetime-local],input[type=date],input[type=number],textarea,select{font:inherit;font-weight:400;padding:10px 12px;border:1.5px solid var(--rule);border-radius:6px;background:var(--surface);color:var(--ink);width:100%;min-height:44px}
 input:focus,textarea:focus,select:focus{border-color:var(--ink)}
 textarea{min-height:120px;resize:vertical}
 .check{flex-direction:row;align-items:flex-start;gap:10px;font-weight:400}

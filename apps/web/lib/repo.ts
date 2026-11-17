@@ -19,6 +19,8 @@ import { credits, type contribution as C, type notice as N, type planner as P, t
 export interface User {
   id: string;
   nickname: string;
+  /** 로그인 아이디. 예전에 닉네임만으로 가입한 계정은 없을 수 있다 (계정 설정에서 정함) */
+  loginId?: string;
   createdAt: string;
   ig?: { userId: string; username?: string; accessToken: string };
 }
@@ -57,11 +59,24 @@ export interface Render {
   createdAt: string;
 }
 
+export class LoginIdTakenError extends Error {
+  constructor() {
+    super("이미 쓰고 있는 아이디예요");
+  }
+}
+
 export interface Repo {
   readonly kind: "memory" | "supabase";
   ledger: credits.CreditLedger;
-  createUser(nickname: string): Promise<User>;
+  /** creds를 주면 아이디·비밀번호 해시도 함께 저장한다. 아이디가 이미 있으면 LoginIdTakenError */
+  createUser(nickname: string, creds?: { loginId: string; passwordHash: string }): Promise<User>;
   getUser(id: string): Promise<User | undefined>;
+  /** 로그인할 때 쓴다: 아이디로 사용자와 비밀번호 해시를 찾는다 */
+  findLogin(loginId: string): Promise<{ user: User; passwordHash?: string } | undefined>;
+  getPasswordHash(userId: string): Promise<string | undefined>;
+  /** 아이디(처음 정할 때만)와 비밀번호 해시를 저장한다 */
+  setCredentials(userId: string, c: { loginId?: string; passwordHash: string }): Promise<void>;
+  setNickname(userId: string, nickname: string): Promise<void>;
   setUserIg(id: string, ig: NonNullable<User["ig"]>): Promise<void>;
   latestActivity(userId: string): Promise<Activity | undefined>;
   /** 최신순 */
@@ -120,10 +135,33 @@ class MemoryRepo implements Repo {
   private coded = new Map<string, T.CodedReview>();
   ledger = new credits.CreditLedger(new credits.MemoryCreditStore());
 
-  async createUser(nickname: string) {
-    const u: User = { id: randomUUID(), nickname, createdAt: new Date().toISOString() };
+  private hashes = new Map<string, string>();
+  async createUser(nickname: string, creds?: { loginId: string; passwordHash: string }) {
+    if (creds && [...this.users.values()].some((x) => x.loginId === creds.loginId)) throw new LoginIdTakenError();
+    const u: User = { id: randomUUID(), nickname, loginId: creds?.loginId, createdAt: new Date().toISOString() };
     this.users.set(u.id, u);
+    if (creds) this.hashes.set(u.id, creds.passwordHash);
     return u;
+  }
+  async findLogin(loginId: string) {
+    const user = [...this.users.values()].find((x) => x.loginId === loginId);
+    return user ? { user, passwordHash: this.hashes.get(user.id) } : undefined;
+  }
+  async getPasswordHash(userId: string) {
+    return this.hashes.get(userId);
+  }
+  async setCredentials(userId: string, c: { loginId?: string; passwordHash: string }) {
+    const u = this.users.get(userId);
+    if (!u) return;
+    if (c.loginId && !u.loginId) {
+      if ([...this.users.values()].some((x) => x.loginId === c.loginId)) throw new LoginIdTakenError();
+      u.loginId = c.loginId;
+    }
+    this.hashes.set(userId, c.passwordHash);
+  }
+  async setNickname(userId: string, nickname: string) {
+    const u = this.users.get(userId);
+    if (u) u.nickname = nickname;
   }
   async getUser(id: string) {
     return this.users.get(id);
@@ -281,13 +319,36 @@ class SupabaseRepo implements Repo {
     return {
       id: r.id as string,
       nickname: r.nickname as string,
+      loginId: (r.login_id as string) ?? undefined,
       createdAt: r.created_at as string,
       ig: r.ig_user_id && r.ig_access_token ? { userId: r.ig_user_id as string, username: (r.ig_username as string) ?? undefined, accessToken: r.ig_access_token as string } : undefined,
     };
   }
-  async createUser(nickname: string) {
-    const r = must(await this.sb.from("app_users").insert({ nickname }).select("*").single(), "users.create");
-    return this.toUser(r);
+  async createUser(nickname: string, creds?: { loginId: string; passwordHash: string }) {
+    const res = await this.sb.from("app_users").insert({ nickname, login_id: creds?.loginId ?? null, password_hash: creds?.passwordHash ?? null }).select("*").single();
+    if (res.error?.code === "23505") throw new LoginIdTakenError();
+    return this.toUser(must(res, "users.create"));
+  }
+  async findLogin(loginId: string) {
+    const r = must(await this.sb.from("app_users").select("*").eq("login_id", loginId).maybeSingle(), "users.login");
+    return r ? { user: this.toUser(r), passwordHash: (r.password_hash as string) ?? undefined } : undefined;
+  }
+  async getPasswordHash(userId: string) {
+    const r = must(await this.sb.from("app_users").select("password_hash").eq("id", userId).maybeSingle(), "users.hash");
+    return (r?.password_hash as string) ?? undefined;
+  }
+  async setCredentials(userId: string, c: { loginId?: string; passwordHash: string }) {
+    const patch: Record<string, string> = { password_hash: c.passwordHash };
+    if (c.loginId) patch.login_id = c.loginId;
+    // 아이디는 처음 정할 때만 (이미 있으면 바꾸지 않는다)
+    let q = this.sb.from("app_users").update(patch).eq("id", userId);
+    if (c.loginId) q = q.is("login_id", null);
+    const res = await q;
+    if (res.error?.code === "23505") throw new LoginIdTakenError();
+    must(res, "users.creds");
+  }
+  async setNickname(userId: string, nickname: string) {
+    must(await this.sb.from("app_users").update({ nickname }).eq("id", userId), "users.nickname");
   }
   async getUser(id: string) {
     if (!/^[0-9a-f-]{36}$/i.test(id)) return undefined;

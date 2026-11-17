@@ -4,7 +4,7 @@ import type { ReactNode } from "react";
 import { Nav, MobileTabs } from "@/components/Nav";
 import { currentUser, currentActivity } from "@/lib/session";
 import { repo, todayISO } from "@/lib/repo";
-import { selectActivityAction } from "@/lib/actions";
+import { selectActivityAction, logout } from "@/lib/actions";
 import { credits, shared } from "@supportlab/core";
 import { dday } from "@/lib/format";
 import { APP_VERSION } from "@/lib/releases";
@@ -78,7 +78,18 @@ export default async function RootLayout({ children }: { children: ReactNode }) 
                   <div className="bar thin"><i style={{ width: `${fill}%` }} /></div>
                   <Link href="/contribute" className="small">합격 경험 공유하고 크레딧 받기</Link>
                 </div>
+                {!user.loginId && <Link href="/settings" className="side-warn">아이디·비밀번호를 정해 주세요 →</Link>}
+                <div className="account">
+                  <Link href="/settings" className="acc-name" title="계정 설정"><i aria-hidden="true">{user.nickname.slice(0, 1)}</i><span>{user.nickname}{user.loginId && <small>@{user.loginId}</small>}</span></Link>
+                  <form action={logout}><button type="submit" className="acc-out">로그아웃</button></form>
+                </div>
                 <Link href="/releases" className="small muted" style={{ padding: "0 8px" }}>릴리즈 노트 · v{APP_VERSION}</Link>
+              </div>
+            )}
+            {!user && (
+              <div className="sidefoot">
+                <Link href="/login" className="btn newact">로그인</Link>
+                <Link href="/" className="small" style={{ padding: "0 8px", color: "#C3C8DD" }}>처음이라면 회원가입</Link>
               </div>
             )}
           </aside>

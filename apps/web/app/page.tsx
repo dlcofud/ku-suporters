@@ -6,6 +6,7 @@ import { credits, shared, trends, type planner } from "@supportlab/core";
 import { fmtLabel } from "@/lib/format";
 import { loadAllReviews } from "@/lib/trends";
 import { DayChecklist } from "@/components/DayChecklist";
+import { SubmitButton } from "@/components/Pending";
 
 const WD = ["월", "화", "수", "목", "금", "토", "일"];
 const WD_FULL = ["일요일", "월요일", "화요일", "수요일", "목요일", "금요일", "토요일"];
@@ -15,11 +16,11 @@ const dow = (iso: string) => shared.parseISODate(iso).getUTCDay();
 const korDate = (iso: string) => `${Number(iso.slice(5, 7))}월 ${Number(iso.slice(8, 10))}일`;
 const dotDate = (iso: string) => `${iso.slice(5, 7)}.${iso.slice(8, 10)} ${"일월화수목금토"[dow(iso)]}`;
 
-export default async function Home({ searchParams }: { searchParams: Promise<{ day?: string; error?: string }> }) {
+export default async function Home({ searchParams }: { searchParams: Promise<{ day?: string; error?: string; id?: string; nick?: string }> }) {
   const user = await currentUser();
-  if (!user) return <Landing />;
+  const { day, error, id, nick } = await searchParams;
+  if (!user) return <Landing error={error} id={id} nick={nick} />;
   const act = await currentActivity(user.id);
-  const { day, error } = await searchParams;
   const today = todayISO();
 
   if (!act) {
@@ -210,7 +211,7 @@ function DayCell({ d, today, selected, deadline, items }: { d: string; today: st
   );
 }
 
-function Landing() {
+function Landing({ error, id, nick }: { error?: string; id?: string; nick?: string }) {
   return (
     <div className="grid g2" style={{ alignItems: "start" }}>
       <section className="card dark" style={{ gap: 16, padding: 28 }}>
@@ -225,14 +226,27 @@ function Landing() {
         </ol>
       </section>
       <form action={signup} className="card">
-        <h2 className="display" style={{ fontSize: 26 }}>시작하기</h2>
+        <h2 className="display" style={{ fontSize: 26 }}>회원가입</h2>
         <p className="muted" style={{ margin: 0 }}>가입하면 <b className="hl">{credits.CREDIT_POLICY.signupBonus} 크레딧</b>을 무료로 드려요.</p>
+        {error && <p className="note warn" role="alert" style={{ margin: 0 }}>{error}</p>}
         <label>
-          닉네임
-          <input type="text" name="nickname" placeholder="예: 채령" required maxLength={20} />
+          아이디
+          <input type="text" name="loginId" defaultValue={id} required minLength={4} maxLength={20} pattern="[A-Za-z][A-Za-z0-9_]{3,19}" autoComplete="username" autoCapitalize="none" spellCheck={false} placeholder="영문 소문자로 시작, 4~20자" />
         </label>
-        <button className="btn pri" type="submit">무료 크레딧 받고 시작하기</button>
-        <p className="small muted" style={{ margin: 0 }}>데모 버전이라 서버를 다시 시작하면 데이터가 초기화돼요.</p>
+        <label>
+          비밀번호
+          <input type="password" name="password" required minLength={8} maxLength={64} autoComplete="new-password" placeholder="영문+숫자 8자 이상" />
+        </label>
+        <label>
+          비밀번호 확인
+          <input type="password" name="password2" required minLength={8} maxLength={64} autoComplete="new-password" />
+        </label>
+        <label>
+          <span className="lbl">닉네임 <span className="small muted" style={{ fontWeight: 400 }}>(선택 · 화면에 보이는 이름)</span></span>
+          <input type="text" name="nickname" defaultValue={nick} maxLength={20} placeholder="예: 채령" />
+        </label>
+        <SubmitButton pendingText="가입하는 중…">무료 크레딧 받고 시작하기</SubmitButton>
+        <p className="small" style={{ margin: 0 }}>이미 계정이 있나요? <Link href="/login"><b>로그인</b></Link></p>
       </form>
     </div>
   );

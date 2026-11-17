@@ -16,3 +16,5 @@ export * as content from "./content/index.js";
 export * as publish from "./publish/index.js";
 // 서버 전용 렌더러는 "@supportlab/core/content/node" 에서 따로 import 한다.
 export * as apply from "./apply/index.js";
+export * as auth from "./auth/index.js";
+// 비밀번호 해시·로그인 토큰은 서버 전용 "@supportlab/core/auth/node" 에서 import 한다.

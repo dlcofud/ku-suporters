@@ -1,7 +1,17 @@
 /** 릴리즈 노트. 새 기능을 합칠 때 맨 위에 한 줄씩 추가해 주세요. */
-export const APP_VERSION = "0.6";
+export const APP_VERSION = "0.7";
 
 export const RELEASES: { version: string; date: string; items: string[] }[] = [
+  {
+    version: "0.7",
+    date: "2026-11-17",
+    items: [
+      "아이디·비밀번호로 회원가입과 로그인을 할 수 있어요. 비밀번호는 암호화(scrypt 해시)해서 저장해요",
+      "왼쪽 아래에서 로그아웃, 계정 설정에서 비밀번호·닉네임을 바꿀 수 있어요",
+      "닉네임만으로 시작한 예전 계정은 계정 설정에서 아이디·비밀번호를 정할 수 있어요",
+      "같은 아이디로 5번 틀리면 5분 동안 로그인을 막아요",
+    ],
+  },
   {
     version: "0.6",
     date: "2026-11-17",
