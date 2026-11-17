@@ -2,7 +2,9 @@ import Link from "next/link";
 import { requireUser, currentActivity } from "@/lib/session";
 import { repo } from "@/lib/repo";
 import { ClipUploader } from "@/components/ClipUploader";
-import { planScenesAction, uploadClipsAction, renderAction, scheduleAction, runTickNowAction, cancelPostAction } from "@/lib/actions";
+import { planScenesAction, captionAction, saveCaptionAction, uploadClipsAction, renderAction, scheduleAction, runTickNowAction, cancelPostAction } from "@/lib/actions";
+import { CopyButton } from "@/components/CopyButton";
+import { llmStatus } from "@/lib/llm";
 import { content } from "@supportlab/core";
 import { fmtLabel, md } from "@/lib/format";
 import { SubmitButton, PendingNote } from "@/components/Pending";
@@ -16,7 +18,7 @@ const STATUS: Record<string, string> = { scheduled: "예약됨", container_creat
 
 export const maxDuration = 60; // 영상 편집에 시간이 걸린다
 
-export default async function StudioPage({ searchParams }: { searchParams: Promise<{ item?: string; error?: string }> }) {
+export default async function StudioPage({ searchParams }: { searchParams: Promise<{ item?: string; error?: string; made?: string; note?: string; cap?: string; ask?: string; saved?: string }> }) {
   const user = await requireUser();
   const sp = await searchParams;
   const act = await currentActivity(user.id);
@@ -28,7 +30,9 @@ export default async function StudioPage({ searchParams }: { searchParams: Promi
   const match = scenes ? content.matchClips(scenes, clips) : undefined;
   const renders = await repo.listRenders(user.id, item.id);
   const posts = (await repo.listPosts(user.id)).filter((p) => p.planItemId === item.id);
-  const caption = scenes ? content.draftCaption({ title: item.title, product: act.name.split(" ")[0] ?? "" }, scenes, ["서포터즈", act.name.split(" ")[0] ?? "", "대학생"]) : "";
+  const draft = scenes ? content.draftCaption({ title: item.title, product: item.product ?? act.name.split(" ")[0] ?? "" }, scenes, ["서포터즈", act.name.split(" ")[0] ?? "", "대학생"]) : "";
+  const caption = item.caption || draft;
+  const ai = llmStatus();
   // 기본 게시 시각: 일정 날짜 오후 9시. 이미 지났으면 지금부터 1시간 뒤 (한국 시간)
   const planned = new Date(`${item.date}T21:00:00+09:00`).getTime();
   const at = new Date(Math.max(planned, Date.now() + 3600_000) + 9 * 3600_000);
@@ -53,17 +57,26 @@ export default async function StudioPage({ searchParams }: { searchParams: Promi
             <span key={label} className={`step ${i === stepNow ? "on" : ""}`}><b>{i + 1}</b>{label}</span>
           ))}
         </div>
-        <form action={planScenesAction} className="row">
+        <form action={planScenesAction} className="grid" style={{ gap: 12 }}>
           <input type="hidden" name="planItemId" value={item.id} />
-          <label style={{ flex: 2 }}>제품·주제<input type="text" name="product" defaultValue={act.name.split(" ")[0]} /></label>
-          <label style={{ flex: 1 }}>스타일
-            <select name="style" defaultValue="review"><option value="review">리뷰</option><option value="challenge">챌린지</option><option value="routine">루틴</option></select>
+          <p className="small muted" style={{ margin: 0 }}>{item.purpose}</p>
+          <label>보여 주고 싶은 내 경험이나 아이디어 (선택)
+            <textarea name="idea" defaultValue={item.idea ?? ""} maxLength={600} placeholder="예: 도서관 가는 길에 노이즈 캔슬링을 켜는 순간을 찍고 싶어요. 시험 기간이라 공감될 것 같아요." style={{ minHeight: 72 }} />
           </label>
-          <label style={{ flex: 1 }}>길이
-            <select name="targetSec" defaultValue="15"><option value="15">15초</option><option value="20">20초</option><option value="30">30초</option></select>
-          </label>
-          <SubmitButton pendingText="장면 짜는 중…" style={{ alignSelf: "flex-end" }}>{scenes ? "장면 다시 짜기" : "찍을 장면 받기"}</SubmitButton>
+          <div className="row">
+            <label style={{ flex: 2 }}>제품·주제<input type="text" name="product" defaultValue={item.product ?? act.name.split(" ")[0]} maxLength={40} /></label>
+            <label style={{ flex: 1 }}>스타일
+              <select name="style" defaultValue="review"><option value="review">리뷰</option><option value="challenge">챌린지</option><option value="routine">루틴</option></select>
+            </label>
+            <label style={{ flex: 1 }}>길이
+              <select name="targetSec" defaultValue="15"><option value="15">15초</option><option value="20">20초</option><option value="30">30초</option></select>
+            </label>
+            <SubmitButton pendingText="장면 짜는 중…" style={{ alignSelf: "flex-end" }}>{scenes ? "장면 다시 짜기" : "찍을 장면 받기"}</SubmitButton>
+          </div>
+          <span className="small muted">{ai.mode === "demo" ? "AI가 연결되지 않아 기본 장면 틀로 만들어요." : `${ai.label}가 공고와 내 아이디어에 맞춰 장면을 짜요. 스타일은 AI가 답을 못 줄 때 쓰는 기본 틀이에요.`}</span>
+          <PendingNote steps={["공고의 활동 내용을 읽고 있어요", "내 아이디어로 장면을 짜고 있어요", "장면 길이를 맞추고 있어요"]} hint="로컬 모델은 30초~1분 걸릴 수 있어요." />
         </form>
+        {sp.made && <p className={sp.made === "ai" ? "note ok small" : "note small"} role="status" style={{ margin: 0 }}>{sp.made === "ai" ? "AI가 장면을 짰어요. 마음에 안 들면 아이디어를 고쳐 다시 짜 보세요." : sp.note ?? "기본 장면 틀로 만들었어요."}</p>}
       </section>
 
       {scenes && match && (
@@ -98,6 +111,37 @@ export default async function StudioPage({ searchParams }: { searchParams: Promi
             <ClipUploader planItemId={item.id} scenes={match.matches.map((m) => ({ index: m.scene.index, label: content.SHOT_LABEL[m.scene.shot] }))} />
           )}
         </form>
+      )}
+
+      {scenes && (
+        <section id="caption" className="grid g2" style={{ alignItems: "start" }}>
+          <form action={captionAction} className="card">
+            <input type="hidden" name="planItemId" value={item.id} />
+            <h2>캡션 코치</h2>
+            <p className="small muted" style={{ margin: 0 }}>캡션은 내가 실제로 겪은 일로만 써요. 없는 경험이나 숫자는 넣지 않아요.</p>
+            {sp.ask && <div className="note warn" role="status"><b>코치</b> · {sp.ask}</div>}
+            <label>이 콘텐츠에 넣을 내 경험
+              <textarea name="experience" defaultValue={item.idea ?? ""} maxLength={800} placeholder="예: 시험 기간에 도서관 가는 길마다 노이즈 캔슬링을 켰는데, 지하철 소음이 사라져서 단어 외우기가 편했어요." style={{ minHeight: 96 }} />
+            </label>
+            <SubmitButton className="btn" pendingText="캡션 쓰는 중…">{item.caption ? "캡션 다시 쓰기" : "캡션 쓰기"}</SubmitButton>
+            <PendingNote steps={["내 경험을 읽고 있어요", "첫 줄을 고르고 있어요", "지어낸 숫자가 없는지 확인하고 있어요"]} />
+          </form>
+          <form action={saveCaptionAction} className="card">
+            <input type="hidden" name="planItemId" value={item.id} />
+            <div className="row between">
+              <h2>캡션</h2>
+              {sp.cap === "ai" && <span className="tag k-post">AI 초안</span>}
+              {sp.saved && <span className="tag">저장됨</span>}
+            </div>
+            {sp.cap && sp.cap !== "ai" && sp.note && <p className="note small" style={{ margin: 0 }}>{sp.note}</p>}
+            <textarea name="caption" defaultValue={caption} maxLength={2200} style={{ minHeight: 200 }} aria-label="캡션" />
+            <div className="row">
+              <SubmitButton className="btn" pendingText="저장하는 중…">고친 캡션 저장</SubmitButton>
+              <CopyButton text={caption} />
+            </div>
+            <span className="small muted">마지막 문장은 내 말투로 한 번 고쳐 주세요. 저장한 캡션이 예약 게시에 들어가요.</span>
+          </form>
+        </section>
       )}
 
       {match && match.matches.some((m) => m.clip) && (

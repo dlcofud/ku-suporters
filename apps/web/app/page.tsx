@@ -1,7 +1,7 @@
 import Link from "next/link";
 import { currentUser, currentActivity } from "@/lib/session";
 import { todayISO } from "@/lib/repo";
-import { signup, setDeadlineAction } from "@/lib/actions";
+import { signup, setDeadlineAction, topicsAction } from "@/lib/actions";
 import { credits, shared, trends, type planner } from "@supportlab/core";
 import { fmtLabel } from "@/lib/format";
 import { loadAllReviews } from "@/lib/trends";
@@ -16,9 +16,9 @@ const dow = (iso: string) => shared.parseISODate(iso).getUTCDay();
 const korDate = (iso: string) => `${Number(iso.slice(5, 7))}월 ${Number(iso.slice(8, 10))}일`;
 const dotDate = (iso: string) => `${iso.slice(5, 7)}.${iso.slice(8, 10)} ${"일월화수목금토"[dow(iso)]}`;
 
-export default async function Home({ searchParams }: { searchParams: Promise<{ day?: string; error?: string; id?: string; nick?: string }> }) {
+export default async function Home({ searchParams }: { searchParams: Promise<{ day?: string; error?: string; id?: string; nick?: string; topics?: string; note?: string }> }) {
   const user = await currentUser();
-  const { day, error, id, nick } = await searchParams;
+  const { day, error, id, nick, topics, note } = await searchParams;
   if (!user) return <Landing error={error} id={id} nick={nick} />;
   const act = await currentActivity(user.id);
   const today = todayISO();
@@ -108,6 +108,24 @@ export default async function Home({ searchParams }: { searchParams: Promise<{ d
         <div className="card stat"><span className="small muted">업로드 간격</span><span className="num big">{plan.gapDays}~{plan.gapDays + 1}일</span></div>
         <div className="card stat"><span className="small muted">경향 분석 기준 포맷</span><span style={{ fontWeight: 800, fontSize: 17 }}>{mixText}</span></div>
       </section>
+
+      {topics !== undefined && (
+        <div className={Number(topics) > 0 ? "note ok" : "note"} role="status">
+          {Number(topics) > 0 ? `남은 콘텐츠 ${topics}개의 주제를 이 활동에 맞췄어요.` : "주제를 바꾸지 않았어요."} {note}
+        </div>
+      )}
+      {left > 0 && (
+        <form action={topicsAction} className="card">
+          <div className="row" style={{ alignItems: "flex-end", flexWrap: "wrap" }}>
+          <div style={{ flex: "1 1 260px", gap: 4 }} className="grid">
+            <b>콘텐츠 주제를 이 활동에 맞추기</b>
+            <span className="small muted">{contents.some((c) => c.aiTopic) ? "AI가 공고에 맞춘 주제예요. 관심사를 바꿔 다시 짤 수 있어요." : "지금은 어느 활동에나 쓰는 기본 주제예요. AI가 공고의 활동 내용·우대 사항을 읽고 남은 콘텐츠 주제를 다시 짜요."}</span>
+          </div>
+          <label style={{ flex: "1 1 220px" }}>내 관심사 (선택)<input type="text" name="interests" maxLength={200} placeholder="예: 운동, 자취 요리, 시험 기간" /></label>
+          <SubmitButton className="btn" pendingText="주제 짜는 중…">{contents.some((c) => c.aiTopic) ? "주제 다시 짜기" : "AI로 주제 짜기"}</SubmitButton>
+          </div>
+        </form>
+      )}
 
       <section className="calwrap">
         <div className="calmain">

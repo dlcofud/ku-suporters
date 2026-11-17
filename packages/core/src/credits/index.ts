@@ -60,9 +60,11 @@ export const TASK_ESTIMATES: Record<TaskKind, { min: number; max: number }> = {
   feedback_report: { min: 2, max: 4 },
   /** 지원서 코치와 한 번 주고받기 */
   coach_turn: { min: 1, max: 3 },
+  /** 캘린더 콘텐츠 주제를 활동에 맞춰 다시 짜기 */
+  calendar_topics: { min: 2, max: 5 },
 };
 
-export type TaskKind = "notice_analysis" | "skeleton" | "content_draft" | "reels_plan" | "feedback_report" | "coach_turn";
+export type TaskKind = "notice_analysis" | "skeleton" | "content_draft" | "reels_plan" | "feedback_report" | "coach_turn" | "calendar_topics";
 
 /** 상용 API 사용량을 크레딧으로 바꾼다. 로컬 모델(tier=local)은 0. */
 export function creditsForUsage(
