@@ -15,6 +15,14 @@ export interface LLMRequest {
    * 객체마다 additionalProperties:false, required 를 모두 적어야 한다. minimum/maxLength 같은 제약은 쓰지 않는다.
    */
   schema?: Record<string, unknown>;
+  /** 함께 보낼 이미지 (이미지를 읽을 수 있는 모델만, vision이 true인 클라이언트) */
+  images?: LLMImage[];
+}
+
+export interface LLMImage {
+  mediaType: "image/png" | "image/jpeg" | "image/webp" | "image/gif";
+  /** base64 (data: 접두어 없이) */
+  data: string;
 }
 
 export interface LLMResponse {
@@ -28,6 +36,8 @@ export interface LLMClient {
   readonly model: string;
   /** "local"(Gemma 등, API 비용 0) 또는 "paid"(상용 API) */
   readonly tier: "local" | "paid";
+  /** 이미지를 함께 읽을 수 있는지 */
+  readonly vision?: boolean;
   complete(req: LLMRequest): Promise<LLMResponse>;
 }
 
@@ -72,6 +82,8 @@ export class OllamaClient implements LLMClient {
      * 코드북 + 후기 본문이 들어가도록 기본 16,384로 올린다 (메모리가 부족하면 OLLAMA_NUM_CTX로 낮춘다).
      */
     private readonly numCtx: number = 16384,
+    /** Gemma 4 등 이미지를 읽는 모델이면 true (OLLAMA_VISION=0 으로 끌 수 있다) */
+    readonly vision: boolean = true,
   ) {}
   async complete(req: LLMRequest): Promise<LLMResponse> {
     // 작은 로컬 모델은 스키마를 프롬프트에도 보여 주면 더 잘 따른다 (Ollama 문서 권장)
@@ -88,7 +100,7 @@ export class OllamaClient implements LLMClient {
         options: { num_predict: req.maxOutputTokens, num_ctx: this.numCtx, temperature: req.schema || req.json ? 0.2 : 0.7 },
         messages: [
           { role: "system", content: system },
-          { role: "user", content: req.user },
+          { role: "user", content: req.user, ...(req.images?.length ? { images: req.images.map((i) => i.data) } : {}) },
         ],
       }),
     }).catch((e: unknown) => {
@@ -121,6 +133,7 @@ export class OllamaClient implements LLMClient {
  */
 export class AnthropicClient implements LLMClient {
   readonly tier = "paid" as const;
+  readonly vision = true;
   constructor(
     private readonly apiKey: string,
     readonly model: string = "claude-haiku-5-5",
@@ -133,7 +146,14 @@ export class AnthropicClient implements LLMClient {
       model: this.model,
       max_tokens: req.maxOutputTokens,
       system: req.json && !req.schema ? `${req.system}\n\nJSON 객체 하나만 출력하세요. 다른 말은 쓰지 마세요.` : req.system,
-      messages: [{ role: "user", content: req.user }],
+      messages: [
+        {
+          role: "user",
+          content: req.images?.length
+            ? [...req.images.map((i) => ({ type: "image", source: { type: "base64", media_type: i.mediaType, data: i.data } })), { type: "text", text: req.user }]
+            : req.user,
+        },
+      ],
     };
     if (req.schema) body.output_config = { format: { type: "json_schema", schema: req.schema } };
     const f = this.opts.fetchImpl ?? fetch;

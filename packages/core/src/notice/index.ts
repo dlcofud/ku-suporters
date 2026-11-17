@@ -96,6 +96,12 @@ function collectSection(lines: string[], header: RegExp): string[] {
   const out: string[] = [];
   let on = false;
   for (const line of lines) {
+    // 포스터에 흔한 한 줄짜리 "우대 사항: SNS 콘텐츠 제작 경험자"
+    const inline = line.match(/^[\[【■▶●◆#\s]*([^:：]{2,14}?)\s*[\]】]?\s*[:：]\s*(.{2,})$/);
+    if (inline && header.test(inline[1]!) && !on) {
+      out.push(inline[2]!.trim());
+      continue;
+    }
     const isListItem = /^[-•·*▪◦○]\s*|^\d+[.)]\s+/.test(line);
     const isHeader =
       !isListItem &&
@@ -215,3 +221,4 @@ export async function analyzeNoticeWithLLM(text: string, llm: LLMClient, opts: {
   return { analysis: merged, usage: { inputTokens: res.inputTokens, outputTokens: res.outputTokens }, tier: llm.tier };
 }
 export * from "./html.js";
+export * from "./ocr.js";

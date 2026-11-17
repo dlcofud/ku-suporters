@@ -43,7 +43,7 @@ async function assertPublic(url: URL) {
   if (addrs.some((a) => isPrivate(a.address))) throw new NoticeFetchError("blocked", "이 주소는 가져올 수 없어요");
 }
 
-async function readCapped(res: Response): Promise<Uint8Array> {
+async function readCapped(res: Response, cap = MAX_BYTES): Promise<Uint8Array> {
   const reader = res.body?.getReader();
   if (!reader) return new Uint8Array();
   const chunks: Uint8Array[] = [];
@@ -52,13 +52,13 @@ async function readCapped(res: Response): Promise<Uint8Array> {
     const { done, value } = await reader.read();
     if (done) break;
     total += value.byteLength;
-    if (total > MAX_BYTES) {
+    if (total > cap) {
       await reader.cancel();
       break;
     }
     chunks.push(value);
   }
-  const out = new Uint8Array(Math.min(total, MAX_BYTES));
+  const out = new Uint8Array(Math.min(total, cap));
   let off = 0;
   for (const c of chunks) {
     out.set(c.subarray(0, out.length - off), off);
@@ -68,7 +68,41 @@ async function readCapped(res: Response): Promise<Uint8Array> {
   return out;
 }
 
-export async function fetchNotice(raw: string): Promise<notice.ExtractedNotice & { finalUrl: string }> {
+/**
+ * 공고 이미지 한 장을 받는다. 페이지와 같은 보호(내부 주소 차단, 리다이렉트마다 확인)에
+ * 8초, 5MB, 이미지 형식(png/jpeg/webp/gif)만.
+ */
+export async function fetchImage(raw: string): Promise<{ data: Buffer; mediaType: "image/png" | "image/jpeg" | "image/webp" | "image/gif" } | undefined> {
+  let url: URL;
+  try {
+    url = new URL(raw);
+  } catch {
+    return undefined;
+  }
+  const ctrl = new AbortController();
+  const timer = setTimeout(() => ctrl.abort(), 8_000);
+  try {
+    let res: Response | undefined;
+    for (let i = 0; i <= MAX_REDIRECTS; i++) {
+      await assertPublic(url);
+      res = await fetch(url, { redirect: "manual", signal: ctrl.signal, headers: { "User-Agent": "Mozilla/5.0 (compatible; SupportLabBot/0.1)", Accept: "image/*" } });
+      const loc = res.status >= 300 && res.status < 400 ? res.headers.get("location") : null;
+      if (!loc) break;
+      url = new URL(loc, url);
+    }
+    if (!res?.ok) return undefined;
+    const bytes = Buffer.from(await readCapped(res, 5 * 1024 * 1024));
+    const { imageType } = await import("./ocr");
+    const mediaType = imageType(url.pathname, res.headers.get("content-type"), bytes.subarray(0, 16));
+    return mediaType && bytes.length > 2000 ? { data: bytes, mediaType } : undefined;
+  } catch {
+    return undefined;
+  } finally {
+    clearTimeout(timer);
+  }
+}
+
+export async function fetchNotice(raw: string): Promise<notice.ExtractedNotice & { finalUrl: string; posters: string[] }> {
   let url: URL;
   try {
     url = new URL(raw.trim());
@@ -107,9 +141,10 @@ export async function fetchNotice(raw: string): Promise<notice.ExtractedNotice &
       html = new TextDecoder("utf-8").decode(bytes);
     }
     const ex = /text\/plain/i.test(ct ?? "") ? { title: undefined, text: html.trim(), source: "body" as const, images: [], imageOnly: false } : notice.extractNoticeFromHtml(html, url.toString());
-    if (ex.imageOnly) throw new NoticeFetchError("image", "공고가 이미지로 되어 있어 글을 읽지 못했어요. 이미지 속 내용을 붙여 넣어 주세요");
-    if (ex.text.replace(/\s/g, "").length < 40) throw new NoticeFetchError("empty", "페이지에서 공고 내용을 찾지 못했어요. 본문을 붙여 넣어 주세요");
-    return { ...ex, finalUrl: url.toString() };
+    // 공고가 이미지로만 돼 있어도 포스터를 읽으면 되니 바로 실패하지 않는다
+    const posters = /html/i.test(ct ?? "html") ? notice.pickPosterImages(html, url.toString(), 3) : [];
+    if (ex.text.replace(/\s/g, "").length < 40 && posters.length === 0) throw new NoticeFetchError("empty", "페이지에서 공고 내용을 찾지 못했어요. 본문을 붙여 넣거나 공고 이미지를 올려 주세요");
+    return { ...ex, finalUrl: url.toString(), posters };
   } catch (e) {
     if (e instanceof NoticeFetchError) throw e;
     if ((e as Error)?.name === "AbortError") throw new NoticeFetchError("timeout", "페이지가 너무 늦게 열려요. 잠시 후 다시 시도하거나 본문을 붙여 넣어 주세요");
