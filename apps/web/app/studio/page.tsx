@@ -2,6 +2,7 @@ import Link from "next/link";
 import { requireUser, currentActivity } from "@/lib/session";
 import { repo } from "@/lib/repo";
 import { ClipUploader } from "@/components/ClipUploader";
+import { FileButton } from "@/components/FileButton";
 import { planScenesAction, uploadClipsAction, renderAction, scheduleAction, runTickNowAction, cancelPostAction } from "@/lib/actions";
 import { content } from "@supportlab/core";
 import { fmtLabel, md } from "@/lib/format";
@@ -36,7 +37,7 @@ export default async function StudioPage({ searchParams }: { searchParams: Promi
   return (
     <>
       <header>
-        <span className="eyebrow">{act.name} · 콘텐츠 제작</span>
+        <p className="ctx">{act.name}</p>
         <h1>{md(item.date)} {fmtLabel(item.format)} · {item.title}</h1>
       </header>
       {sp.error && <div className="note warn">{ERR[sp.error] ?? sp.error}</div>}
@@ -69,7 +70,7 @@ export default async function StudioPage({ searchParams }: { searchParams: Promi
         <form action={uploadClipsAction} className="card">
           <input type="hidden" name="planItemId" value={item.id} />
           <div className="row between"><h2>찍어야 할 장면 {scenes.length}개</h2><span className="small muted">장면마다 영상을 하나씩 올려 주세요. 가로·세로 모두 괜찮아요 (9:16으로 맞춰 드려요).</span></div>
-          <table>
+          <table className="scenes">
             <thead><tr><th>#</th><th>길이</th><th>구도</th><th>찍을 것</th><th>화면 자막</th><th>영상</th></tr></thead>
             <tbody>
               {match.matches.map((m) => (
@@ -79,11 +80,11 @@ export default async function StudioPage({ searchParams }: { searchParams: Promi
                   <td>{content.SHOT_LABEL[m.scene.shot]}</td>
                   <td><b>{m.scene.what}</b><br /><span className="small muted">{m.scene.tip}</span></td>
                   <td>{m.scene.onScreenText}</td>
-                  <td>
+                  <td><div className="clipcell">
                     {m.clip ? <span className="tag k-post">올림 · {m.clip.durationSec.toFixed(1)}초</span> : <span className="tag">아직</span>}
                     {m.problem && m.clip && <div className="small" style={{ color: "var(--warn)" }}>{m.problem}</div>}
-                    {repo.kind === "memory" && <input type="file" name={`scene_${m.scene.index}`} accept="video/*" aria-label={`${m.scene.index}번 장면 영상`} />}
-                  </td>
+                    {repo.kind === "memory" && <FileButton compact name={`scene_${m.scene.index}`} accept="video/*" label={m.clip ? "바꾸기" : "영상 선택"} ariaLabel={`${m.scene.index}번 장면 영상`} />}
+                  </div></td>
                 </tr>
               ))}
             </tbody>

@@ -17,14 +17,16 @@ export default async function SkeletonPage({ searchParams }: { searchParams: Pro
       </header>
       {achievement && <div className="note ok">성과 피드백의 성과 문장을 ‘내 경험’에 넣어 뒀어요. 뼈대를 만들면 맞는 문항에 추천돼요.</div>}
       <form action={skeletonAction} className="card">
-        <label>
-          내 경험 (한 줄에 하나 · <code>제목 | 설명 | 성과1, 성과2</code>)
-          <textarea name="experiences" defaultValue={achievement ? `서포터즈 준비 계정 운영 | ${achievement.slice(0, 300)}` : undefined} placeholder={"개인 맛집 블로그 | 식품 리뷰 블로그 운영 | 월 방문자 1.2만\n과 학생회 기획국 | 축제 홍보물 제작"} />
-        </label>
-        <label>
-          추가 문항 (공고에서 못 찾은 문항이 있으면 한 줄에 하나)
-          <textarea name="questions" style={{ minHeight: 70 }} placeholder="예: 서포터즈 활동을 통해 이루고 싶은 목표는? (300자)" />
-        </label>
+        <div className="field">
+          <label htmlFor="experiences" className="lbl">내 경험</label>
+          <span id="experiences-help" className="help">한 줄에 경험 하나씩 적어 주세요. <code className="fmt">제목 | 설명 | 성과1, 성과2</code></span>
+          <textarea id="experiences" name="experiences" aria-describedby="experiences-help" defaultValue={achievement ? `서포터즈 준비 계정 운영 | ${achievement.slice(0, 300)}` : undefined} placeholder={"개인 맛집 블로그 | 식품 리뷰 블로그 운영 | 월 방문자 1.2만\n과 학생회 기획국 | 축제 홍보물 제작"} />
+        </div>
+        <div className="field">
+          <label htmlFor="questions" className="lbl">추가 문항 <span className="help">(선택)</span></label>
+          <span id="questions-help" className="help">공고에서 못 찾은 문항이 있으면 한 줄에 하나씩 적어 주세요.</span>
+          <textarea id="questions" name="questions" aria-describedby="questions-help" style={{ minHeight: 70 }} placeholder="예: 서포터즈 활동을 통해 이루고 싶은 목표는? (300자)" />
+        </div>
         <label className="check"><input type="checkbox" name="hasChannel" defaultChecked />활동용 SNS 계정이 있어요</label>
         <div className="row between">
           <span className="small muted">완성 문장은 만들지 않아요. 구조와 강조점만 제안하고, 문장은 직접 채워요.</span>

@@ -3,6 +3,7 @@
 import { useState } from "react";
 import { useRouter } from "next/navigation";
 import { signClipUploadAction, registerClipAction } from "@/lib/actions";
+import { FileButton } from "./FileButton";
 
 /**
  * 배포 환경용 업로더: 영상을 서버를 거치지 않고 Supabase Storage로 바로 올린다.
@@ -43,10 +44,10 @@ export function ClipUploader({ planItemId, scenes }: { planItemId: string; scene
     <div className="card" style={{ padding: 14 }}>
       <div className="grid g3">
         {scenes.map((s) => (
-          <label key={s.index}>
-            {s.index}번 · {s.label}
-            <input type="file" accept="video/*" onChange={(e) => { const f = e.target.files?.[0]; if (f) setFiles((p) => ({ ...p, [s.index]: f })); }} />
-          </label>
+          <div key={s.index} className="field">
+            <span className="lbl">{s.index}번 · {s.label}</span>
+            <FileButton accept="video/*" label="영상 선택" ariaLabel={`${s.index}번 장면 영상`} onFile={(f) => { if (f) setFiles((p) => ({ ...p, [s.index]: f })); }} />
+          </div>
         ))}
       </div>
       <div className="row">

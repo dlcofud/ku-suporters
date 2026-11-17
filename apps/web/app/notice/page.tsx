@@ -12,6 +12,11 @@ const ERR: Record<string, string> = {
   credits: "크레딧이 부족해요. 합격 경험을 공유하면 크레딧을 받을 수 있어요.",
 };
 
+/** 긴 공고 주소 대신 사이트 이름만 보여 준다 (전체 주소는 title로) */
+function hostOf(url: string) {
+  try { return new URL(url).hostname.replace(/^www\./, "") + " 공고 원문 ↗"; } catch { return url; }
+}
+
 export default async function NoticePage({ searchParams }: { searchParams: Promise<{ error?: string; msg?: string; url?: string }> }) {
   const user = await requireUser();
   const { error, msg, url } = await searchParams;
@@ -52,17 +57,30 @@ export default async function NoticePage({ searchParams }: { searchParams: Promi
         <section className="grid g2" style={{ alignItems: "start" }}>
           <div className="card">
             <h2>{act.name}</h2>
-            <table>
-              <tbody>
-                <tr><th>마감</th><td>{act.analysis.deadline ?? "찾지 못함 (캘린더에서 직접 입력)"}</td></tr>
-                <tr><th>발표</th><td>{act.analysis.announcementDate ?? "-"}</td></tr>
-                <tr><th>제출물</th><td>{act.analysis.submissions.map((s) => SUB[s]).join(", ") || "-"}</td></tr>
-                <tr><th>전형</th><td>{act.analysis.stages.map((s) => STAGE[s]).join(" → ") || "-"}</td></tr>
-                <tr><th>혜택</th><td>{act.analysis.benefits.join(" · ") || "-"}</td></tr>
-                <tr><th>지원서 문항</th><td><ul className="clean">{act.analysis.questions.map((q) => <li key={q}>{q}</li>)}</ul></td></tr>
-                {act.sourceUrl && <tr><th>출처</th><td><a href={act.sourceUrl}>{act.sourceUrl}</a></td></tr>}
-              </tbody>
-            </table>
+            <dl className="facts">
+              <dt>마감</dt><dd>{act.analysis.deadline ?? <span className="muted">찾지 못했어요 · 캘린더에서 직접 넣어 주세요</span>}</dd>
+              <dt>발표</dt><dd>{act.analysis.announcementDate ?? <span className="muted">-</span>}</dd>
+              <dt>제출물</dt><dd>{act.analysis.submissions.map((s) => SUB[s]).join(", ") || <span className="muted">-</span>}</dd>
+              <dt>전형</dt><dd>{act.analysis.stages.map((s) => STAGE[s]).join(" → ") || <span className="muted">-</span>}</dd>
+              <dt>혜택</dt>
+              <dd>
+                {act.analysis.benefits.length > 1
+                  ? <ul className="clean">{act.analysis.benefits.map((b) => <li key={b}>{b}</li>)}</ul>
+                  : act.analysis.benefits[0] ?? <span className="muted">-</span>}
+              </dd>
+              <dt>지원서 문항</dt>
+              <dd>
+                {act.analysis.questions.length
+                  ? <ul className="clean">{act.analysis.questions.map((q) => <li key={q}>{q}</li>)}</ul>
+                  : <span className="muted">찾지 못했어요 · 지원서 뼈대에서 직접 넣을 수 있어요</span>}
+              </dd>
+              {act.sourceUrl && (
+                <>
+                  <dt>출처</dt>
+                  <dd><a className="src" href={act.sourceUrl} title={act.sourceUrl} target="_blank" rel="noreferrer">{hostOf(act.sourceUrl)}</a></dd>
+                </>
+              )}
+            </dl>
           </div>
           <div className="card hi">
             <h2>우대사항 → 이렇게 준비하세요</h2>
