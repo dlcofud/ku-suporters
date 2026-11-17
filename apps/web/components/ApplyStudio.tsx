@@ -24,6 +24,9 @@ export function ApplyStudio({ initial, activityName, aiLabel, aiMode, prefill }:
   const [typing, setTyping] = useState<Record<number, boolean>>({});
   const [flash, setFlash] = useState<Record<number, boolean>>({});
   const [dirty, setDirty] = useState<Set<number>>(new Set());
+  /** 응답이 왔을 때 '지금 화면의 글'을 읽기 위한 거울 (setTexts 클로저가 오래된 값을 보지 않게) */
+  const textsRef = useRef<string[]>(texts);
+  textsRef.current = texts;
   const [input, setInput] = useState(prefill ?? "");
   const [busy, setBusy] = useState(false);
   const [sec, setSec] = useState(0);
@@ -115,12 +118,25 @@ export function ApplyStudio({ initial, activityName, aiLabel, aiMode, prefill }:
   }
 
   async function save(body: Record<string, unknown>, label = "저장했어요") {
+    const sent = new Map((Array.isArray(body.edits) ? (body.edits as { q: number; text: string }[]) : []).map((e) => [e.q, e.text]));
     const res = await fetch("/api/apply/save", { method: "POST", headers: { "Content-Type": "application/json" }, body: JSON.stringify(body) });
     const data = (await res.json()) as { app?: PublicApp };
     if (data.app) {
+      // 저장하는 동안 다른 문항(또는 같은 문항)에 더 쓴 글은 지우지 않는다:
+      // 화면 글이 '보낸 글(안 보낸 문항은 서버 글)'과 다르면 아직 고치는 중이므로 그대로 두고 저장 대기로 남긴다
+      const local = textsRef.current;
+      const keep = new Set<number>();
+      const next = data.app.answers.map((a, i) => {
+        const mine = local[i];
+        if (!body.reset && mine !== undefined && mine !== (sent.get(i) ?? a.text)) {
+          keep.add(i);
+          return mine;
+        }
+        return a.text;
+      });
       setApp(data.app);
-      setTexts(data.app.answers.map((a) => a.text));
-      setDirty(new Set());
+      setTexts(next);
+      setDirty(keep);
       setSaved(label);
       setTimeout(() => setSaved(undefined), 1800);
     }
@@ -144,6 +160,25 @@ export function ApplyStudio({ initial, activityName, aiLabel, aiMode, prefill }:
       setFormMsg({ ok: false, text: e instanceof Error ? e.message : "양식을 읽지 못했어요" });
     } finally {
       setFormBusy(false);
+    }
+  }
+
+  /** 고치는 중이던 글을 먼저 저장하고 워드 파일을 받는다 (blur 저장과 내려받기가 엇갈리지 않게) */
+  const [downloading, setDownloading] = useState(false);
+  async function downloadDocx() {
+    setDownloading(true);
+    try {
+      if (dirty.size) {
+        const res = await fetch("/api/apply/save", { method: "POST", headers: { "Content-Type": "application/json" }, body: JSON.stringify({ edits: [...dirty].map((q) => ({ q, text: texts[q] ?? "" })) }) });
+        if (!res.ok) throw new Error("저장하지 못했어요");
+        setDirty(new Set());
+      }
+      window.location.href = "/api/apply/docx";
+      setSaved("워드 파일을 내려받아요");
+    } catch (e) {
+      setSaved(e instanceof Error ? e.message : "내려받지 못했어요");
+    } finally {
+      setTimeout(() => { setDownloading(false); setSaved(undefined); }, 1800);
     }
   }
 
@@ -217,6 +252,7 @@ export function ApplyStudio({ initial, activityName, aiLabel, aiMode, prefill }:
           <div className="row">
             {saved && <span className="small" role="status" style={{ fontWeight: 800 }}>{saved}</span>}
             <button type="button" className="btn" onClick={copyAll}>전체 복사</button>
+            <button type="button" className="btn" onClick={downloadDocx} disabled={downloading || !app.questions.length} title="문항과 답을 워드(.docx)로 받아요">{downloading ? "만드는 중…" : "워드로 받기"}</button>
             <button type="button" className="btn" onClick={() => { if (confirm("대화와 지원서 글을 모두 지우고 처음부터 할까요?")) save({ reset: true }, "처음부터 다시 시작해요"); }}>처음부터</button>
           </div>
         </div>

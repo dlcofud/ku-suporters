@@ -1,7 +1,17 @@
 /** 릴리즈 노트. 새 기능을 합칠 때 맨 위에 한 줄씩 추가해 주세요. */
-export const APP_VERSION = "0.12";
+export const APP_VERSION = "0.13";
 
 export const RELEASES: { version: string; date: string; items: string[] }[] = [
+  {
+    version: "0.13",
+    date: "2026-11-17",
+    items: [
+      "지원서 작성에서 '워드로 받기'를 누르면 문항과 답을 .docx 파일로 받아요",
+      "문항마다 글자 수와 제한을 적고, 제한을 넘으면 빨갛게 표시해요",
+      "양식에서 읽은 '직접 채울 항목'은 빈 표로 넣어 둬요. 고치던 글은 먼저 저장한 뒤 내려받아요",
+      "고친 점: 한 문항이 저장되는 동안 다른 문항에 쓴 글이 지워질 수 있던 문제를 고쳤어요",
+    ],
+  },
   {
     version: "0.12",
     date: "2026-11-17",
