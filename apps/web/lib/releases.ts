@@ -1,7 +1,12 @@
 /** 릴리즈 노트. 새 기능을 합칠 때 맨 위에 한 줄씩 추가해 주세요. */
-export const APP_VERSION = "0.15";
+export const APP_VERSION = "0.15.1";
 
 export const RELEASES: { version: string; date: string; items: string[] }[] = [
+  {
+    version: "0.15.1",
+    date: "2026-11-19",
+    items: ["고친 점: Gemini가 너무 오래 생각해서 코치 답이 1분을 넘기던 문제를 고쳤어요 (생각 깊이를 low로)"],
+  },
   {
     version: "0.15",
     date: "2026-11-19",

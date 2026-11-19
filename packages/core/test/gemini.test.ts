@@ -30,6 +30,7 @@ describe("GeminiClient", () => {
     expect(g.responseMimeType).toBe("application/json");
     expect(g.responseJsonSchema).toEqual(req.schema);
     expect(g.maxOutputTokens).toBe(2048);
+    expect(g.thinkingConfig).toEqual({ thinkingLevel: "low" }); // 기본 high는 1분을 넘길 수 있다
     expect(calls[0]!.body.contents[0].parts[0]).toEqual({ inline_data: { mime_type: "image/png", data: "AAAA" } });
     expect(r.text).toBe('{"a":"답"}');
     expect(r.inputTokens).toBe(120);
@@ -37,12 +38,17 @@ describe("GeminiClient", () => {
     expect(r.model).toBe("gemini-x-flash");
   });
 
-  it("스키마를 거절하면(400) 스키마 없이 JSON 모드로 다시 묻는다", async () => {
-    const { impl, calls } = fakeFetch([{ status: 400, body: "Unknown name responseJsonSchema" }, { status: 200, body: ok('{"a":"b"}') }]);
+  it("생각 설정을 거절하면(400) 빼고, 그래도 400이면 스키마도 빼고 다시 묻는다", async () => {
+    const one = fakeFetch([{ status: 400, body: "Unknown field thinkingLevel" }, { status: 200, body: ok('{"a":"c"}') }]);
+    expect((await new GeminiClient("KEY", "gemini-2.5-flash", { fetchImpl: one.impl }).complete(req)).text).toBe('{"a":"c"}');
+    expect(one.calls[1]!.body.generationConfig.thinkingConfig).toBeUndefined();
+    expect(one.calls[1]!.body.generationConfig.responseJsonSchema).toEqual(req.schema);
+
+    const { impl, calls } = fakeFetch([{ status: 400, body: "bad" }, { status: 400, body: "Unknown name responseJsonSchema" }, { status: 200, body: ok('{"a":"b"}') }]);
     const r = await new GeminiClient("KEY", "m", { fetchImpl: impl }).complete(req);
-    expect(calls).toHaveLength(2);
-    expect(calls[1]!.body.generationConfig.responseJsonSchema).toBeUndefined();
-    expect(calls[1]!.body.systemInstruction.parts[0].text).toContain("JSON 스키마");
+    expect(calls).toHaveLength(3);
+    expect(calls[2]!.body.generationConfig.responseJsonSchema).toBeUndefined();
+    expect(calls[2]!.body.systemInstruction.parts[0].text).toContain("JSON 스키마");
     expect(r.text).toBe('{"a":"b"}');
   });
 
@@ -51,6 +57,15 @@ describe("GeminiClient", () => {
     expect((await new GeminiClient("K", "m", { fetchImpl: a.impl, retryDelayMs: 1 }).complete({ system: "s", user: "u", maxOutputTokens: 10 })).text).toBe("안녕");
     const b = fakeFetch([{ status: 429, body: "quota" }]);
     await expect(new GeminiClient("K", "m", { fetchImpl: b.impl, retryDelayMs: 1 }).complete({ system: "s", user: "u", maxOutputTokens: 10 })).rejects.toThrow("무료 사용량");
+  });
+
+  it("thinkingLevel off면 생각 설정을 보내지 않고, 시간 제한을 넘기면 알아보기 쉬운 오류", async () => {
+    const a = fakeFetch([{ status: 200, body: ok("x") }]);
+    await new GeminiClient("K", "m", { fetchImpl: a.impl, thinkingLevel: "off" }).complete({ system: "s", user: "u", maxOutputTokens: 10 });
+    expect(a.calls[0]!.body.generationConfig.thinkingConfig).toBeUndefined();
+    const slow = (async (_u: string, init: RequestInit) =>
+      new Promise((_, rej) => init.signal!.addEventListener("abort", () => rej(Object.assign(new Error("t"), { name: "TimeoutError" }))))) as unknown as typeof fetch;
+    await expect(new GeminiClient("K", "m", { fetchImpl: slow, timeoutMs: 20 }).complete({ system: "s", user: "u", maxOutputTokens: 10 })).rejects.toThrow("안에 답하지 않았어요");
   });
 
   it("키·모델 오류를 한국어로 알려 준다", async () => {

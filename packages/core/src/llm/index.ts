@@ -202,12 +202,23 @@ export class GeminiClient implements LLMClient {
     private readonly apiKey: string,
     /** 기본은 구글이 최신 안정판 Flash로 바꿔 주는 별칭. GEMINI_MODEL로 고정할 수 있다 */
     readonly model: string = "gemini-flash-latest",
-    private readonly opts: { baseUrl?: string; fetchImpl?: typeof fetch; timeoutMs?: number; retryDelayMs?: number } = {},
+    private readonly opts: {
+      baseUrl?: string;
+      fetchImpl?: typeof fetch;
+      timeoutMs?: number;
+      retryDelayMs?: number;
+      /**
+       * 생각(thinking) 깊이. Gemini 3 이상은 기본이 high라 긴 요청에서 1분을 넘길 수 있다.
+       * 코치·기획 같은 대화형 작업은 low로 충분하다. "off"면 설정을 보내지 않는다 (모델 기본값)
+       */
+      thinkingLevel?: "minimal" | "low" | "medium" | "high" | "off";
+    } = {},
   ) {
     if (!apiKey) throw new Error("GEMINI_API_KEY가 비어 있어요");
   }
 
-  private body(req: LLMRequest, withSchema: boolean): Record<string, unknown> {
+  private body(req: LLMRequest, withSchema: boolean, withThinking = true): Record<string, unknown> {
+    const level = this.opts.thinkingLevel ?? "low";
     const wantsJson = !!(req.schema || req.json);
     return {
       systemInstruction: { parts: [{ text: wantsJson && !(withSchema && req.schema) ? `${req.system}\n\nJSON 객체 하나만 출력하세요. 다른 말은 쓰지 마세요.${req.schema ? `\n다음 JSON 스키마를 따르세요:\n${JSON.stringify(req.schema)}` : ""}` : req.system }] },
@@ -218,8 +229,9 @@ export class GeminiClient implements LLMClient {
         },
       ],
       generationConfig: {
-        // 생각(thinking)하는 모델은 생각 토큰도 출력 한도에 들어가므로 넉넉히 준다
-        maxOutputTokens: Math.max(2048, req.maxOutputTokens * 4),
+        // 생각(thinking) 토큰도 출력 한도에 들어가므로 넉넉히 준다
+        maxOutputTokens: Math.max(2048, req.maxOutputTokens * 3),
+        ...(withThinking && level !== "off" ? { thinkingConfig: { thinkingLevel: level } } : {}),
         temperature: wantsJson ? 0.2 : 0.7,
         ...(wantsJson ? { responseMimeType: "application/json" } : {}),
         ...(withSchema && req.schema ? { responseJsonSchema: req.schema } : {}),
@@ -237,20 +249,27 @@ export class GeminiClient implements LLMClient {
       signal: AbortSignal.timeout(this.opts.timeoutMs ?? 60_000),
     }).catch((e: unknown) => {
       const timeout = e instanceof Error && (e.name === "TimeoutError" || e.name === "AbortError");
-      throw new Error(timeout ? "Gemini가 60초 안에 답하지 않았어요. 잠시 뒤 다시 시도해 주세요" : `Gemini에 연결하지 못했어요: ${e instanceof Error ? e.message : String(e)}`);
+      throw new Error(timeout ? `Gemini가 ${Math.round((this.opts.timeoutMs ?? 60_000) / 1000) || 60}초 안에 답하지 않았어요. 잠시 뒤 다시 시도해 주세요` : `Gemini에 연결하지 못했어요: ${e instanceof Error ? e.message : String(e)}`);
     });
   }
 
   async complete(req: LLMRequest): Promise<LLMResponse> {
+    // 400이면 모델이 받지 않는 설정을 하나씩 빼고 다시 묻는다:
+    // 생각 설정(Gemini 2.5는 thinkingLevel을 모른다) → 스키마 순서
     let withSchema = true;
-    let res = await this.post(this.body(req, withSchema));
+    let withThinking = (this.opts.thinkingLevel ?? "low") !== "off";
+    let res = await this.post(this.body(req, withSchema, withThinking));
+    if (res.status === 400 && withThinking) {
+      withThinking = false;
+      res = await this.post(this.body(req, withSchema, withThinking));
+    }
     if (res.status === 400 && req.schema) {
       withSchema = false;
-      res = await this.post(this.body(req, withSchema));
+      res = await this.post(this.body(req, withSchema, withThinking));
     }
     if (res.status === 429 || res.status === 503) {
       await new Promise((r) => setTimeout(r, this.opts.retryDelayMs ?? 2000));
-      res = await this.post(this.body(req, withSchema));
+      res = await this.post(this.body(req, withSchema, withThinking));
     }
     if (!res.ok) {
       const detail = await res.text().catch(() => "");
