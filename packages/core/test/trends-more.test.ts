@@ -33,7 +33,10 @@ describe("경향 리포트 확장", () => {
   it("결론: 강한 요인과 차별화할 틈을 숫자로 말한다", () => {
     const ins = trendInsights(r);
     expect(ins.find((i) => i.kind === "strong")!.title).toMatch(/분야 연결 경험 · 진정성·스토리/);
-    expect(ins.find((i) => i.kind === "gap")!.body).toMatch(/E1 0\.00/);
+    // 3건은 표본이 적어 '틈' 결론을 내지 않는다 → 5건으로 늘려서 본다
+    expect(ins.find((i) => i.kind === "gap")).toBeUndefined();
+    const more = trendInsights(buildTrendReport([...rows, base({}), base({})]));
+    expect(more.find((i) => i.kind === "gap")!.body).toMatch(/E1 0\.00/);
     expect(ins.find((i) => i.kind === "format")!.title).toContain("숏폼");
     expect(trendInsights(buildTrendReport([]))).toEqual([]);
   });
