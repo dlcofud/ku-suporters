@@ -15,12 +15,14 @@ export interface LLMRequest {
    * 객체마다 additionalProperties:false, required 를 모두 적어야 한다. minimum/maxLength 같은 제약은 쓰지 않는다.
    */
   schema?: Record<string, unknown>;
-  /** 함께 보낼 이미지 (이미지를 읽을 수 있는 모델만, vision이 true인 클라이언트) */
+  /** 함께 보낼 이미지·PDF (이미지를 읽을 수 있는 모델만, vision이 true인 클라이언트. PDF는 Gemini·Claude만) */
   images?: LLMImage[];
+  /** 이 요청만 기다리는 시간을 바꿀 때 (지원하는 클라이언트만, 지금은 Gemini) */
+  timeoutMs?: number;
 }
 
 export interface LLMImage {
-  mediaType: "image/png" | "image/jpeg" | "image/webp" | "image/gif";
+  mediaType: "image/png" | "image/jpeg" | "image/webp" | "image/gif" | "application/pdf";
   /** base64 (data: 접두어 없이) */
   data: string;
 }
@@ -102,7 +104,7 @@ export class OllamaClient implements LLMClient {
         options: { num_predict: req.maxOutputTokens, num_ctx: this.numCtx, temperature: req.schema || req.json ? 0.2 : 0.7 },
         messages: [
           { role: "system", content: system },
-          { role: "user", content: req.user, ...(req.images?.length ? { images: req.images.map((i) => i.data) } : {}) },
+          { role: "user", content: req.user, ...(req.images?.some((i) => i.mediaType !== "application/pdf") ? { images: req.images.filter((i) => i.mediaType !== "application/pdf").map((i) => i.data) } : {}) },
         ],
       }),
     }).catch((e: unknown) => {
@@ -152,7 +154,14 @@ export class AnthropicClient implements LLMClient {
         {
           role: "user",
           content: req.images?.length
-            ? [...req.images.map((i) => ({ type: "image", source: { type: "base64", media_type: i.mediaType, data: i.data } })), { type: "text", text: req.user }]
+            ? [
+                ...req.images.map((i) =>
+                  i.mediaType === "application/pdf"
+                    ? { type: "document", source: { type: "base64", media_type: i.mediaType, data: i.data } }
+                    : { type: "image", source: { type: "base64", media_type: i.mediaType, data: i.data } },
+                ),
+                { type: "text", text: req.user },
+              ]
             : req.user,
         },
       ],
@@ -269,7 +278,8 @@ export class GeminiClient implements LLMClient {
 
   /** 모델 하나로 묻기. 붐비면 { busy } 를 돌려주고, 고칠 수 없는 오류는 던진다 */
   private async tryModel(model: string, req: LLMRequest): Promise<{ res: Response } | { busy: string }> {
-    const signal = AbortSignal.timeout(this.opts.timeoutMs ?? 15_000);
+    const waitMs = req.timeoutMs ?? this.opts.timeoutMs ?? 15_000;
+    const signal = AbortSignal.timeout(waitMs);
     // 키가 틀린 400은 설정을 빼 봐야 소용없으니 바로 알린다
     const keyError = async (r: Response | "timeout") => {
       if (r === "timeout" || r.status !== 400) return false;
@@ -289,7 +299,7 @@ export class GeminiClient implements LLMClient {
       withSchema = false;
       res = await this.post(model, this.body(req, withSchema, withThinking), signal);
     }
-    if (res === "timeout") return { busy: `${model}: ${Math.round((this.opts.timeoutMs ?? 15_000) / 1000)}초 안에 답 없음` };
+    if (res === "timeout") return { busy: `${model}: ${Math.round(waitMs / 1000)}초 안에 답 없음` };
     if (res.status === 429 || res.status >= 500) return { busy: `${model}: ${res.status}` };
     if (!res.ok) {
       const detail = await res.text().catch(() => "");

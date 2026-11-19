@@ -1,7 +1,16 @@
 /** 릴리즈 노트. 새 기능을 합칠 때 맨 위에 한 줄씩 추가해 주세요. */
-export const APP_VERSION = "0.15.4";
+export const APP_VERSION = "0.16.0";
 
 export const RELEASES: { version: string; date: string; items: string[] }[] = [
+  {
+    version: "0.16.0",
+    date: "2026-11-19",
+    items: [
+      "새 기능: 지원서 코치에 자료 올리기 📎 — 예전 자소서·활동 보고서·포트폴리오·캡처를 여러 개 한 번에 (워드·한글·PDF·이미지)",
+      "코치가 문항마다 어떤 경험이 필요한지 짚고 관련 자료가 있는지 물어봐요",
+      "자료를 올리면 자료마다 정리하고, 맞는 문항에 한 번에 초안을 써요. 빠진 것만 하나 물어봐요",
+    ],
+  },
   {
     version: "0.15.4",
     date: "2026-11-19",

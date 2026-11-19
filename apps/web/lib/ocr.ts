@@ -4,7 +4,7 @@ import { join } from "node:path";
 import { notice, type llm } from "@supportlab/core";
 import { getLLM, llmStatus } from "./llm";
 
-export type OcrImage = { data: Buffer; mediaType: llm.LLMImage["mediaType"] };
+export type OcrImage = { data: Buffer; mediaType: Exclude<llm.LLMImage["mediaType"], "application/pdf"> };
 
 /**
  * 공고 이미지에서 글자를 읽는다.
