@@ -195,7 +195,9 @@ export class AnthropicClient implements LLMClient {
  *   400이면 모델이 모르는 설정을 하나씩 빼고 다시 묻는다: 생각 설정 → 스키마 (결과는 각 기능의 검사기가 다시 확인).
  * - 모델이 붐비면(503·429·5xx·시간 초과) 다음 모델로 넘어간다: GEMINI_MODEL → fallbackModels.
  *   무료 등급의 최신 Flash는 수요가 몰리면 503을 내거나 답 없이 멈춘다 (2026-11-19 배포 로그에서 확인).
- * - 모델 하나에 timeoutMs(기본 25초). 두 모델이어도 1분 안에 끝난다.
+ * - 모델 하나에 timeoutMs(기본 15초). 평소 코치 답은 2~8초 (2026-11-19 /api/ai/diagnose 측정).
+ * - 모든 모델이 붐비면 잠깐(retryDelayMs, 기본 1.5초) 쉬고 한 바퀴 더 돈다 (rounds, 기본 2).
+ *   503은 몇 초 사이에도 왔다 갔다 해서, 한 번 더 물으면 대부분 답한다. 최악이어도 두 모델 × 두 바퀴 ≈ 1분.
  * 키는 서버 환경 변수(GEMINI_API_KEY)로만 넘긴다. 브라우저에서 만들지 말 것.
  */
 export class GeminiClient implements LLMClient {
@@ -208,8 +210,12 @@ export class GeminiClient implements LLMClient {
     private readonly opts: {
       baseUrl?: string;
       fetchImpl?: typeof fetch;
-      /** 모델 하나를 기다리는 시간 (기본 25초) */
+      /** 모델 하나를 기다리는 시간 (기본 15초) */
       timeoutMs?: number;
+      /** 모든 모델이 붐빌 때 몇 바퀴까지 돌지 (기본 2) */
+      rounds?: number;
+      /** 바퀴 사이에 쉬는 시간 (기본 1500ms) */
+      retryDelayMs?: number;
       /** 첫 모델이 붐빌 때 차례로 쓸 모델 (기본 gemini-flash-lite-latest). 빈 배열이면 넘어가지 않는다 */
       fallbackModels?: string[];
       /**
@@ -263,7 +269,7 @@ export class GeminiClient implements LLMClient {
 
   /** 모델 하나로 묻기. 붐비면 { busy } 를 돌려주고, 고칠 수 없는 오류는 던진다 */
   private async tryModel(model: string, req: LLMRequest): Promise<{ res: Response } | { busy: string }> {
-    const signal = AbortSignal.timeout(this.opts.timeoutMs ?? 25_000);
+    const signal = AbortSignal.timeout(this.opts.timeoutMs ?? 15_000);
     // 키가 틀린 400은 설정을 빼 봐야 소용없으니 바로 알린다
     const keyError = async (r: Response | "timeout") => {
       if (r === "timeout" || r.status !== 400) return false;
@@ -283,7 +289,7 @@ export class GeminiClient implements LLMClient {
       withSchema = false;
       res = await this.post(model, this.body(req, withSchema, withThinking), signal);
     }
-    if (res === "timeout") return { busy: `${model}: ${Math.round((this.opts.timeoutMs ?? 25_000) / 1000)}초 안에 답 없음` };
+    if (res === "timeout") return { busy: `${model}: ${Math.round((this.opts.timeoutMs ?? 15_000) / 1000)}초 안에 답 없음` };
     if (res.status === 429 || res.status >= 500) return { busy: `${model}: ${res.status}` };
     if (!res.ok) {
       const detail = await res.text().catch(() => "");
@@ -297,13 +303,19 @@ export class GeminiClient implements LLMClient {
 
   async complete(req: LLMRequest): Promise<LLMResponse> {
     const tried: string[] = [];
-    for (const model of this.models) {
-      const r = await this.tryModel(model, req);
-      if ("busy" in r) {
-        tried.push(r.busy);
-        continue;
+    const rounds = Math.max(1, this.opts.rounds ?? 2);
+    for (let round = 0; round < rounds; round++) {
+      if (round > 0) await new Promise((r) => setTimeout(r, this.opts.retryDelayMs ?? 1500));
+      for (const model of this.models) {
+        const r = await this.tryModel(model, req);
+        if ("busy" in r) {
+          if (!tried.includes(r.busy)) tried.push(r.busy);
+          // 모델이 없으면 다음 바퀴에도 없다
+          continue;
+        }
+        return this.read(r.res, req, model);
       }
-      return this.read(r.res, req, model);
+      if (tried.every((t) => t.endsWith("모델 없음"))) break;
     }
     if (tried.every((t) => t.endsWith("모델 없음"))) throw new Error(`Gemini에 '${this.model}' 모델이 없어요. GEMINI_MODEL을 확인해 주세요`);
     if (tried.some((t) => t.endsWith(": 429"))) throw new Error(`Gemini 무료 사용량을 넘었어요. 잠시 뒤 다시 시도해 주세요 (${tried.join(" · ")})`);

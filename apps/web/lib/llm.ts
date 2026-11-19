@@ -47,5 +47,6 @@ export function geminiProbe(thinkingLevel: Thinking, timeoutMs = 25_000): llm.Ge
     fallbackModels: [],
     thinkingLevel,
     timeoutMs,
+    rounds: 1,
   });
 }
