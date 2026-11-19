@@ -190,9 +190,10 @@ export class AnthropicClient implements LLMClient {
 /**
  * Google Gemini API 클라이언트 (generateContent, fetch만 사용).
  * - schema를 주면 responseMimeType=application/json + responseJsonSchema로 JSON을 받는다.
- *   모델이 스키마를 받지 않으면(400) 스키마 없이 JSON 모드로 한 번 더 묻는다 (결과는 각 기능의 검사기가 다시 확인).
- * - 429·503(사용량 초과·일시 장애)이면 잠깐 쉬고 한 번 더 시도한다.
- * - 60초 안에 답이 없으면 멈춘다 (페이지가 끝없이 기다리지 않게).
+ *   400이면 모델이 모르는 설정을 하나씩 빼고 다시 묻는다: 생각 설정 → 스키마 (결과는 각 기능의 검사기가 다시 확인).
+ * - 모델이 붐비면(503·429·5xx·시간 초과) 다음 모델로 넘어간다: GEMINI_MODEL → fallbackModels.
+ *   무료 등급의 최신 Flash는 수요가 몰리면 503을 내거나 답 없이 멈춘다 (2026-11-19 배포 로그에서 확인).
+ * - 모델 하나에 timeoutMs(기본 25초). 두 모델이어도 1분 안에 끝난다.
  * 키는 서버 환경 변수(GEMINI_API_KEY)로만 넘긴다. 브라우저에서 만들지 말 것.
  */
 export class GeminiClient implements LLMClient {
@@ -200,15 +201,17 @@ export class GeminiClient implements LLMClient {
   readonly vision = true;
   constructor(
     private readonly apiKey: string,
-    /** 기본은 구글이 최신 안정판 Flash로 바꿔 주는 별칭. GEMINI_MODEL로 고정할 수 있다 */
+    /** 기본은 구글이 최신 Flash로 바꿔 주는 별칭. GEMINI_MODEL로 고정할 수 있다 */
     readonly model: string = "gemini-flash-latest",
     private readonly opts: {
       baseUrl?: string;
       fetchImpl?: typeof fetch;
+      /** 모델 하나를 기다리는 시간 (기본 25초) */
       timeoutMs?: number;
-      retryDelayMs?: number;
+      /** 첫 모델이 붐빌 때 차례로 쓸 모델 (기본 gemini-flash-lite-latest). 빈 배열이면 넘어가지 않는다 */
+      fallbackModels?: string[];
       /**
-       * 생각(thinking) 깊이. Gemini 3 이상은 기본이 high라 긴 요청에서 1분을 넘길 수 있다.
+       * 생각(thinking) 깊이. Gemini 3 이상은 기본이 high라 긴 요청에서 오래 걸린다.
        * 코치·기획 같은 대화형 작업은 low로 충분하다. "off"면 설정을 보내지 않는다 (모델 기본값)
        */
       thinkingLevel?: "minimal" | "low" | "medium" | "high" | "off";
@@ -217,7 +220,12 @@ export class GeminiClient implements LLMClient {
     if (!apiKey) throw new Error("GEMINI_API_KEY가 비어 있어요");
   }
 
-  private body(req: LLMRequest, withSchema: boolean, withThinking = true): Record<string, unknown> {
+  /** 차례로 써 볼 모델들 (겹치는 이름은 한 번만) */
+  get models(): string[] {
+    return [...new Set([this.model, ...(this.opts.fallbackModels ?? ["gemini-flash-lite-latest"])].filter(Boolean))];
+  }
+
+  private body(req: LLMRequest, withSchema: boolean, withThinking: boolean): Record<string, unknown> {
     const level = this.opts.thinkingLevel ?? "low";
     const wantsJson = !!(req.schema || req.json);
     return {
@@ -239,46 +247,68 @@ export class GeminiClient implements LLMClient {
     };
   }
 
-  private async post(body: Record<string, unknown>): Promise<Response> {
+  /** 시간 초과는 Response 대신 "timeout"을 돌려준다 (다음 모델로 넘어가기 위해) */
+  private async post(model: string, body: Record<string, unknown>, signal: AbortSignal): Promise<Response | "timeout"> {
     const f = this.opts.fetchImpl ?? fetch;
-    const url = `${this.opts.baseUrl ?? "https://generativelanguage.googleapis.com"}/v1beta/models/${encodeURIComponent(this.model)}:generateContent`;
-    return f(url, {
-      method: "POST",
-      headers: { "content-type": "application/json", "x-goog-api-key": this.apiKey },
-      body: JSON.stringify(body),
-      signal: AbortSignal.timeout(this.opts.timeoutMs ?? 60_000),
-    }).catch((e: unknown) => {
-      const timeout = e instanceof Error && (e.name === "TimeoutError" || e.name === "AbortError");
-      throw new Error(timeout ? `Gemini가 ${Math.round((this.opts.timeoutMs ?? 60_000) / 1000) || 60}초 안에 답하지 않았어요. 잠시 뒤 다시 시도해 주세요` : `Gemini에 연결하지 못했어요: ${e instanceof Error ? e.message : String(e)}`);
-    });
+    const url = `${this.opts.baseUrl ?? "https://generativelanguage.googleapis.com"}/v1beta/models/${encodeURIComponent(model)}:generateContent`;
+    try {
+      return await f(url, { method: "POST", headers: { "content-type": "application/json", "x-goog-api-key": this.apiKey }, body: JSON.stringify(body), signal });
+    } catch (e) {
+      if (e instanceof Error && (e.name === "TimeoutError" || e.name === "AbortError")) return "timeout";
+      throw new Error(`Gemini에 연결하지 못했어요: ${e instanceof Error ? e.message : String(e)}`);
+    }
+  }
+
+  /** 모델 하나로 묻기. 붐비면 { busy } 를 돌려주고, 고칠 수 없는 오류는 던진다 */
+  private async tryModel(model: string, req: LLMRequest): Promise<{ res: Response } | { busy: string }> {
+    const signal = AbortSignal.timeout(this.opts.timeoutMs ?? 25_000);
+    // 키가 틀린 400은 설정을 빼 봐야 소용없으니 바로 알린다
+    const keyError = async (r: Response | "timeout") => {
+      if (r === "timeout" || r.status !== 400) return false;
+      const detail = await r.clone().text().catch(() => "");
+      return /API key/i.test(detail);
+    };
+    const KEY_MSG = "Gemini API 키가 맞지 않아요. GEMINI_API_KEY를 확인해 주세요";
+    let withSchema = true;
+    let withThinking = (this.opts.thinkingLevel ?? "low") !== "off";
+    let res = await this.post(model, this.body(req, withSchema, withThinking), signal);
+    if (await keyError(res)) throw new Error(KEY_MSG);
+    if (res !== "timeout" && res.status === 400 && withThinking) {
+      withThinking = false;
+      res = await this.post(model, this.body(req, withSchema, withThinking), signal);
+    }
+    if (res !== "timeout" && res.status === 400 && req.schema) {
+      withSchema = false;
+      res = await this.post(model, this.body(req, withSchema, withThinking), signal);
+    }
+    if (res === "timeout") return { busy: `${model}: ${Math.round((this.opts.timeoutMs ?? 25_000) / 1000)}초 안에 답 없음` };
+    if (res.status === 429 || res.status >= 500) return { busy: `${model}: ${res.status}` };
+    if (!res.ok) {
+      const detail = await res.text().catch(() => "");
+      if (res.status === 400 && /API key/i.test(detail)) throw new Error(KEY_MSG);
+      if (res.status === 403) throw new Error("Gemini API 키에 권한이 없어요. Google AI Studio에서 키를 다시 만들어 주세요");
+      if (res.status === 404) return { busy: `${model}: 모델 없음` };
+      throw new Error(`Gemini API 오류 ${res.status}: ${detail.slice(0, 300)}`);
+    }
+    return { res };
   }
 
   async complete(req: LLMRequest): Promise<LLMResponse> {
-    // 400이면 모델이 받지 않는 설정을 하나씩 빼고 다시 묻는다:
-    // 생각 설정(Gemini 2.5는 thinkingLevel을 모른다) → 스키마 순서
-    let withSchema = true;
-    let withThinking = (this.opts.thinkingLevel ?? "low") !== "off";
-    let res = await this.post(this.body(req, withSchema, withThinking));
-    if (res.status === 400 && withThinking) {
-      withThinking = false;
-      res = await this.post(this.body(req, withSchema, withThinking));
+    const tried: string[] = [];
+    for (const model of this.models) {
+      const r = await this.tryModel(model, req);
+      if ("busy" in r) {
+        tried.push(r.busy);
+        continue;
+      }
+      return this.read(r.res, req, model);
     }
-    if (res.status === 400 && req.schema) {
-      withSchema = false;
-      res = await this.post(this.body(req, withSchema, withThinking));
-    }
-    if (res.status === 429 || res.status === 503) {
-      await new Promise((r) => setTimeout(r, this.opts.retryDelayMs ?? 2000));
-      res = await this.post(this.body(req, withSchema, withThinking));
-    }
-    if (!res.ok) {
-      const detail = await res.text().catch(() => "");
-      if (res.status === 400 && /API key/i.test(detail)) throw new Error("Gemini API 키가 맞지 않아요. GEMINI_API_KEY를 확인해 주세요");
-      if (res.status === 403) throw new Error("Gemini API 키에 권한이 없어요. Google AI Studio에서 키를 다시 만들어 주세요");
-      if (res.status === 404) throw new Error(`Gemini에 '${this.model}' 모델이 없어요. GEMINI_MODEL을 확인해 주세요`);
-      if (res.status === 429) throw new Error("Gemini 무료 사용량을 넘었어요. 잠시 뒤 다시 시도해 주세요");
-      throw new Error(`Gemini API 오류 ${res.status}: ${detail.slice(0, 300)}`);
-    }
+    if (tried.every((t) => t.endsWith("모델 없음"))) throw new Error(`Gemini에 '${this.model}' 모델이 없어요. GEMINI_MODEL을 확인해 주세요`);
+    if (tried.some((t) => t.endsWith(": 429"))) throw new Error(`Gemini 무료 사용량을 넘었어요. 잠시 뒤 다시 시도해 주세요 (${tried.join(" · ")})`);
+    throw new Error(`Gemini가 지금 붐벼서 답하지 못했어요. 잠시 뒤 다시 시도해 주세요 (${tried.join(" · ")})`);
+  }
+
+  private async read(res: Response, req: LLMRequest, model: string): Promise<LLMResponse> {
     const data = (await res.json()) as {
       candidates?: { content?: { parts?: { text?: string; thought?: boolean }[] }; finishReason?: string }[];
       promptFeedback?: { blockReason?: string };
@@ -295,7 +325,7 @@ export class GeminiClient implements LLMClient {
       text,
       inputTokens: u?.promptTokenCount ?? estimateTokens(req.system + req.user),
       outputTokens: (u?.candidatesTokenCount ?? estimateTokens(text)) + (u?.thoughtsTokenCount ?? 0),
-      model: data.modelVersion ?? this.model,
+      model: data.modelVersion ?? model,
     };
   }
 }

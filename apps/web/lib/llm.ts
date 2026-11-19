@@ -15,6 +15,8 @@ export function getLLM(): llm.LLMClient {
     // GEMINI_BASE_URL은 테스트용 (가짜 Gemini 서버). 보통은 비워 둔다
     return new llm.GeminiClient(process.env.GEMINI_API_KEY, process.env.GEMINI_MODEL || GEMINI_DEFAULT, {
       baseUrl: process.env.GEMINI_BASE_URL || undefined,
+      // 첫 모델이 붐비면(503 등) 차례로 쓸 모델. 쉼표로 여러 개. 비우면 gemini-flash-lite-latest
+      fallbackModels: process.env.GEMINI_FALLBACK_MODELS !== undefined && process.env.GEMINI_FALLBACK_MODELS.trim() !== "" ? process.env.GEMINI_FALLBACK_MODELS.split(",").map((m) => m.trim()).filter(Boolean) : undefined,
       // 생각 깊이: 기본 low (Gemini 3의 기본 high는 긴 요청에서 1분을 넘겼다). minimal · low · medium · high · off
       thinkingLevel: (["minimal", "low", "medium", "high", "off"].includes(process.env.GEMINI_THINKING ?? "") ? process.env.GEMINI_THINKING : "low") as "low",
     });
