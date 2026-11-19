@@ -1,7 +1,16 @@
 /** 릴리즈 노트. 새 기능을 합칠 때 맨 위에 한 줄씩 추가해 주세요. */
-export const APP_VERSION = "0.16.1";
+export const APP_VERSION = "0.16.2";
 
 export const RELEASES: { version: string; date: string; items: string[] }[] = [
+  {
+    version: "0.16.2",
+    date: "2026-11-19",
+    items: [
+      "후기 분석(팀): 검수 대기열 — '다음 검수 시작', 저장하면 바로 다음 후기로, 진행 막대",
+      "수집 시트에만 있던 후기를 버튼 하나로 앱 검수 대기로 가져와요 (출처 표기·면접 질문 칸 유지)",
+      "내가 코딩한 후기는 다른 팀원이 검수해요 (두 사람 원칙)",
+    ],
+  },
   {
     version: "0.16.1",
     date: "2026-11-19",

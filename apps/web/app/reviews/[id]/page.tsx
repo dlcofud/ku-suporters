@@ -3,13 +3,13 @@ import { notFound } from "next/navigation";
 import { trends } from "@supportlab/core";
 import { requireRole } from "@/lib/session";
 import { repo } from "@/lib/repo";
-import { verifyReviewAction } from "@/lib/actions";
+import { verifyReviewAction, verifyAndNextAction } from "@/lib/actions";
 import { SubmitButton, PendingNote } from "@/components/Pending";
 
 const SCORE_LABEL = ["0 · 없음", "1 · 언급", "2 · 구체적"];
 
-export default async function ReviewDetail({ params, searchParams }: { params: Promise<{ id: string }>; searchParams: Promise<{ dup?: string; saved?: string; aierror?: string }> }) {
-  await requireRole("team");
+export default async function ReviewDetail({ params, searchParams }: { params: Promise<{ id: string }>; searchParams: Promise<{ dup?: string; saved?: string; aierror?: string; own?: string }> }) {
+  const me = await requireRole("team");
   const { id } = await params;
   const q = await searchParams;
   const r = await repo.getCodedReview(id);
@@ -17,16 +17,22 @@ export default async function ReviewDetail({ params, searchParams }: { params: P
   const c = trends.toCurated(r);
   const cur = trends.finalScores(r);
   const rules = r.ai.model === "rules";
+  const fromSheet = r.ai.model === "sheet";
+  const mine = !trends.canVerify(r, me.id);
+  const all = await repo.listCodedReviews();
+  const left = all.filter((x) => x.status !== "검수 완료" && x.id !== r.id && trends.canVerify(x, me.id)).length;
   return (
     <>
       <header className="grid" style={{ gap: 4 }}>
         <span className="eyebrow"><Link href="/reviews">합격 후기 분석</Link> · {r.status}</span>
         <h1>{c.org !== "확인 필요" ? `${c.org} ${c.activity !== "확인 필요" ? c.activity : ""}` : r.meta.title || "활동 정보 확인 필요"}</h1>
-        <p className="small muted" style={{ margin: 0 }}>출처: <a href={r.meta.url} target="_blank" rel="noreferrer">{r.meta.sourceName}{r.meta.title ? ` 「${r.meta.title}」` : ""}</a></p>
+        <p className="small muted" style={{ margin: 0 }}>출처: <a href={r.meta.url} target="_blank" rel="noreferrer">{r.meta.sourceName}{r.meta.title ? ` 「${r.meta.title}」` : ""}</a> · <a className="btn small-btn" href={r.meta.url} target="_blank" rel="noreferrer">원문 열기 ↗</a></p>
       </header>
 
       {q.dup && <p className="note">이미 분석한 후기라 기존 결과를 열었어요.</p>}
-      {q.saved && <p className="note ok">검수 완료로 저장했어요. 경향 분석에 바로 반영돼요.</p>}
+      {q.saved && <p className="note ok">검수 완료로 저장했어요. 경향 분석에 바로 반영돼요.{r.status !== "검수 완료" ? " 이어서 이 후기를 검수해 주세요." : ""}</p>}
+      {(q.own || mine) && <p className="note warn">내가 코딩한 후기라 다른 팀원이 원문과 대조해 검수해야 해요. 같은 사람이 코딩과 검수를 하면 실수를 잡기 어려워요.</p>}
+      {fromSheet && r.status !== "검수 완료" && <p className="note">수집 시트에서 가져온 <b>시드 점수</b>예요. 근거 문장이 없으니 <a href={r.meta.url} target="_blank" rel="noreferrer">원문을 열어</a> 점수와 결과 단계를 대조해 주세요.</p>}
       {q.aierror && <p className="note warn">AI 호출이 실패해서 규칙 기반 초안으로 저장했어요. 점수를 꼭 직접 확인해 주세요.</p>}
       {rules && !q.aierror && <p className="note warn">AI 키가 없어서 단서 단어로 매긴 <b>규칙 기반 초안</b>이에요. 정확도가 낮으니 점수를 하나씩 확인해 주세요.</p>}
 
@@ -73,6 +79,8 @@ export default async function ReviewDetail({ params, searchParams }: { params: P
             <div className="row">{r.ai.keywords.map((k) => <span key={k} className="tag">{k}</span>)}</div>
             <div className="row">{r.ai.processKeywords.map((k) => <span key={k} className="tag k-check">{k}</span>)}</div>
             {r.ai.formats.length > 0 && <p className="small muted" style={{ margin: 0 }}>언급된 포맷: {r.ai.formats.join(", ")}</p>}
+            {r.sheet?.interviewSummary && !/^(언급 없음|확인 필요|-)$/.test(r.sheet.interviewSummary) && <p className="small" style={{ margin: 0 }}><b>면접 질문 요약</b> {r.sheet.interviewSummary}</p>}
+            {r.sheet && <p className="small muted" style={{ margin: 0 }}>사전미션 {r.sheet.preMission ?? "-"} · 면접 {r.sheet.interview ?? "-"} · 새 계정 {r.sheet.newAccount ?? "-"}</p>}
           </div>
           <div className="card">
             <h2>활동 정보</h2>
@@ -87,13 +95,20 @@ export default async function ReviewDetail({ params, searchParams }: { params: P
               </label>
             </div>
             <p className="small muted" style={{ margin: 0 }}>
-              {r.human ? `${r.human.reviewer}님이 ${r.human.reviewedAt.slice(0, 10)}에 검수했어요.` : "아직 검수 전이에요."} · 분석: {rules ? "규칙 기반" : `${r.ai.model} (입력 ${r.ai.inputTokens} · 출력 ${r.ai.outputTokens} 토큰)`}
+              {r.human ? `${r.human.reviewer}님이 ${r.human.reviewedAt.slice(0, 10)}에 검수했어요.` : "아직 검수 전이에요."} · 분석: {rules ? "규칙 기반" : fromSheet ? "수집 시트 (시드)" : `${r.ai.model} (입력 ${r.ai.inputTokens} · 출력 ${r.ai.outputTokens} 토큰)`}
             </p>
           </div>
         </section>
 
         <div className="row">
-          <SubmitButton pendingText="저장하는 중…">{r.human ? "검수 점수 다시 저장" : "검수 완료로 저장"}</SubmitButton>
+          {mine ? (
+            <span className="small muted">다른 팀원의 검수를 기다리고 있어요.</span>
+          ) : (
+            <>
+              {left > 0 && <button className="btn pri" formAction={verifyAndNextAction}>검수 완료 · 다음 후기 → <span className="small">(남은 {left}건)</span></button>}
+              <SubmitButton pendingText="저장하는 중…">{r.human ? "검수 점수 다시 저장" : "검수 완료로 저장"}</SubmitButton>
+            </>
+          )}
           <Link className="btn" href="/reviews">목록으로</Link>
         </div>
       </form>

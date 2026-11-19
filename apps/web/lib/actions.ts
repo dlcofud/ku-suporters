@@ -1,5 +1,7 @@
 "use server";
 
+import { loadCurated } from "./trends";
+
 import { cookies } from "next/headers";
 import { redirect } from "next/navigation";
 import { revalidatePath } from "next/cache";
@@ -738,12 +740,38 @@ export async function codeReviewAction(formData: FormData) {
   redirect(`/reviews/${r.id}${failed ? "?aierror=1" : ""}`);
 }
 
+/** 수집 시트 행 중 아직 앱에 없는 것을 검수 대기로 가져온다 (같은 URL이면 건너뜀) */
+export async function importSheetAction() {
+  await requireRole("team");
+  const [sheet, coded] = await Promise.all([loadCurated().catch(() => []), repo.listCodedReviews()]);
+  const have = new Set(coded.map((r) => r.meta.url));
+  const now = new Date().toISOString();
+  let n = 0;
+  for (const row of sheet) {
+    if (!row.url || have.has(row.url)) continue;
+    await repo.saveCodedReview(trends.fromCurated(row, now));
+    have.add(row.url);
+    n++;
+  }
+  revalidatePath("/reviews");
+  revalidatePath("/trends");
+  redirect(`/reviews?imported=${n}`);
+}
+
+/** 검수 저장 후 다음 검수 대기로 바로 넘어간다 */
+export async function verifyAndNextAction(formData: FormData) {
+  formData.set("next", "1");
+  return verifyReviewAction(formData);
+}
+
 /** 사람이 점수를 확인·수정하고 '검수 완료'로 바꾼다 */
 export async function verifyReviewAction(formData: FormData) {
   const user = await requireRole("team");
   const id = String(formData.get("id") || "");
   const r = await repo.getCodedReview(id);
   if (!r) redirect("/reviews");
+  // 직접 코딩한 후기는 다른 팀원이 원문과 대조해 검수한다 (README '꼭 지킬 것')
+  if (!trends.canVerify(r, user.id)) redirect(`/reviews/${r.id}?own=1`);
   const scores = Object.fromEntries(
     trends.CODES.map((c) => {
       const v = Number(formData.get(c));
@@ -763,6 +791,10 @@ export async function verifyReviewAction(formData: FormData) {
   await repo.saveCodedReview(r);
   revalidatePath("/reviews");
   revalidatePath("/trends");
+  if (formData.get("next")) {
+    const next = trends.nextToVerify(await repo.listCodedReviews(), user.id, r.id);
+    redirect(next ? `/reviews/${next.id}?saved=1` : "/reviews?alldone=1");
+  }
   redirect(`/reviews/${r.id}?saved=1`);
 }
 

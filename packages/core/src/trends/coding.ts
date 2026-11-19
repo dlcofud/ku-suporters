@@ -120,8 +120,78 @@ export interface CodedReview {
   ai: CodingResult & { codedAt: string };
   human?: { scores: Record<RubricCode, Score>; reviewer: string; reviewedAt: string };
   status: "AI 초안" | "검수 완료";
+  /** 코딩한 사람 (시트에서 가져온 행은 "sheet") */
   createdBy: string;
   createdAt: string;
+  /** 수집 시트에서 가져온 행이면 시트에만 있던 칸을 그대로 둔다 */
+  sheet?: {
+    id: string;
+    citation: string;
+    activityType?: string;
+    preMission?: string;
+    interview?: string;
+    newAccount?: string;
+    interviewSummary?: string;
+  };
+}
+
+/** 시트에서 가져온 행의 '코딩한 사람' */
+export const SHEET_AUTHOR = "sheet";
+
+/**
+ * 수집 시트 행 → 앱 검수 대기 행.
+ * 시트의 점수는 'AI 점수' 자리에 두고(시드는 AI가 매긴 것), 사람이 원문과 대조해 검수 완료로 바꾼다.
+ * 근거 문장은 시트에 없으니 비워 두고, 출처 표기·면접 질문 같은 시트 칸은 그대로 남긴다.
+ */
+export function fromCurated(row: CuratedReview, now: string): CodedReview {
+  const cite = row.sourceCitation || "";
+  const sourceName = cite.split(",")[0]?.trim() || "출처 확인 필요";
+  const title = cite.match(/「([^」]+)」/)?.[1];
+  const known = (v: string | undefined) => (v && v !== "확인 필요" ? v : undefined);
+  const scores = Object.fromEntries(CODES.map((c) => [c, clampScore(row.scores[c])])) as Record<RubricCode, Score>;
+  return {
+    id: `sh_${row.id || Math.random().toString(36).slice(2, 8)}`,
+    meta: { url: row.url, sourceName, title, org: known(row.org), activity: known(row.activity), field: known(row.field), result: known(row.result) },
+    ai: {
+      scores,
+      evidence: Object.fromEntries(CODES.map((c) => [c, scores[c] ? "시트 점수 · 원문에서 확인해 주세요" : "언급 없음"])) as Record<RubricCode, string>,
+      summary: "",
+      keywords: row.keywords,
+      processKeywords: row.processKeywords,
+      formats: (row.formats || "").split(/[,·/]/).map((x) => x.trim()).filter((x) => x && !/^(확인 필요|언급 없음)$/.test(x)),
+      tip: row.tip && row.tip !== "확인 필요" ? row.tip : "",
+      detected: { org: row.org || "확인 필요", activity: row.activity || "확인 필요", result: row.result || "확인 필요" },
+      model: "sheet",
+      inputTokens: 0,
+      outputTokens: 0,
+      codedAt: now,
+    },
+    status: row.reviewStatus === "검수 완료" ? "검수 완료" : "AI 초안",
+    createdBy: SHEET_AUTHOR,
+    createdAt: now,
+    sheet: {
+      id: row.id,
+      citation: cite,
+      activityType: row.activityType,
+      preMission: row.preMission,
+      interview: row.interview,
+      newAccount: row.newAccount,
+      interviewSummary: row.interviewSummary,
+    },
+  };
+}
+
+/** 검수할 수 있는지: 직접 코딩한 후기는 다른 팀원이 검수한다 (시트에서 가져온 행은 누구나) */
+export function canVerify(r: CodedReview, userId: string): boolean {
+  return r.createdBy !== userId;
+}
+
+/** 다음에 검수할 후기: 검수 대기 중 결과가 확인된 것 → 오래된 것 먼저, 내가 코딩한 것은 뺀다 */
+export function nextToVerify(list: CodedReview[], userId: string, after?: string): CodedReview | undefined {
+  const pending = list
+    .filter((r) => r.status !== "검수 완료" && canVerify(r, userId) && r.id !== after)
+    .sort((a, b) => a.createdAt.localeCompare(b.createdAt) || a.id.localeCompare(b.id));
+  return pending[0];
 }
 
 const scoreSchema = { type: "integer", enum: [0, 1, 2] };
@@ -285,9 +355,9 @@ export function toCurated(r: CodedReview): CuratedReview {
   const date = r.createdAt.slice(0, 10);
   return {
     id: r.id,
-    sourceType: "팀 코딩",
+    sourceType: r.sheet ? "수집 시트" : "팀 코딩",
     url: m.url,
-    sourceCitation: `${m.sourceName}, 「${m.title || "제목 확인 필요"}」, ${m.url} (확인일 ${date.replace(/-/g, ".")})`,
+    sourceCitation: r.sheet?.citation || `${m.sourceName}, 「${m.title || "제목 확인 필요"}」, ${m.url} (확인일 ${date.replace(/-/g, ".")})`,
     org: m.org || r.ai.detected.org,
     activity: m.activity || r.ai.detected.activity,
     field: m.field || "확인 필요",
@@ -299,6 +369,15 @@ export function toCurated(r: CodedReview): CuratedReview {
     tip: r.ai.tip,
     reliability: r.status === "검수 완료" ? "상" : "중",
     reviewStatus: r.status,
+    ...(r.sheet
+      ? {
+          activityType: r.sheet.activityType,
+          preMission: r.sheet.preMission,
+          interview: r.sheet.interview,
+          newAccount: r.sheet.newAccount,
+          interviewSummary: r.sheet.interviewSummary,
+        }
+      : {}),
   };
 }
 
@@ -370,7 +449,7 @@ export function toSheetCsv(reviews: CodedReview[], reviewerName: (id: string) =>
     const has = (k: string) => (r.ai.processKeywords.includes(k) ? "Y" : "언급 없음");
     const sc = finalScores(r);
     const row: Record<(typeof SHEET_HEADERS)[number], string | number> = {
-      ID: r.id, 담당자: r.human?.reviewer ?? reviewerName(r.createdBy), 수집일: day, "출처 유형": r.meta.sourceName.includes("링커리어") ? "링커리어 후기" : "기타",
+      ID: r.sheet?.id || r.id, 담당자: r.human?.reviewer ?? (r.createdBy === SHEET_AUTHOR ? "수집 시트" : reviewerName(r.createdBy)), 수집일: day, "출처 유형": r.meta.sourceName.includes("링커리어") ? "링커리어 후기" : "기타",
       "플랫폼/사이트명": r.meta.sourceName, "게시물 제목": r.meta.title ?? "", URL: r.meta.url, 게시일: "확인 필요", 확인일: day,
       "출처 표기 (자동)": c.sourceCitation, "중복 체크 (자동)": "OK", 주최사: c.org, "활동명·기수": c.activity, 분야: c.field, "활동 유형": "확인 필요",
       "결과 단계": c.result, 사전미션: has("#사전과제"), 면접: has("#면접"), "신규 계정으로 지원": "언급 없음", "팔로워 수 언급": "언급 없음",
