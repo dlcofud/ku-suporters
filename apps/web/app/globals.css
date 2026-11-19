@@ -342,3 +342,18 @@ label>.lbl{display:block}
 @media (max-width:720px){.trow{grid-template-columns:110px minmax(0,1fr) 80px;gap:8px}}
 .insights{grid-template-columns:repeat(2,minmax(0,1fr))}
 @media (max-width:720px){.insights{grid-template-columns:1fr}}
+
+/* 합격 경향: 신뢰도 띠 · 표본 적음 */
+.trust{display:flex;flex-wrap:wrap;align-items:center;gap:8px 14px;border:2px solid var(--ink);border-radius:12px;padding:10px 14px;background:var(--surface)}
+.trust.low{border-color:var(--red);background:#FFF5F5}
+.trust.medium{background:#FFFBEA}
+.trust.high{background:#F1FBF4}
+.trust-badge{font-weight:900;font-size:14px;white-space:nowrap}
+.trust.low .trust-badge{color:var(--red)}
+.trust-nums{margin-left:auto;white-space:nowrap}
+.trust .small-btn{padding:4px 12px;font-size:13px}
+.thin{opacity:.6}
+.thin:hover{opacity:1}
+.tag.thin-tag{border-color:var(--red);color:var(--red);background:#fff;font-weight:800}
+.card.caution{border-color:var(--red);background:#FFF5F5}
+@media (max-width:700px){.trust-nums{margin-left:0}}

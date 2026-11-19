@@ -1,7 +1,16 @@
 /** 릴리즈 노트. 새 기능을 합칠 때 맨 위에 한 줄씩 추가해 주세요. */
-export const APP_VERSION = "0.16.0";
+export const APP_VERSION = "0.16.1";
 
 export const RELEASES: { version: string; date: string; items: string[] }[] = [
+  {
+    version: "0.16.1",
+    date: "2026-11-19",
+    items: [
+      "합격 경향: 맨 위에 신뢰도 띠 — 검수 완료·결과 확인 건수와 '믿을 만함 · 참고용 · 표본 적음'",
+      "5건보다 적은 숫자는 '표본 적음'으로 흐리게 보여 주고, 적은 표본으로는 '차별화할 틈' 같은 결론을 내지 않아요",
+      "필터 '결과 확인된 합격 후기만' 추가, 분야 목록에 건수 표시",
+    ],
+  },
   {
     version: "0.16.0",
     date: "2026-11-19",
