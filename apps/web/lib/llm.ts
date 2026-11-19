@@ -17,8 +17,8 @@ export function getLLM(): llm.LLMClient {
       baseUrl: process.env.GEMINI_BASE_URL || undefined,
       // 첫 모델이 붐비면(503 등) 차례로 쓸 모델. 쉼표로 여러 개. 비우면 gemini-flash-lite-latest
       fallbackModels: process.env.GEMINI_FALLBACK_MODELS !== undefined && process.env.GEMINI_FALLBACK_MODELS.trim() !== "" ? process.env.GEMINI_FALLBACK_MODELS.split(",").map((m) => m.trim()).filter(Boolean) : undefined,
-      // 생각 깊이: 기본 low (Gemini 3의 기본 high는 긴 요청에서 1분을 넘겼다). minimal · low · medium · high · off
-      thinkingLevel: (["minimal", "low", "medium", "high", "off"].includes(process.env.GEMINI_THINKING ?? "") ? process.env.GEMINI_THINKING : "low") as "low",
+      // 생각 깊이: 기본 minimal (코치 요청이 25초를 넘겼다). minimal · low · medium · high · off
+      thinkingLevel: geminiThinking(),
     });
   if (process.env.OLLAMA_URL) return new llm.OllamaClient(process.env.OLLAMA_MODEL || "gemma4:e4b", process.env.OLLAMA_URL, Number(process.env.OLLAMA_NUM_CTX) || 16384, process.env.OLLAMA_VISION !== "0");
   return new llm.MockLLM(() => "{}", "paid");
@@ -30,4 +30,22 @@ export function llmStatus(): { mode: "claude" | "gemini" | "ollama" | "demo"; la
   if (process.env.GEMINI_API_KEY) return { mode: "gemini", label: `Gemini (${process.env.GEMINI_MODEL || GEMINI_DEFAULT})` };
   if (process.env.OLLAMA_URL) return { mode: "ollama", label: `로컬 모델 (${process.env.OLLAMA_MODEL || "gemma4:e4b"})` };
   return { mode: "demo", label: "데모 모드 (AI 키 없음 · 규칙 기반)" };
+}
+
+const THINKING = ["minimal", "low", "medium", "high", "off"] as const;
+type Thinking = (typeof THINKING)[number];
+function geminiThinking(): Thinking {
+  const v = process.env.GEMINI_THINKING as Thinking | undefined;
+  return v && THINKING.includes(v) ? v : "minimal";
+}
+
+/** 진단용: 대체 모델 없이 모델 하나를 정해진 설정으로 부르는 Gemini 클라이언트 (키가 없으면 undefined) */
+export function geminiProbe(thinkingLevel: Thinking, timeoutMs = 25_000): llm.GeminiClient | undefined {
+  if (!process.env.GEMINI_API_KEY) return undefined;
+  return new llm.GeminiClient(process.env.GEMINI_API_KEY, process.env.GEMINI_MODEL || GEMINI_DEFAULT, {
+    baseUrl: process.env.GEMINI_BASE_URL || undefined,
+    fallbackModels: [],
+    thinkingLevel,
+    timeoutMs,
+  });
 }

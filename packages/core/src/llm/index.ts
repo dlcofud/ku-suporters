@@ -30,6 +30,8 @@ export interface LLMResponse {
   inputTokens: number;
   outputTokens: number;
   model: string;
+  /** 모델이 멈춘 이유 (STOP · MAX_TOKENS 등, 아는 경우만) */
+  finishReason?: string;
 }
 
 export interface LLMClient {
@@ -211,8 +213,8 @@ export class GeminiClient implements LLMClient {
       /** 첫 모델이 붐빌 때 차례로 쓸 모델 (기본 gemini-flash-lite-latest). 빈 배열이면 넘어가지 않는다 */
       fallbackModels?: string[];
       /**
-       * 생각(thinking) 깊이. Gemini 3 이상은 기본이 high라 긴 요청에서 오래 걸린다.
-       * 코치·기획 같은 대화형 작업은 low로 충분하다. "off"면 설정을 보내지 않는다 (모델 기본값)
+       * 생각(thinking) 깊이 (기본 minimal). Gemini 3 Flash는 기본이 high라 긴 요청에서 오래 걸리고,
+       * Flash-Lite는 원래 생각하지 않는데 low를 보내면 오히려 생각을 켠다. "off"면 설정을 보내지 않는다 (모델 기본값)
        */
       thinkingLevel?: "minimal" | "low" | "medium" | "high" | "off";
     } = {},
@@ -226,7 +228,7 @@ export class GeminiClient implements LLMClient {
   }
 
   private body(req: LLMRequest, withSchema: boolean, withThinking: boolean): Record<string, unknown> {
-    const level = this.opts.thinkingLevel ?? "low";
+    const level = this.opts.thinkingLevel ?? "minimal";
     const wantsJson = !!(req.schema || req.json);
     return {
       systemInstruction: { parts: [{ text: wantsJson && !(withSchema && req.schema) ? `${req.system}\n\nJSON 객체 하나만 출력하세요. 다른 말은 쓰지 마세요.${req.schema ? `\n다음 JSON 스키마를 따르세요:\n${JSON.stringify(req.schema)}` : ""}` : req.system }] },
@@ -237,8 +239,8 @@ export class GeminiClient implements LLMClient {
         },
       ],
       generationConfig: {
-        // 생각(thinking) 토큰도 출력 한도에 들어가므로 넉넉히 준다
-        maxOutputTokens: Math.max(2048, req.maxOutputTokens * 3),
+        // 생각 토큰도 출력 한도에 들어간다. 너무 넉넉하면 JSON이 끝나지 않고 길게 이어질 때 오래 걸린다
+        maxOutputTokens: Math.max(1024, Math.round(req.maxOutputTokens * 1.5)),
         ...(withThinking && level !== "off" ? { thinkingConfig: { thinkingLevel: level } } : {}),
         temperature: wantsJson ? 0.2 : 0.7,
         ...(wantsJson ? { responseMimeType: "application/json" } : {}),
@@ -270,7 +272,7 @@ export class GeminiClient implements LLMClient {
     };
     const KEY_MSG = "Gemini API 키가 맞지 않아요. GEMINI_API_KEY를 확인해 주세요";
     let withSchema = true;
-    let withThinking = (this.opts.thinkingLevel ?? "low") !== "off";
+    let withThinking = (this.opts.thinkingLevel ?? "minimal") !== "off";
     let res = await this.post(model, this.body(req, withSchema, withThinking), signal);
     if (await keyError(res)) throw new Error(KEY_MSG);
     if (res !== "timeout" && res.status === 400 && withThinking) {
@@ -326,6 +328,7 @@ export class GeminiClient implements LLMClient {
       inputTokens: u?.promptTokenCount ?? estimateTokens(req.system + req.user),
       outputTokens: (u?.candidatesTokenCount ?? estimateTokens(text)) + (u?.thoughtsTokenCount ?? 0),
       model: data.modelVersion ?? model,
+      finishReason: cand?.finishReason,
     };
   }
 }

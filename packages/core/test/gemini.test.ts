@@ -30,7 +30,7 @@ const req = { system: "시스템", user: "질문", maxOutputTokens: 400, schema:
 const small = { system: "s", user: "u", maxOutputTokens: 10 };
 
 describe("GeminiClient", () => {
-  it("키는 헤더로, 스키마는 responseJsonSchema로, 생각은 low로 보내고 생각 부분은 빼고 답을 모은다", async () => {
+  it("키는 헤더로, 스키마는 responseJsonSchema로, 생각은 minimal로 보내고 생각 부분은 빼고 답을 모은다", async () => {
     const { impl, calls } = fakeFetch({ "gemini-flash-latest": [{ status: 200, body: ok('{"a":"답"}') }] });
     const r = await new GeminiClient("KEY", "gemini-flash-latest", { fetchImpl: impl }).complete({ ...req, images: [{ mediaType: "image/png", data: "AAAA" }] });
     expect(calls).toHaveLength(1);
@@ -40,11 +40,13 @@ describe("GeminiClient", () => {
     const g = calls[0]!.body.generationConfig;
     expect(g.responseMimeType).toBe("application/json");
     expect(g.responseJsonSchema).toEqual(req.schema);
-    expect(g.thinkingConfig).toEqual({ thinkingLevel: "low" });
+    expect(g.thinkingConfig).toEqual({ thinkingLevel: "minimal" });
+    expect(g.maxOutputTokens).toBe(1024); // 400 × 1.5 → 최소 1024
     expect(calls[0]!.body.contents[0].parts[0]).toEqual({ inline_data: { mime_type: "image/png", data: "AAAA" } });
     expect(r.text).toBe('{"a":"답"}');
     expect(r.inputTokens).toBe(120);
     expect(r.outputTokens).toBe(80); // 답 30 + 생각 50
+    expect(r.finishReason).toBe("STOP");
   });
 
   it("첫 모델이 붐비면(503) 가벼운 모델로 넘어간다 — 배포 사이트에서 실제로 난 상황", async () => {
