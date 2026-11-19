@@ -13,7 +13,11 @@ export function getLLM(): llm.LLMClient {
   if (process.env.ANTHROPIC_API_KEY) return new llm.AnthropicClient(process.env.ANTHROPIC_API_KEY, process.env.ANTHROPIC_MODEL || "claude-haiku-5-5");
   if (process.env.GEMINI_API_KEY)
     // GEMINI_BASE_URL은 테스트용 (가짜 Gemini 서버). 보통은 비워 둔다
-    return new llm.GeminiClient(process.env.GEMINI_API_KEY, process.env.GEMINI_MODEL || GEMINI_DEFAULT, { baseUrl: process.env.GEMINI_BASE_URL || undefined });
+    return new llm.GeminiClient(process.env.GEMINI_API_KEY, process.env.GEMINI_MODEL || GEMINI_DEFAULT, {
+      baseUrl: process.env.GEMINI_BASE_URL || undefined,
+      // 생각 깊이: 기본 low (Gemini 3의 기본 high는 긴 요청에서 1분을 넘겼다). minimal · low · medium · high · off
+      thinkingLevel: (["minimal", "low", "medium", "high", "off"].includes(process.env.GEMINI_THINKING ?? "") ? process.env.GEMINI_THINKING : "low") as "low",
+    });
   if (process.env.OLLAMA_URL) return new llm.OllamaClient(process.env.OLLAMA_MODEL || "gemma4:e4b", process.env.OLLAMA_URL, Number(process.env.OLLAMA_NUM_CTX) || 16384, process.env.OLLAMA_VISION !== "0");
   return new llm.MockLLM(() => "{}", "paid");
 }
