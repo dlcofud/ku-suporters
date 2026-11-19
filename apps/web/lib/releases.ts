@@ -1,7 +1,12 @@
 /** 릴리즈 노트. 새 기능을 합칠 때 맨 위에 한 줄씩 추가해 주세요. */
-export const APP_VERSION = "0.15.3";
+export const APP_VERSION = "0.15.4";
 
 export const RELEASES: { version: string; date: string; items: string[] }[] = [
+  {
+    version: "0.15.4",
+    date: "2026-11-19",
+    items: ["고친 점: Gemini가 잠깐 붐벼도 1.5초 쉬고 한 번 더 물어봐요. 한 모델을 기다리는 시간은 15초로 줄였어요"],
+  },
   {
     version: "0.15.3",
     date: "2026-11-19",

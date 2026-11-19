@@ -59,14 +59,14 @@ describe("GeminiClient", () => {
 
   it("첫 모델이 답 없이 멈추면 시간 제한 뒤 다음 모델로 넘어간다", async () => {
     const { impl, calls } = fakeFetch({ m1: ["hang"], m2: [{ status: 200, body: ok("살았다") }] });
-    const r = await new GeminiClient("K", "m1", { fetchImpl: impl, timeoutMs: 30, fallbackModels: ["m2"] }).complete(small);
+    const r = await new GeminiClient("K", "m1", { fetchImpl: impl, timeoutMs: 30, fallbackModels: ["m2"], retryDelayMs: 0 }).complete(small);
     expect(calls.map((c) => c.model)).toEqual(["m1", "m2"]);
     expect(r.text).toBe("살았다");
   });
 
   it("모두 붐비면 어떤 모델이 왜 실패했는지 알려 준다", async () => {
     const all = fakeFetch({ m1: [busy], m2: ["hang"] });
-    await expect(new GeminiClient("K", "m1", { fetchImpl: all.impl, timeoutMs: 30, fallbackModels: ["m2"] }).complete(small)).rejects.toThrow(/붐벼서.*m1: 503.*m2: 0초 안에 답 없음/);
+    await expect(new GeminiClient("K", "m1", { fetchImpl: all.impl, timeoutMs: 30, fallbackModels: ["m2"], retryDelayMs: 0 }).complete(small)).rejects.toThrow(/붐벼서.*m1: 503.*m2: 0초 안에 답 없음/);
     const quota = fakeFetch({ m1: [{ status: 429, body: "quota" }], m2: [{ status: 429, body: "quota" }] });
     await expect(new GeminiClient("K", "m1", { fetchImpl: quota.impl, fallbackModels: ["m2"] }).complete(small)).rejects.toThrow("무료 사용량");
   });
@@ -99,5 +99,18 @@ describe("GeminiClient", () => {
     const nf = fakeFetch({});
     await expect(new GeminiClient("K", "없는모델", { fetchImpl: nf.impl, fallbackModels: [] }).complete(small)).rejects.toThrow("없는모델");
     expect(() => new GeminiClient("")).toThrow();
+  });
+
+  it("모든 모델이 붐비면 잠깐 쉬고 한 바퀴 더 묻는다 — 503이 몇 초 사이에 풀리는 상황", async () => {
+    const { impl, calls } = fakeFetch({ m1: [busy, { status: 200, body: ok('{"a":"두 번째"}') }], m2: [busy] });
+    const r = await new GeminiClient("K", "m1", { fetchImpl: impl, fallbackModels: ["m2"], retryDelayMs: 0 }).complete(req);
+    expect(calls.map((c) => c.model)).toEqual(["m1", "m2", "m1"]);
+    expect(r.text).toBe('{"a":"두 번째"}');
+  });
+
+  it("rounds: 1 이면 한 바퀴만 돈다 (진단용)", async () => {
+    const { impl, calls } = fakeFetch({ m1: [busy], m2: [busy] });
+    await expect(new GeminiClient("K", "m1", { fetchImpl: impl, fallbackModels: ["m2"], rounds: 1 }).complete(small)).rejects.toThrow(/붐벼서/);
+    expect(calls).toHaveLength(2);
   });
 });
