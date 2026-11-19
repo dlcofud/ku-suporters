@@ -7,7 +7,29 @@ const RUBRIC: Record<string, string> = {
   E1: "SNS 운영 성과", E2: "사전 제작 콘텐츠", E3: "툴 활용", E4: "분야 연결 경험",
   E5: "브랜드 이해", E6: "기획안 구체성", E7: "협업 경험", E8: "진정성·스토리",
 };
-const QUICK = ["다음 문항으로 가요", "이 문항 더 짧게 다듬어 주세요", "숫자를 넣어서 다시 써 주세요", "다른 경험으로 바꿀래요"];
+const QUICK = ["다음 문항으로 가요", "이 문항 더 짧게 다듬어 주세요", "숫자를 넣어서 다시 써 주세요", "다른 경험으로 바꿀래요", "관련 자료가 없어요"];
+const ACCEPT = ".txt,.md,.docx,.hwpx,.pdf,.png,.jpg,.jpeg,.webp,image/*";
+const MAX_FILES = 6;
+/** Vercel 요청 크기(4.5MB) 안에 들어가게 */
+const MAX_TOTAL = 4 * 1024 * 1024;
+
+/** 큰 사진은 긴 변 1600px JPEG로 줄인다 (글씨는 읽을 수 있을 만큼) */
+async function shrinkImage(f: File): Promise<File> {
+  if (!f.type.startsWith("image/") || f.type === "image/gif" || f.size < 900 * 1024) return f;
+  try {
+    const bmp = await createImageBitmap(f);
+    const scale = Math.min(1, 1600 / Math.max(bmp.width, bmp.height));
+    const c = document.createElement("canvas");
+    c.width = Math.round(bmp.width * scale);
+    c.height = Math.round(bmp.height * scale);
+    c.getContext("2d")!.drawImage(bmp, 0, 0, c.width, c.height);
+    const blob = await new Promise<Blob | null>((r) => c.toBlob(r, "image/jpeg", 0.85));
+    return blob ? new File([blob], f.name.replace(/\.[^.]+$/, "") + ".jpg", { type: "image/jpeg" }) : f;
+  } catch {
+    return f;
+  }
+}
+const kb = (n: number) => (n > 1024 * 1024 ? `${(n / 1024 / 1024).toFixed(1)}MB` : `${Math.max(1, Math.round(n / 1024))}KB`);
 const count = (s: string) => [...s].length;
 const reduceMotion = () => typeof window !== "undefined" && window.matchMedia?.("(prefers-reduced-motion: reduce)").matches;
 
@@ -28,6 +50,7 @@ export function ApplyStudio({ initial, activityName, aiLabel, aiMode, prefill }:
   const textsRef = useRef<string[]>(texts);
   textsRef.current = texts;
   const [input, setInput] = useState(prefill ?? "");
+  const [files, setFiles] = useState<File[]>([]);
   const [busy, setBusy] = useState(false);
   const [sec, setSec] = useState(0);
   const [notice, setNotice] = useState<string>();
@@ -84,17 +107,41 @@ export function ApplyStudio({ initial, activityName, aiLabel, aiMode, prefill }:
     return [...dirty].map((q) => ({ q, text: texts[q] ?? "" }));
   }
 
+  async function addFiles(list: FileList | null) {
+    if (!list?.length) return;
+    const picked = await Promise.all([...list].map(shrinkImage));
+    const next = [...files, ...picked].slice(0, MAX_FILES);
+    const total = next.reduce((n, f) => n + f.size, 0);
+    if (files.length + picked.length > MAX_FILES) setNotice(`자료는 한 번에 ${MAX_FILES}개까지 올릴 수 있어요`);
+    else if (total > MAX_TOTAL) setNotice(`자료가 모두 ${kb(total)}예요. 한 번에 4MB까지 보낼 수 있어서 나눠 보내 주세요.`);
+    else setNotice(undefined);
+    setFiles(total > MAX_TOTAL ? files : next);
+  }
+
   async function send(raw?: string) {
+    const sending = raw === undefined ? files : [];
     const message = (raw ?? input).trim();
-    if (!message || busy) return;
+    if ((!message && !sending.length) || busy) return;
     setBusy(true);
     setNotice(undefined);
     setInput("");
+    if (sending.length) setFiles([]);
     const edits = collectEdits();
+    const shown = message || "자료를 올렸어요. 정리해서 맞는 문항에 써 주세요.";
     // 내 말을 먼저 보여 준다
-    setApp((a) => ({ ...a, chat: [...a.chat, { role: "user", text: message, at: new Date().toISOString() }] }));
+    setApp((a) => ({ ...a, chat: [...a.chat, { role: "user", text: shown, at: new Date().toISOString(), ...(sending.length ? { files: sending.map((f) => f.name) } : {}) }] }));
     try {
-      const res = await fetch("/api/apply/chat", { method: "POST", headers: { "Content-Type": "application/json" }, body: JSON.stringify({ message, edits }) });
+      let init: RequestInit;
+      if (sending.length) {
+        const fd = new FormData();
+        fd.set("message", message);
+        fd.set("edits", JSON.stringify(edits));
+        for (const f of sending) fd.append("files", f, f.name);
+        init = { method: "POST", body: fd };
+      } else {
+        init = { method: "POST", headers: { "Content-Type": "application/json" }, body: JSON.stringify({ message, edits }) };
+      }
+      const res = await fetch("/api/apply/chat", init);
       const data = (await res.json()) as { app?: PublicApp; edits?: Edit[]; notice?: string; error?: string };
       if (!res.ok || !data.app) throw new Error(data.error || "답을 받지 못했어요");
       setDirty(new Set());
@@ -112,6 +159,7 @@ export function ApplyStudio({ initial, activityName, aiLabel, aiMode, prefill }:
       setNotice(e instanceof Error ? e.message : "연결에 실패했어요");
       setApp((a) => ({ ...a, chat: a.chat.slice(0, -1) }));
       setInput(message);
+      if (sending.length) setFiles(sending);
     } finally {
       setBusy(false);
     }
@@ -210,6 +258,7 @@ export function ApplyStudio({ initial, activityName, aiLabel, aiMode, prefill }:
           {app.chat.map((m, i) => (
             <div key={i} className={`msg ${m.role}`}>
               <Bubble text={m.text} animate={i === last && i === revealLast && m.role === "coach"} />
+              {m.files?.length ? <div className="msg-files">{m.files.map((f) => <span key={f} className="file-chip">📎 {f}</span>)}</div> : null}
               {m.edits?.map((e) => (
                 <button key={e.q} type="button" className="edit-chip" onClick={() => { setTab("sheet"); cards.current[e.q]?.scrollIntoView({ behavior: "smooth", block: "center" }); }}>
                   ✎ {e.q + 1}번 · {e.change}
@@ -219,7 +268,7 @@ export function ApplyStudio({ initial, activityName, aiLabel, aiMode, prefill }:
           ))}
           {busy && (
             <div className="msg coach">
-              <div className="bubble thinking"><i className="spin" aria-hidden="true" /> 코치가 생각하는 중… {sec}초{aiMode === "ollama" && sec > 8 ? " (로컬 모델은 조금 걸려요)" : ""}</div>
+              <div className="bubble thinking"><i className="spin" aria-hidden="true" /> {app.chat.at(-1)?.files?.length ? "자료를 읽고 정리하는 중…" : "코치가 생각하는 중…"} {sec}초{aiMode === "ollama" && sec > 8 ? " (로컬 모델은 조금 걸려요)" : ""}</div>
             </div>
           )}
           <div ref={chatEnd} />
@@ -228,17 +277,31 @@ export function ApplyStudio({ initial, activityName, aiLabel, aiMode, prefill }:
         <div className="quick">
           {QUICK.map((q) => <button key={q} type="button" className="chip-btn" disabled={busy} onClick={() => send(q)}>{q}</button>)}
         </div>
+        {files.length > 0 && (
+          <div className="pending-files" aria-label="보낼 자료">
+            {files.map((f, k) => (
+              <span key={`${f.name}${k}`} className="file-chip">
+                📎 {f.name} <span className="muted">{kb(f.size)}</span>
+                <button type="button" aria-label={`${f.name} 빼기`} onClick={() => setFiles((l) => l.filter((_, j) => j !== k))}>✕</button>
+              </span>
+            ))}
+          </div>
+        )}
         <form className="composer" onSubmit={(e) => { e.preventDefault(); send(); }}>
+          <label className="btn attach" title="자료 올리기: 예전 자소서·활동 보고서·포트폴리오·캡처 (워드·한글·PDF·이미지, 여러 개)" aria-label="자료 올리기" style={{ cursor: busy ? "not-allowed" : "pointer" }}>
+            📎
+            <input type="file" multiple accept={ACCEPT} hidden disabled={busy} onChange={(e) => { void addFiles(e.target.files); e.target.value = ""; }} />
+          </label>
           <textarea
             value={input}
             onChange={(e) => setInput(e.target.value)}
             onKeyDown={(e) => { if (e.key === "Enter" && !e.shiftKey && !e.nativeEvent.isComposing) { e.preventDefault(); send(); } }}
-            placeholder="경험이나 생각을 편하게 적어 주세요 (Enter 보내기 · Shift+Enter 줄바꿈)"
+            placeholder={files.length ? "자료에 대해 한마디 덧붙여도 돼요 (예: 2번 문항에 써 주세요)" : "경험이나 생각을 편하게 적어 주세요. 📎로 자료를 올려도 돼요 (Enter 보내기)"}
             rows={3}
             aria-label="코치에게 보낼 말"
             disabled={busy}
           />
-          <button className="btn pri" type="submit" disabled={busy || !input.trim()}>{busy ? <i className="spin" aria-hidden="true" /> : "보내기"}</button>
+          <button className="btn pri" type="submit" disabled={busy || (!input.trim() && !files.length)}>{busy ? <i className="spin" aria-hidden="true" /> : "보내기"}</button>
         </form>
       </section>
 
@@ -290,6 +353,23 @@ export function ApplyStudio({ initial, activityName, aiLabel, aiMode, prefill }:
             </article>
           );
         })}
+        {app.materials && app.materials.length > 0 && (
+          <section className="card">
+            <div className="row between">
+              <h3>올린 자료</h3>
+              <span className="small muted">{app.materials.length}개</span>
+            </div>
+            <ul className="fields">
+              {app.materials.map((m) => (
+                <li key={m.id}>
+                  <b>📎 {m.name}</b>
+                  <span className="small muted"> — {m.summary ?? (m.text ? "아직 정리 전이에요. 코치에게 '자료 정리해 줘'라고 보내 주세요." : "정리하지 못했어요. 다시 올려 주세요.")}</span>
+                </li>
+              ))}
+            </ul>
+            <p className="small muted" style={{ margin: 0 }}>코치가 정리한 내용만 남기고, 이미지·PDF 원본은 저장하지 않아요.</p>
+          </section>
+        )}
         {app.formFields && app.formFields.length > 0 && (
           <section className="card">
             <div className="row between">

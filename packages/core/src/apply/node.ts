@@ -141,3 +141,63 @@ export function readFormFile(name: string, buf: Buffer): FormFileResult {
   if (sections.length) return { ...extractForm(sections.flatMap(([, x]) => xmlToBlocks(x.toString("utf8"), "hp"))), format: "hwpx" };
   throw new FormReadError("문서 내용을 찾지 못했어요. .docx나 .hwpx 양식인지 확인해 주세요.");
 }
+
+/* ------------------------------------------------------------------ */
+/* 코치에게 올리는 자료 (예전 자소서·활동 보고서·포트폴리오·캡처 등)      */
+/* ------------------------------------------------------------------ */
+
+export const MATERIAL_MAX_BYTES = 4 * 1024 * 1024;
+
+const IMAGE_TYPES: Record<string, "image/png" | "image/jpeg" | "image/webp" | "image/gif"> = {
+  png: "image/png",
+  jpg: "image/jpeg",
+  jpeg: "image/jpeg",
+  webp: "image/webp",
+  gif: "image/gif",
+};
+
+/** 문서 덩어리를 그냥 글로 (표는 칸을 ' | '로 잇는다) */
+export function blocksToText(blocks: FormBlock[]): string {
+  return blocks
+    .map((b) => (b.kind === "p" ? b.text.trim() : b.rows.map((r) => r.map((c) => c.replace(/\s+/g, " ").trim()).filter(Boolean).join(" | ")).filter(Boolean).join("\n")))
+    .filter(Boolean)
+    .join("\n")
+    .replace(/\n{3,}/g, "\n\n")
+    .trim();
+}
+
+/**
+ * 자료 파일 하나를 코치가 읽을 수 있는 모양으로 바꾼다.
+ *  - .txt .md .csv → 글
+ *  - .docx .hwpx → 글 (zip 안의 XML에서 글자만)
+ *  - .pdf → PDF 그대로 (Gemini·Claude가 직접 읽는다)
+ *  - .png .jpg .webp .gif → 이미지 그대로
+ * 읽지 못하는 형식이면 FormReadError (화면에 그대로 보여 줄 문구)
+ */
+export function readMaterialFile(name: string, buf: Buffer, contentType?: string): import("./index.js").MaterialInput {
+  const lower = name.toLowerCase();
+  const ext = lower.split(".").pop() ?? "";
+  if (buf.length > MATERIAL_MAX_BYTES) throw new FormReadError(`'${name}'이(가) 너무 커요 (4MB까지).`);
+  if (["txt", "md", "csv"].includes(ext)) return { name, kind: "text", text: buf.toString("utf8").trim() };
+  if (ext === "hwp") throw new FormReadError(`'${name}': 예전 한글 파일(.hwp)은 못 읽어요. .hwpx나 .docx, PDF로 저장해서 올려 주세요.`);
+  if (ext === "pdf" || contentType === "application/pdf") return { name, kind: "pdf", data: buf.toString("base64"), mediaType: "application/pdf" };
+  const img = IMAGE_TYPES[ext] ?? (contentType && Object.values(IMAGE_TYPES).find((t) => t === contentType));
+  if (img) return { name, kind: "image", data: buf.toString("base64"), mediaType: img };
+  if (ext === "docx" || ext === "hwpx") {
+    const isZip = buf.length > 4 && buf.readUInt32LE(0) === 0x04034b50;
+    if (!isZip) throw new FormReadError(`'${name}'을(를) 열지 못했어요.`);
+    const files = readZip(buf, (n) => n === "word/document.xml" || /^Contents\/section\d+\.xml$/i.test(n));
+    const docx = files.get("word/document.xml");
+    const text = docx
+      ? blocksToText(xmlToBlocks(docx.toString("utf8"), "w"))
+      : blocksToText(
+          [...files.entries()]
+            .filter(([n]) => /section/i.test(n))
+            .sort(([a], [b]) => a.localeCompare(b, undefined, { numeric: true }))
+            .flatMap(([, x]) => xmlToBlocks(x.toString("utf8"), "hp")),
+        );
+    if (!text) throw new FormReadError(`'${name}'에서 글자를 찾지 못했어요.`);
+    return { name, kind: "text", text };
+  }
+  throw new FormReadError(`'${name}'은(는) 읽을 수 없는 형식이에요. 글(.txt) · 워드(.docx) · 한글(.hwpx) · PDF · 이미지를 올려 주세요.`);
+}
