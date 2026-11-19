@@ -6,7 +6,7 @@ import { getLLM, llmStatus } from "@/lib/llm";
 export async function GET() {
   if (!(await currentUser())) return Response.json({ ok: false, error: "로그인이 필요해요" }, { status: 401 });
   const status = llmStatus();
-  if (status.mode === "demo") return Response.json({ ok: false, mode: status.mode, label: status.label, error: "AI 설정이 없어요. apps/web/.env.local 에 OLLAMA_URL 또는 ANTHROPIC_API_KEY 를 넣고 서버를 다시 켜 주세요" });
+  if (status.mode === "demo") return Response.json({ ok: false, mode: status.mode, label: status.label, error: "AI 설정이 없어요. apps/web/.env.local 에 GEMINI_API_KEY 를 넣고 서버를 다시 켜 주세요" });
   const t0 = Date.now();
   try {
     const res = await getLLM().complete({

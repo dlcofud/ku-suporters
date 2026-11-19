@@ -324,3 +324,16 @@ label>.lbl{display:block}
   .start-steps{grid-template-columns:1fr}
   .start-go{width:100%}
 }
+
+/* ---- 합격 경향 ---- */
+.filterbar{gap:10px;align-items:center;flex-wrap:wrap}
+.filterbar label.inline{flex-direction:row;align-items:center;gap:8px;font-size:13px}
+.filterbar select{min-height:40px;padding:0 10px;width:auto}
+.trow{display:grid;grid-template-columns:minmax(120px,170px) minmax(0,1fr) 96px;gap:12px;align-items:center}
+.mini{display:flex;flex-direction:column;gap:2px;padding:12px;border:1px solid var(--rule);border-radius:8px;background:var(--paper)}
+.mini b{font-size:20px}
+.tips li{display:flex;flex-direction:column;gap:2px;padding:10px 0;border-bottom:1px solid var(--line2)}
+.tips li:last-child{border-bottom:0}
+@media (max-width:720px){.trow{grid-template-columns:110px minmax(0,1fr) 80px;gap:8px}}
+.insights{grid-template-columns:repeat(2,minmax(0,1fr))}
+@media (max-width:720px){.insights{grid-template-columns:1fr}}

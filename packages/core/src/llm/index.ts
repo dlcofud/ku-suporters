@@ -187,6 +187,100 @@ export class AnthropicClient implements LLMClient {
   }
 }
 
+/**
+ * Google Gemini API 클라이언트 (generateContent, fetch만 사용).
+ * - schema를 주면 responseMimeType=application/json + responseJsonSchema로 JSON을 받는다.
+ *   모델이 스키마를 받지 않으면(400) 스키마 없이 JSON 모드로 한 번 더 묻는다 (결과는 각 기능의 검사기가 다시 확인).
+ * - 429·503(사용량 초과·일시 장애)이면 잠깐 쉬고 한 번 더 시도한다.
+ * - 60초 안에 답이 없으면 멈춘다 (페이지가 끝없이 기다리지 않게).
+ * 키는 서버 환경 변수(GEMINI_API_KEY)로만 넘긴다. 브라우저에서 만들지 말 것.
+ */
+export class GeminiClient implements LLMClient {
+  readonly tier = "paid" as const;
+  readonly vision = true;
+  constructor(
+    private readonly apiKey: string,
+    /** 기본은 구글이 최신 안정판 Flash로 바꿔 주는 별칭. GEMINI_MODEL로 고정할 수 있다 */
+    readonly model: string = "gemini-flash-latest",
+    private readonly opts: { baseUrl?: string; fetchImpl?: typeof fetch; timeoutMs?: number; retryDelayMs?: number } = {},
+  ) {
+    if (!apiKey) throw new Error("GEMINI_API_KEY가 비어 있어요");
+  }
+
+  private body(req: LLMRequest, withSchema: boolean): Record<string, unknown> {
+    const wantsJson = !!(req.schema || req.json);
+    return {
+      systemInstruction: { parts: [{ text: wantsJson && !(withSchema && req.schema) ? `${req.system}\n\nJSON 객체 하나만 출력하세요. 다른 말은 쓰지 마세요.${req.schema ? `\n다음 JSON 스키마를 따르세요:\n${JSON.stringify(req.schema)}` : ""}` : req.system }] },
+      contents: [
+        {
+          role: "user",
+          parts: [...(req.images ?? []).map((i) => ({ inline_data: { mime_type: i.mediaType, data: i.data } })), { text: req.user }],
+        },
+      ],
+      generationConfig: {
+        // 생각(thinking)하는 모델은 생각 토큰도 출력 한도에 들어가므로 넉넉히 준다
+        maxOutputTokens: Math.max(2048, req.maxOutputTokens * 4),
+        temperature: wantsJson ? 0.2 : 0.7,
+        ...(wantsJson ? { responseMimeType: "application/json" } : {}),
+        ...(withSchema && req.schema ? { responseJsonSchema: req.schema } : {}),
+      },
+    };
+  }
+
+  private async post(body: Record<string, unknown>): Promise<Response> {
+    const f = this.opts.fetchImpl ?? fetch;
+    const url = `${this.opts.baseUrl ?? "https://generativelanguage.googleapis.com"}/v1beta/models/${encodeURIComponent(this.model)}:generateContent`;
+    return f(url, {
+      method: "POST",
+      headers: { "content-type": "application/json", "x-goog-api-key": this.apiKey },
+      body: JSON.stringify(body),
+      signal: AbortSignal.timeout(this.opts.timeoutMs ?? 60_000),
+    }).catch((e: unknown) => {
+      const timeout = e instanceof Error && (e.name === "TimeoutError" || e.name === "AbortError");
+      throw new Error(timeout ? "Gemini가 60초 안에 답하지 않았어요. 잠시 뒤 다시 시도해 주세요" : `Gemini에 연결하지 못했어요: ${e instanceof Error ? e.message : String(e)}`);
+    });
+  }
+
+  async complete(req: LLMRequest): Promise<LLMResponse> {
+    let withSchema = true;
+    let res = await this.post(this.body(req, withSchema));
+    if (res.status === 400 && req.schema) {
+      withSchema = false;
+      res = await this.post(this.body(req, withSchema));
+    }
+    if (res.status === 429 || res.status === 503) {
+      await new Promise((r) => setTimeout(r, this.opts.retryDelayMs ?? 2000));
+      res = await this.post(this.body(req, withSchema));
+    }
+    if (!res.ok) {
+      const detail = await res.text().catch(() => "");
+      if (res.status === 400 && /API key/i.test(detail)) throw new Error("Gemini API 키가 맞지 않아요. GEMINI_API_KEY를 확인해 주세요");
+      if (res.status === 403) throw new Error("Gemini API 키에 권한이 없어요. Google AI Studio에서 키를 다시 만들어 주세요");
+      if (res.status === 404) throw new Error(`Gemini에 '${this.model}' 모델이 없어요. GEMINI_MODEL을 확인해 주세요`);
+      if (res.status === 429) throw new Error("Gemini 무료 사용량을 넘었어요. 잠시 뒤 다시 시도해 주세요");
+      throw new Error(`Gemini API 오류 ${res.status}: ${detail.slice(0, 300)}`);
+    }
+    const data = (await res.json()) as {
+      candidates?: { content?: { parts?: { text?: string; thought?: boolean }[] }; finishReason?: string }[];
+      promptFeedback?: { blockReason?: string };
+      usageMetadata?: { promptTokenCount?: number; candidatesTokenCount?: number; thoughtsTokenCount?: number };
+      modelVersion?: string;
+    };
+    if (data.promptFeedback?.blockReason) throw new Error("모델이 이 요청을 처리하지 않았어요");
+    const cand = data.candidates?.[0];
+    // 생각(thought) 부분은 빼고 답만 모은다
+    const text = (cand?.content?.parts ?? []).filter((p) => !p.thought).map((p) => p.text ?? "").join("");
+    if (!text && cand?.finishReason === "SAFETY") throw new Error("모델이 이 요청을 처리하지 않았어요");
+    const u = data.usageMetadata;
+    return {
+      text,
+      inputTokens: u?.promptTokenCount ?? estimateTokens(req.system + req.user),
+      outputTokens: (u?.candidatesTokenCount ?? estimateTokens(text)) + (u?.thoughtsTokenCount ?? 0),
+      model: data.modelVersion ?? this.model,
+    };
+  }
+}
+
 /** LLM이 돌려준 텍스트에서 JSON 객체를 꺼낸다. 코드 블록으로 감싸 보내도 처리한다. */
 export function extractJson<T = unknown>(text: string): T {
   const fenced = text.match(/```(?:json)?\s*([\s\S]*?)```/);

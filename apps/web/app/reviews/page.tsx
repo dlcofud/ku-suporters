@@ -29,7 +29,7 @@ export default async function ReviewsPage({ searchParams }: { searchParams: Prom
           <p className="lede" style={{ margin: 0 }}>후기를 붙여넣으면 AI가 코드북(E1~E8)으로 먼저 점수를 매기고, 사람이 검수해요.</p>
         </div>
         <div className="grid" style={{ gap: 8, justifyItems: "end" }}>
-          <span className={ai.mode === "demo" ? "tag pill" : "tag pill k-post"} title="apps/web/.env.local 의 OLLAMA_URL 또는 ANTHROPIC_API_KEY">{ai.label}</span>
+          <span className={ai.mode === "demo" ? "tag pill" : "tag pill k-post"} title="apps/web/.env.local 의 GEMINI_API_KEY (또는 ANTHROPIC_API_KEY · OLLAMA_URL)">{ai.label}</span>
           <AiCheck />
         </div>
       </header>

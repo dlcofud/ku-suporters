@@ -1,7 +1,16 @@
 /** 릴리즈 노트. 새 기능을 합칠 때 맨 위에 한 줄씩 추가해 주세요. */
-export const APP_VERSION = "0.14";
+export const APP_VERSION = "0.15";
 
 export const RELEASES: { version: string; date: string; items: string[] }[] = [
+  {
+    version: "0.15",
+    date: "2026-11-19",
+    items: [
+      "Google Gemini를 연결할 수 있어요. GEMINI_API_KEY를 넣으면 공고 분석·지원서 코치·콘텐츠 기획이 Gemini로 동작해요",
+      "합격 경향 화면을 채웠어요: 한 줄 결론(가장 강한 요인 · 차별화할 틈 · 포맷 · 전형), 숫자 카드, 전형(사전미션·면접·새 계정), 콘텐츠 포맷, 분야·결과 단계, 합격자 팁과 면접 질문",
+      "'내 공고에 적용하면': 지금 고른 서포터즈의 우대사항을 합격 요인과 나란히 놓고 어떻게 쓸지 알려 줘요",
+    ],
+  },
   {
     version: "0.14",
     date: "2026-11-17",
