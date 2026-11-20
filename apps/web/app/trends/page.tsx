@@ -192,7 +192,7 @@ export default async function TrendsPage({ searchParams }: { searchParams: Promi
               {report.tips.slice(0, 8).map((t, i) => (
                 <li key={i}>
                   <span>{t.text}</span>
-                  <a className="small muted" href={t.url} target="_blank" rel="noreferrer">{t.org} {t.activity}</a>
+                  {t.url.startsWith("http") ? <a className="small muted" href={t.url} target="_blank" rel="noreferrer">{t.org} {t.activity}</a> : <span className="small muted">{t.org} {t.activity} · 사용자 공유</span>}
                 </li>
               ))}
             </ul>
@@ -206,7 +206,7 @@ export default async function TrendsPage({ searchParams }: { searchParams: Promi
                 {report.interviewQuestions.slice(0, 6).map((q, i) => (
                   <li key={i}>
                     <span>{q.text}</span>
-                    <a className="small muted" href={q.url} target="_blank" rel="noreferrer">{q.org}</a>
+                    {q.url.startsWith("http") ? <a className="small muted" href={q.url} target="_blank" rel="noreferrer">{q.org}</a> : <span className="small muted">{q.org} · 사용자 공유</span>}
                   </li>
                 ))}
               </ul>

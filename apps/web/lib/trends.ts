@@ -28,7 +28,8 @@ export async function loadCurated(): Promise<trends.CuratedReview[]> {
 /** 수집 시트 + 앱에서 코딩한 후기를 합친다 (같은 URL이면 앱 쪽이 우선) */
 export async function loadAllReviews(): Promise<trends.CuratedReview[]> {
   const [sheet, coded] = await Promise.all([loadCurated().catch(() => []), repo.listCodedReviews().catch(() => [])]);
-  const mine = coded.map(trends.toCurated);
+  // 사용자 공유 후기는 관리자가 승인한 뒤에만 넣는다
+  const mine = coded.filter((r) => !r.pendingApproval).map(trends.toCurated);
   const urls = new Set(mine.map((r) => r.url));
   return [...mine, ...sheet.filter((r) => !urls.has(r.url))];
 }

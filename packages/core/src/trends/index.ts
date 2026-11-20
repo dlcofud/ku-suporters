@@ -220,8 +220,10 @@ function freq(lists: string[][], n: number) {
 }
 
 export function buildTrendReport(all: CuratedReview[], filter: TrendFilter = {}): TrendReport {
+  // 합격 경향이니 불합격 후기는 뺀다 (공유로 들어온 불합격은 나중에 비교 기준으로 쓴다)
   const rows = all.filter(
     (r) =>
+      !/불합격/.test(r.result || "") &&
       (!filter.field || r.field === filter.field) &&
       (!filter.org || r.org === filter.org) &&
       (!filter.verifiedOnly || r.reviewStatus === "검수 완료") &&

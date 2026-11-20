@@ -110,6 +110,7 @@ export interface Repo {
   listCodedReviews(): Promise<T.CodedReview[]>;
   getCodedReview(id: string): Promise<T.CodedReview | undefined>;
   saveCodedReview(r: T.CodedReview): Promise<void>;
+  deleteCodedReview(id: string): Promise<void>;
 }
 
 export interface FileStore {
@@ -265,6 +266,9 @@ class MemoryRepo implements Repo {
   }
   async saveCodedReview(r: T.CodedReview) {
     this.coded.set(r.id, r);
+  }
+  async deleteCodedReview(id: string) {
+    this.coded.delete(id);
   }
 }
 
@@ -517,6 +521,9 @@ class SupabaseRepo implements Repo {
       await this.sb.from("coded_reviews").upsert({ id: c.id, url: c.meta.url, status: c.status, created_by: c.createdBy, data: c, created_at: c.createdAt, updated_at: new Date().toISOString() }),
       "coded.save",
     );
+  }
+  async deleteCodedReview(id: string) {
+    must(await this.sb.from("coded_reviews").delete().eq("id", id), "coded.delete");
   }
 }
 

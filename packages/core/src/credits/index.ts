@@ -15,6 +15,7 @@ export type CreditReason =
   | "contribution_connect"
   | "contribution_proof"
   | "contribution_structure"
+  | "contribution_story"
   | "subscription_refill"
   | "purchase"
   | "task_hold"
@@ -43,7 +44,7 @@ export interface LedgerEntry {
 export const CREDIT_POLICY = {
   signupBonus: 50,
   inviteBonus: 20,
-  contribution: { connect: 10, proof: 20, structure: 20 },
+  contribution: { connect: 10, proof: 20, structure: 20, story: 20 },
   subscription: { basic: 100, pro: 300 },
   /** 1 크레딧 = 상용 LLM 토큰 몇 개 분량인지 (입력·출력 가중 합 기준) */
   tokensPerCredit: 1000,

@@ -123,6 +123,9 @@ export interface CodedReview {
   /** 코딩한 사람 (시트에서 가져온 행은 "sheet") */
   createdBy: string;
   createdAt: string;
+  /** 사용자가 '합격 경험 공유'로 직접 쓴 후기면 그 공유의 id. 관리자가 승인하기 전에는 경향에 넣지 않는다 */
+  contributionId?: string;
+  pendingApproval?: boolean;
   /** 수집 시트에서 가져온 행이면 시트에만 있던 칸을 그대로 둔다 */
   sheet?: {
     id: string;
@@ -355,7 +358,7 @@ export function toCurated(r: CodedReview): CuratedReview {
   const date = r.createdAt.slice(0, 10);
   return {
     id: r.id,
-    sourceType: r.sheet ? "수집 시트" : "팀 코딩",
+    sourceType: r.sheet ? "수집 시트" : r.contributionId ? "사용자 공유" : "팀 코딩",
     url: m.url,
     sourceCitation: r.sheet?.citation || `${m.sourceName}, 「${m.title || "제목 확인 필요"}」, ${m.url} (확인일 ${date.replace(/-/g, ".")})`,
     org: m.org || r.ai.detected.org,

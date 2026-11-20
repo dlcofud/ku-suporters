@@ -595,6 +595,8 @@ export async function contributeAction(formData: FormData) {
   const activityKey = activityName.replace(/\s+/g, "-").toLowerCase();
   let c = contribution.newContribution(newId("c"), user.id, activityKey, activityName);
   const result = String(formData.get("result") || "") as contribution.ApplicationResult;
+  const story = String(formData.get("story") || "").trim().slice(0, 5000);
+  const field = String(formData.get("field") || "").trim();
   const proof = formData.get("proof");
   let proofRef: string | undefined;
   if (proof instanceof File && proof.size > 0) {
@@ -612,8 +614,10 @@ export async function contributeAction(formData: FormData) {
   c = {
     ...c,
     result: result || undefined,
-    igAccountId: user.ig?.userId ?? (formData.get("demoConnect") ? "demo-ig" : undefined),
-    selectedMediaIds: formData.getAll("media").map(String),
+    igAccountId: user.ig?.userId,
+    selectedMediaIds: user.ig ? formData.getAll("media").map(String) : [],
+    story: story || undefined,
+    field: field || undefined,
     proofUploadRef: proofRef,
     proofRedacted: formData.get("redacted") === "on",
     structure: formData.get("shareStructure") === "on" && structure.length ? structure : undefined,
@@ -630,9 +634,47 @@ export async function contributeAction(formData: FormData) {
     if (proofRef) await files.remove(proofRef);
     redirect("/contribute?error=" + encodeURIComponent(error));
   }
+  if (c.story) c = { ...c, storyReviewId: await codeStory(c, user.id) };
   await repo.saveContribution(c);
   revalidatePath("/", "layout");
   redirect("/contribute?done=1");
+}
+
+const RESULT_LABEL: Record<contribution.ApplicationResult, string> = { final_pass: "최종 합격", document_pass: "서류 합격", fail: "불합격" };
+
+/**
+ * 사용자가 쓴 합격 후기를 코드북으로 코딩해 검수 대기에 넣는다.
+ * 관리자가 승인하기 전(pendingApproval)에는 합격 경향에 들어가지 않는다.
+ * AI가 실패해도 규칙 기반 초안으로 저장한다 (팀이 /reviews에서 점수를 다시 본다).
+ */
+async function codeStory(c: contribution.Contribution, userId: string): Promise<string> {
+  const meta: trends.ReviewMeta = {
+    url: `supportlab://contribution/${c.id}`,
+    sourceName: "서포트랩 사용자 공유",
+    title: c.activityName,
+    activity: c.activityName,
+    field: c.field,
+  };
+  let coded: trends.CodingResult;
+  try {
+    coded = await trends.codeReviewWithLLM(c.story!, meta, getLLM());
+  } catch (e) {
+    console.error("[contribute] 후기 코딩 실패", e);
+    coded = trends.codeReviewByRules(c.story!);
+  }
+  const now = new Date().toISOString();
+  const r: trends.CodedReview = {
+    id: newId("rv"),
+    meta,
+    ai: { ...coded, codedAt: now },
+    status: "AI 초안",
+    createdBy: userId,
+    createdAt: now,
+    contributionId: c.id,
+    pendingApproval: true,
+  };
+  await repo.saveCodedReview(r);
+  return r.id;
 }
 
 export async function withdrawAction(formData: FormData) {
@@ -640,7 +682,8 @@ export async function withdrawAction(formData: FormData) {
   const c = await repo.getContribution(String(formData.get("id") || ""));
   if (c && c.userId === user.id && c.status !== "withdrawn") {
     if (c.proofUploadRef) await files.remove(c.proofUploadRef);
-    await repo.saveContribution(await contribution.withdraw(c, repo.ledger, new Date().toISOString()));
+    if (c.storyReviewId) await repo.deleteCodedReview(c.storyReviewId);
+    await repo.saveContribution({ ...(await contribution.withdraw(c, repo.ledger, new Date().toISOString())), storyReviewId: undefined });
   }
   revalidatePath("/", "layout");
   redirect("/contribute");
@@ -665,6 +708,20 @@ async function review(formData: FormData, decision: "approve" | "reject") {
   await repo.saveContribution(c);
   if (error) redirect("/admin?error=" + encodeURIComponent(error));
   if (proofRef) await files.remove(proofRef); // 검수가 끝나면 증빙 이미지는 삭제
+  // 후기 코딩 결과: 승인하면 경향에 넣고(증빙을 확인했으면 결과도 확정), 반려하면 지운다
+  if (c.storyReviewId) {
+    const rv = await repo.getCodedReview(c.storyReviewId);
+    if (rv && decision === "approve") {
+      rv.pendingApproval = false;
+      rv.meta.result = c.result === "fail" ? "불합격" : checks.proof_shows_result && c.result ? RESULT_LABEL[c.result] : "확인 필요";
+      await repo.saveCodedReview(rv);
+    } else if (rv) {
+      await repo.deleteCodedReview(rv.id);
+      await repo.saveContribution({ ...c, storyReviewId: undefined });
+    }
+    revalidatePath("/trends");
+    revalidatePath("/reviews");
+  }
   revalidatePath("/", "layout");
   redirect("/admin");
 }
