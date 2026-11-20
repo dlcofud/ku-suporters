@@ -1,6 +1,7 @@
 "use server";
 
 import { loadCurated } from "./trends";
+import * as sheet from "./sheet";
 
 import { cookies } from "next/headers";
 import { redirect } from "next/navigation";
@@ -964,4 +965,62 @@ export async function removeMediaAction(formData: FormData) {
   await repo.setManualMedia(user.id, (await manualMedia(user.id)).filter((m) => m.id !== id));
   revalidatePath("/feedback");
   redirect("/feedback");
+}
+
+/* ------------------------------------------------------------------ */
+/* 관리자: 엑셀 관리 (수집 시트 올리기·되돌리기)                          */
+/* ------------------------------------------------------------------ */
+
+/** 엑셀·CSV를 올리면 검사하고 미리보기로 보낸다 (아직 적용 안 함) */
+export async function uploadSheetAction(formData: FormData) {
+  const user = await requireRole("admin");
+  const f = formData.get("sheet");
+  if (!(f instanceof File) || f.size === 0) redirect("/admin/sheet?error=" + encodeURIComponent("파일을 골라 주세요"));
+  if (f.size > 10 * 1024 * 1024) redirect("/admin/sheet?error=" + encodeURIComponent("파일이 너무 커요 (10MB까지)"));
+  const buf = Buffer.from(await f.arrayBuffer());
+  let table: trends.SheetTable;
+  try {
+    table = /\.csv$/i.test(f.name) ? trends.csvToTable(buf.toString("utf8")) : await sheet.xlsxToTable(buf);
+  } catch (e) {
+    console.error("[sheet] 읽기 실패", e);
+    redirect("/admin/sheet?error=" + encodeURIComponent("파일을 열지 못했어요. 엑셀(.xlsx)이나 CSV UTF-8로 저장한 파일인지 확인해 주세요."));
+  }
+  await sheet.savePending(user.id, trends.tableToCsv(table));
+  redirect("/admin/sheet?preview=1&name=" + encodeURIComponent(f.name));
+}
+
+/** 미리보기한 시트를 새 버전으로 적용 */
+export async function applySheetAction(formData: FormData) {
+  const user = await requireRole("admin");
+  const pending = await sheet.readPending(user.id);
+  if (!pending) redirect("/admin/sheet?error=" + encodeURIComponent("미리보기할 파일이 없어요. 다시 올려 주세요."));
+  const check = trends.checkSheet(trends.csvToTable(pending));
+  if (check.errors.length) redirect("/admin/sheet?preview=1");
+  const diff = trends.diffSheets(trends.csvToTable((await sheet.activeCsv()).csv), check);
+  const before = diff.removed.length + diff.changed.length + diff.unchanged;
+  if (before && diff.removed.length / before > trends.BIG_REMOVAL && !formData.get("confirmRemoval")) {
+    redirect("/admin/sheet?preview=1&needConfirm=1");
+  }
+  const note = String(formData.get("note") || "").trim().slice(0, 100) || `추가 ${diff.added.length} · 변경 ${diff.changed.length} · 삭제 ${diff.removed.length}`;
+  await sheet.publishSheet(trends.tableToCsv(check), user.nickname, note);
+  await sheet.savePending(user.id, "");
+  revalidatePath("/trends");
+  revalidatePath("/reviews");
+  redirect("/admin/sheet?applied=1");
+}
+
+export async function discardSheetAction() {
+  const user = await requireRole("admin");
+  await sheet.savePending(user.id, "");
+  redirect("/admin/sheet");
+}
+
+/** 예전 버전 또는 저장소 기본(data/curated.csv)으로 되돌리기 */
+export async function activateSheetAction(formData: FormData) {
+  await requireRole("admin");
+  const key = String(formData.get("key") || "");
+  await sheet.activate(key === "repo" ? null : key);
+  revalidatePath("/trends");
+  revalidatePath("/reviews");
+  redirect("/admin/sheet?restored=1");
 }

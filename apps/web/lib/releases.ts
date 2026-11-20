@@ -1,7 +1,16 @@
 /** 릴리즈 노트. 새 기능을 합칠 때 맨 위에 한 줄씩 추가해 주세요. */
-export const APP_VERSION = "0.17.0";
+export const APP_VERSION = "0.18.0";
 
 export const RELEASES: { version: string; date: string; items: string[] }[] = [
+  {
+    version: "0.18.0",
+    date: "2026-11-20",
+    items: [
+      "새 기능(관리자): 엑셀 관리 — 합격 후기 수집 시트를 엑셀로 받아 고쳐서 올려요. GitHub이 없어도 돼요",
+      "올리면 바로 바뀌지 않고 추가·변경·삭제와 오류(같은 후기 두 번, 0~2가 아닌 점수 등)를 먼저 보여 줘요",
+      "올린 시트는 버전으로 쌓이고, 언제든 예전 버전이나 저장소 기본으로 되돌릴 수 있어요",
+    ],
+  },
   {
     version: "0.17.0",
     date: "2026-11-20",

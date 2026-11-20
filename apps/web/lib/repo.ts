@@ -6,7 +6,7 @@
  * Supabase는 서버에서 secret 키로만 접근한다(브라우저에 키를 내려보내지 않는다).
  */
 import { createClient, type SupabaseClient } from "@supabase/supabase-js";
-import { mkdir, writeFile } from "node:fs/promises";
+import { mkdir, readFile, writeFile } from "node:fs/promises";
 import { existsSync } from "node:fs";
 import { dirname, join } from "node:path";
 import { randomUUID } from "node:crypto";
@@ -115,6 +115,8 @@ export interface Repo {
 
 export interface FileStore {
   put(key: string, data: Buffer, contentType: string): Promise<void>;
+  /** 파일 내용 읽기 (없으면 undefined). 캐시를 쓰지 않는다 */
+  read(key: string): Promise<Buffer | undefined>;
   /** ffmpeg 처리용 로컬 경로 (Supabase면 임시 폴더로 내려받는다) */
   toLocal(key: string): Promise<string>;
   /** 외부(인스타 서버 포함)에서 받을 수 있는 https 주소. 메모리 모드에서는 undefined */
@@ -280,6 +282,9 @@ class LocalFiles implements FileStore {
     const p = this.localPath(key);
     await mkdir(dirname(p), { recursive: true });
     await writeFile(p, data);
+  }
+  async read(key: string) {
+    return readFile(this.localPath(key)).catch(() => undefined);
   }
   async toLocal(key: string) {
     return this.localPath(key);
@@ -535,6 +540,11 @@ class SupabaseFiles implements FileStore {
   async put(key: string, data: Buffer, contentType: string) {
     const { error } = await this.sb.storage.from(this.bucket).upload(key, data, { contentType, upsert: true });
     if (error) throw new Error(`Storage 업로드 실패: ${error.message}`);
+  }
+  async read(key: string) {
+    const { data, error } = await this.sb.storage.from(this.bucket).download(key);
+    if (error || !data) return undefined;
+    return Buffer.from(await data.arrayBuffer());
   }
   async toLocal(key: string) {
     const p = this.localPath(key);
