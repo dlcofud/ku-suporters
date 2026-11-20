@@ -23,12 +23,15 @@ const TOOLS: [string, string, ("admin" | "team" | "act")?][] = [
   ["/contribute", "합격 경험 공유"],
   ["/reviews", "후기 분석 (팀)", "team"],
   ["/admin", "검수 (관리자)", "admin"],
+  ["/admin/sheet", "엑셀 관리 (관리자)", "admin"],
 ];
 
 /** roles: 서버에서 정한 권한. 메뉴만 숨기는 것이고, 실제 막는 건 각 페이지·액션의 requireRole */
 export function Nav({ hasActivity, roles = [] }: { hasActivity: boolean; roles?: ("admin" | "team")[] }) {
   const path = usePathname();
-  const isOn = (href: string) => (href === "/" ? path === "/" : path.startsWith(href));
+  // 더 긴 메뉴 주소가 맞으면 그쪽만 켠다 (/admin 과 /admin/sheet)
+  const isOn = (href: string) =>
+    href === "/" ? path === "/" : path.startsWith(href) && !TOOLS.some(([h]) => h.length > href.length && h.startsWith(href) && path.startsWith(h));
   return (
     <>
       {hasActivity && path !== "/" && (

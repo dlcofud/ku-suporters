@@ -17,6 +17,9 @@ const nextConfig = {
     // 공고 이미지 글자 읽기 (tesseract 엔진·한국어/영어 학습 데이터)
     "/notice": ["../../node_modules/tesseract.js/**", "../../node_modules/tesseract.js-core/**", "../../node_modules/@tesseract.js-data/kor/4.0.0_best_int/**", "../../node_modules/@tesseract.js-data/eng/4.0.0_best_int/**"],
     "/trends": ["../../data/curated.csv"],
+    "/reviews": ["../../data/curated.csv"],
+    "/admin/sheet": ["../../data/curated.csv"],
+    "/api/sheet/download": ["../../data/curated.csv", "../../data/수집시트.xlsx"],
   },
   // core 패키지는 TypeScript 소스에서 "./x.js" 형태로 import 하므로 .ts 파일로 연결해 준다
   webpack: (config) => {

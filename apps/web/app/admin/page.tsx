@@ -18,6 +18,7 @@ export default async function AdminPage({ searchParams }: { searchParams: Promis
         <span className="eyebrow">관리자</span>
         <h1>업로드 자료 검수</h1>
       </header>
+      <p className="small" style={{ margin: 0 }}><Link className="btn" href="/admin/sheet">📊 엑셀 관리 (합격 후기 수집 시트)</Link></p>
       <p className="small muted" style={{ margin: 0 }}>관리자(@{me.loginId})만 볼 수 있어요. 승인하면 공유한 사람에게 크레딧이 지급되고, 증빙 이미지는 검수가 끝나면 지워요. 내가 올린 공유는 다른 관리자가 검수해야 해요.</p>
       {error && <div className="note warn">{error}</div>}
       {queue.length === 0 && <div className="card"><p className="muted" style={{ margin: 0 }}>검수할 자료가 없어요.</p></div>}
