@@ -1,7 +1,12 @@
 /** 릴리즈 노트. 새 기능을 합칠 때 맨 위에 한 줄씩 추가해 주세요. */
-export const APP_VERSION = "0.18.0";
+export const APP_VERSION = "0.18.1";
 
 export const RELEASES: { version: string; date: string; items: string[] }[] = [
+  {
+    version: "0.18.1",
+    date: "2026-11-20",
+    items: ["고친 점: 후기 분석의 '검수 대기로 가져오기'가 오류 화면으로 끝나던 문제"],
+  },
   {
     version: "0.18.0",
     date: "2026-11-20",

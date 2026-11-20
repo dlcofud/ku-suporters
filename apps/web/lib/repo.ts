@@ -128,6 +128,8 @@ export interface FileStore {
   createUploadUrl(key: string): Promise<string | undefined>;
 }
 
+const UUID_RE = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i;
+
 const DATA_DIR = process.env.SUPPORTLAB_DATA_DIR || "/tmp/supportlab";
 
 /* ------------------------------------------------------------------ */
@@ -523,7 +525,16 @@ class SupabaseRepo implements Repo {
   }
   async saveCodedReview(c: T.CodedReview) {
     must(
-      await this.sb.from("coded_reviews").upsert({ id: c.id, url: c.meta.url, status: c.status, created_by: c.createdBy, data: c, created_at: c.createdAt, updated_at: new Date().toISOString() }),
+      await this.sb.from("coded_reviews").upsert({
+        id: c.id,
+        url: c.meta.url,
+        status: c.status,
+        // created_by는 사용자 uuid 열이라, 시트에서 가져온 행("sheet")처럼 사람이 아닌 경우 비워 둔다 (data에는 그대로 남음)
+        created_by: UUID_RE.test(c.createdBy) ? c.createdBy : null,
+        data: c,
+        created_at: c.createdAt,
+        updated_at: new Date().toISOString(),
+      }),
       "coded.save",
     );
   }
