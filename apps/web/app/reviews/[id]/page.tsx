@@ -20,18 +20,30 @@ export default async function ReviewDetail({ params, searchParams }: { params: P
   const fromSheet = r.ai.model === "sheet";
   const mine = !trends.canVerify(r, me.id);
   const all = await repo.listCodedReviews();
+  const contrib = r.contributionId ? await repo.getContribution(r.contributionId) : undefined;
+  const web = r.meta.url.startsWith("http");
   const left = all.filter((x) => x.status !== "검수 완료" && x.id !== r.id && trends.canVerify(x, me.id)).length;
   return (
     <>
       <header className="grid" style={{ gap: 4 }}>
         <span className="eyebrow"><Link href="/reviews">합격 후기 분석</Link> · {r.status}</span>
         <h1>{c.org !== "확인 필요" ? `${c.org} ${c.activity !== "확인 필요" ? c.activity : ""}` : r.meta.title || "활동 정보 확인 필요"}</h1>
-        <p className="small muted" style={{ margin: 0 }}>출처: <a href={r.meta.url} target="_blank" rel="noreferrer">{r.meta.sourceName}{r.meta.title ? ` 「${r.meta.title}」` : ""}</a> · <a className="btn small-btn" href={r.meta.url} target="_blank" rel="noreferrer">원문 열기 ↗</a></p>
+        {web ? (
+          <p className="small muted" style={{ margin: 0 }}>출처: <a href={r.meta.url} target="_blank" rel="noreferrer">{r.meta.sourceName}{r.meta.title ? ` 「${r.meta.title}」` : ""}</a> · <a className="btn small-btn" href={r.meta.url} target="_blank" rel="noreferrer">원문 열기 ↗</a></p>
+        ) : (
+          <p className="small muted" style={{ margin: 0 }}>출처: {r.meta.sourceName} · {r.pendingApproval ? "관리자 승인 전이라 합격 경향에는 아직 안 들어가요" : "관리자가 승인했어요"}</p>
+        )}
       </header>
 
       {q.dup && <p className="note">이미 분석한 후기라 기존 결과를 열었어요.</p>}
       {q.saved && <p className="note ok">검수 완료로 저장했어요. 경향 분석에 바로 반영돼요.{r.status !== "검수 완료" ? " 이어서 이 후기를 검수해 주세요." : ""}</p>}
       {(q.own || mine) && <p className="note warn">내가 코딩한 후기라 다른 팀원이 원문과 대조해 검수해야 해요. 같은 사람이 코딩과 검수를 하면 실수를 잡기 어려워요.</p>}
+      {contrib?.story && (
+        <details className="card" open={r.status !== "검수 완료"}>
+          <summary><b>사용자가 쓴 후기 원문</b> <span className="small muted">관리자가 승인·반려하면 지워져요</span></summary>
+          <p style={{ whiteSpace: "pre-wrap", margin: "8px 0 0" }}>{contrib.story}</p>
+        </details>
+      )}
       {fromSheet && r.status !== "검수 완료" && <p className="note">수집 시트에서 가져온 <b>시드 점수</b>예요. 근거 문장이 없으니 <a href={r.meta.url} target="_blank" rel="noreferrer">원문을 열어</a> 점수와 결과 단계를 대조해 주세요.</p>}
       {q.aierror && <p className="note warn">AI 호출이 실패해서 규칙 기반 초안으로 저장했어요. 점수를 꼭 직접 확인해 주세요.</p>}
       {rules && !q.aierror && <p className="note warn">AI 키가 없어서 단서 단어로 매긴 <b>규칙 기반 초안</b>이에요. 정확도가 낮으니 점수를 하나씩 확인해 주세요.</p>}

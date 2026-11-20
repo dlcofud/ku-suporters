@@ -1,7 +1,8 @@
 import { requireRole } from "@/lib/session";
 import { repo } from "@/lib/repo";
 import { approveReviewAction, rejectReviewAction } from "@/lib/actions";
-import { contribution } from "@supportlab/core";
+import Link from "next/link";
+import { contribution, trends } from "@supportlab/core";
 
 const RESULT: Record<string, string> = { final_pass: "최종 합격", document_pass: "서류 합격", fail: "불합격" };
 
@@ -10,6 +11,7 @@ export default async function AdminPage({ searchParams }: { searchParams: Promis
   const { error } = await searchParams;
   const queue = await repo.listContributions({ statuses: ["submitted", "in_review"] });
   const done = await repo.listContributions({ statuses: ["approved", "rejected"] });
+  const coded = new Map((await Promise.all(queue.filter((c) => c.storyReviewId).map((c) => repo.getCodedReview(c.storyReviewId!)))).filter((x): x is trends.CodedReview => !!x).map((r) => [r.id, r]));
   return (
     <>
       <header>
@@ -26,11 +28,28 @@ export default async function AdminPage({ searchParams }: { searchParams: Promis
             <h2>{c.activityName}</h2>
             <span className="tag">{RESULT[c.result ?? ""] ?? "-"}</span>
           </div>
-          <span className="small muted">게시물 {c.selectedMediaIds.length}개 · 증빙 {c.proofUploadRef ? "있음" : "없음"} · 동의 {c.consents.filter((x) => x.agreed).length}/4 (버전 {c.consents[0]?.version}) · 기여 보상 {contribution.computeReward(c).total}</span>
+          <span className="small muted">{c.field ? `${c.field} · ` : ""}게시물 {c.selectedMediaIds.length}개 · 증빙 {c.proofUploadRef ? "있음" : "없음"} · 후기 {c.story ? `${c.story.length}자` : "없음"} · 동의 {c.consents.filter((x) => x.agreed).length}/4 (버전 {c.consents[0]?.version}) · 기여 보상 {(c.rewardTotal ?? contribution.computeReward(c).total)}</span>
+          {c.story && (
+            <details className="card" style={{ padding: 14 }}>
+              <summary><b>후기 원문</b> <span className="small muted">승인·반려하면 지워져요</span></summary>
+              <p style={{ whiteSpace: "pre-wrap", margin: "8px 0 0" }}>{c.story}</p>
+            </details>
+          )}
+          {c.storyReviewId && coded.get(c.storyReviewId) && (() => {
+            const rv = coded.get(c.storyReviewId!)!;
+            const sc = trends.finalScores(rv);
+            return (
+              <div className="small">
+                <b>AI 코딩</b> {trends.CODES.map((k) => `${k} ${sc[k]}`).join(" · ")} · 총점 {trends.CODES.reduce((s, k) => s + sc[k], 0)}/16
+                {rv.ai.summary && <span className="muted"> — {rv.ai.summary}</span>}{" "}
+                <Link href={`/reviews/${rv.id}`}>점수 자세히 · 팀 검수</Link>
+              </div>
+            );
+          })()}
           <fieldset className="card" style={{ padding: 14 }}>
-            <legend><b>검수 체크리스트</b></legend>
-            {Object.entries(contribution.REVIEW_CHECKS).map(([k, label]) => (
-              <label key={k} className="check"><input type="checkbox" name={`chk_${k}`} />{label}</label>
+            <legend><b>검수 체크리스트</b> <span className="small muted">낸 것에 맞는 항목만 보여요</span></legend>
+            {contribution.checksNeeded(c).map((k) => (
+              <label key={k} className="check"><input type="checkbox" name={`chk_${k}`} />{contribution.REVIEW_CHECKS[k]}</label>
             ))}
           </fieldset>
           <label>반려 사유 (반려할 때 필수)<input type="text" name="reason" /></label>
