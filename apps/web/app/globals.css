@@ -357,3 +357,7 @@ label>.lbl{display:block}
 .tag.thin-tag{border-color:var(--red);color:var(--red);background:#fff;font-weight:800}
 .card.caution{border-color:var(--red);background:#FFF5F5}
 @media (max-width:700px){.trust-nums{margin-left:0}}
+/* 후기 검수 대기열 */
+.verify-queue .progress{height:10px;border:1.5px solid var(--ink);border-radius:999px;overflow:hidden;background:#fff}
+.verify-queue .progress i{display:block;height:100%;background:var(--ink)}
+.small-btn{padding:4px 12px;font-size:13px}

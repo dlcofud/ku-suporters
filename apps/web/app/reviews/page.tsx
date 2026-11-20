@@ -2,7 +2,8 @@ import Link from "next/link";
 import { trends, skeleton } from "@supportlab/core";
 import { requireRole } from "@/lib/session";
 import { repo } from "@/lib/repo";
-import { codeReviewAction } from "@/lib/actions";
+import { codeReviewAction, importSheetAction } from "@/lib/actions";
+import { loadCurated } from "@/lib/trends";
 import { llmStatus } from "@/lib/llm";
 import { AiCheck } from "@/components/AiCheck";
 import { SubmitButton, PendingNote } from "@/components/Pending";
@@ -12,11 +13,17 @@ const ERR: Record<string, string> = {
   short: "본문이 너무 짧아요. 후기 본문을 80자 이상 붙여넣어 주세요.",
 };
 
-export default async function ReviewsPage({ searchParams }: { searchParams: Promise<{ error?: string }> }) {
-  await requireRole("team");
-  const { error } = await searchParams;
-  const list = await repo.listCodedReviews();
+export default async function ReviewsPage({ searchParams }: { searchParams: Promise<{ error?: string; imported?: string; alldone?: string }> }) {
+  const me = await requireRole("team");
+  const { error, imported, alldone } = await searchParams;
+  const [raw, sheet] = await Promise.all([repo.listCodedReviews(), loadCurated().catch(() => [])]);
+  // 검수 대기 먼저, 그다음 최근 것
+  const list = [...raw].sort((a, b) => Number(a.status === "검수 완료") - Number(b.status === "검수 완료") || b.createdAt.localeCompare(a.createdAt));
   const done = list.filter((r) => r.status === "검수 완료");
+  const urls = new Set(list.map((r) => r.meta.url));
+  const notImported = sheet.filter((r) => r.url && !urls.has(r.url)).length;
+  const next = trends.nextToVerify(list, me.id);
+  const mineWaiting = list.filter((r) => r.status !== "검수 완료" && !trends.canVerify(r, me.id)).length;
   const ag = trends.agreementByCode(list);
   const n = ag[0]?.n ?? 0;
   const ai = llmStatus();
@@ -33,6 +40,30 @@ export default async function ReviewsPage({ searchParams }: { searchParams: Prom
           <AiCheck />
         </div>
       </header>
+
+      {imported && <p className="note ok" role="status">시트에서 {imported}건을 검수 대기로 가져왔어요.</p>}
+      {alldone && <p className="note ok" role="status">지금 검수할 수 있는 후기를 모두 검수했어요. 수고했어요!</p>}
+
+      <section className="card hi verify-queue">
+        <div className="row between">
+          <div className="grid" style={{ gap: 2 }}>
+            <h2 style={{ margin: 0 }}>검수 대기열</h2>
+            <span className="small muted">원문을 열어 AI(또는 시트) 점수를 대조하고, 저장하면 다음 후기로 넘어가요. 내가 코딩한 후기는 다른 팀원이 검수해요.</span>
+          </div>
+          {next ? <Link className="btn pri" href={`/reviews/${next.id}`}>다음 검수 시작 →</Link> : <span className="tag">검수할 후기가 없어요</span>}
+        </div>
+        <div className="progress" aria-label={`검수 완료 ${done.length} / ${list.length}`}><i style={{ width: `${list.length ? (done.length / list.length) * 100 : 0}%` }} /></div>
+        <div className="row small" style={{ gap: 14 }}>
+          <span>검수 완료 <b>{done.length}</b> / {list.length}</span>
+          {mineWaiting > 0 && <span className="muted">내가 코딩해서 다른 팀원을 기다리는 후기 {mineWaiting}건</span>}
+          {notImported > 0 && (
+            <form action={importSheetAction} className="row" style={{ gap: 8 }}>
+              <span>수집 시트에만 있는 후기 <b>{notImported}건</b></span>
+              <SubmitButton pendingText="가져오는 중…">검수 대기로 가져오기</SubmitButton>
+            </form>
+          )}
+        </div>
+      </section>
 
       <section className="grid g4">
         <div className="card stat"><span className="small muted">분석한 후기</span><span className="num big">{list.length}건</span></div>
@@ -115,8 +146,8 @@ export default async function ReviewsPage({ searchParams }: { searchParams: Prom
                       <td><b>{c.org}</b> {c.activity}</td>
                       <td>{c.result}</td>
                       <td className="num" style={{ textAlign: "right" }}>{total} / 16</td>
-                      <td className="small muted">{r.ai.model === "rules" ? "규칙 기반" : r.ai.model}</td>
-                      <td><Link href={`/reviews/${r.id}`}>{r.status === "검수 완료" ? "보기" : "검수하기"}</Link></td>
+                      <td className="small muted">{r.ai.model === "rules" ? "규칙 기반" : r.ai.model === "sheet" ? "수집 시트" : r.ai.model}</td>
+                      <td><Link href={`/reviews/${r.id}`}>{r.status === "검수 완료" ? "보기" : trends.canVerify(r, me.id) ? "검수하기" : "보기 (다른 팀원 검수)"}</Link></td>
                     </tr>
                   );
                 })}
