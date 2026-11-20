@@ -147,10 +147,37 @@ export function parseCuratedCsv(csv: string): CuratedReview[] {
     });
 }
 
+/** 숫자를 얼마나 믿어도 되는지 (표본 수와 사람 검수 비율로만 정한다) */
+export interface Confidence {
+  level: "low" | "medium" | "high";
+  label: string;
+  hint: string;
+}
+
+/** 이보다 적으면 '표본 적음'으로 흐리게 보여 준다 */
+export const MIN_SAMPLE = 5;
+
+export function confidenceOf(n: number, verified = 0): Confidence {
+  if (n < MIN_SAMPLE) return { level: "low", label: "표본 적음", hint: n ? `${n}건뿐이라 한두 건에 따라 크게 바뀌어요. 참고만 해 주세요.` : "아직 후기가 없어요." };
+  const share = verified / n;
+  if (n >= 20 && share >= 0.5) return { level: "high", label: "믿을 만함", hint: `${n}건 중 ${verified}건을 사람이 원문과 대조해 검수했어요.` };
+  return {
+    level: "medium",
+    label: "참고용",
+    hint: verified === 0 ? `${n}건 모두 아직 사람이 원문과 대조해 검수하지 않았어요.` : n < 20 ? `${n}건이라 표본이 더 필요해요 (검수 ${verified}건).` : `검수 완료가 ${verified}건(${Math.round(share * 100)}%)이에요. 절반을 넘으면 '믿을 만함'이 돼요.`,
+  };
+}
+
 export interface TrendReport {
   sampleSize: number;
   verifiedCount: number;
-  elementAverages: { code: RubricCode; avg: number; strongShare: number }[];
+  /** 결과(최종·서류 합격)를 확인한 후기 수, 확인하지 못한 후기 수 */
+  confirmedResultCount: number;
+  unknownResultCount: number;
+  /** 이 리포트 전체를 얼마나 믿어도 되는지 */
+  confidence: Confidence;
+  /** n: 그 요인 점수가 있는 후기 수 */
+  elementAverages: { code: RubricCode; avg: number; strongShare: number; n: number }[];
   keywordFrequency: { keyword: string; count: number; share: number }[];
   processFrequency: { keyword: string; count: number; share: number }[];
   byField: Record<string, number>;
@@ -177,7 +204,12 @@ export interface TrendFilter {
   org?: string;
   /** true면 '검수 완료' 행만 쓴다 */
   verifiedOnly?: boolean;
+  /** true면 결과(최종·서류 합격)를 확인한 후기만 쓴다 */
+  confirmedOnly?: boolean;
 }
+
+/** 결과를 확인한 합격 후기인지 */
+export const isConfirmedPass = (r: CuratedReview) => /최종\s*합격|서류\s*합격/.test(r.result || "");
 
 function freq(lists: string[][], n: number) {
   const m = new Map<string, number>();
@@ -192,7 +224,8 @@ export function buildTrendReport(all: CuratedReview[], filter: TrendFilter = {})
     (r) =>
       (!filter.field || r.field === filter.field) &&
       (!filter.org || r.org === filter.org) &&
-      (!filter.verifiedOnly || r.reviewStatus === "검수 완료"),
+      (!filter.verifiedOnly || r.reviewStatus === "검수 완료") &&
+      (!filter.confirmedOnly || isConfirmedPass(r)),
   );
   const n = rows.length;
   const elementAverages = SCORE_COLS.map(([code]) => {
@@ -201,13 +234,19 @@ export function buildTrendReport(all: CuratedReview[], filter: TrendFilter = {})
       code,
       avg: vals.length ? Math.round((vals.reduce((a, b) => a + b, 0) / vals.length) * 100) / 100 : 0,
       strongShare: vals.length ? vals.filter((v) => v === 2).length / vals.length : 0,
+      n: vals.length,
     };
   });
   const byField: Record<string, number> = {};
   for (const r of rows) byField[r.field || "확인 필요"] = (byField[r.field || "확인 필요"] ?? 0) + 1;
+  const verifiedCount = rows.filter((r) => r.reviewStatus === "검수 완료").length;
+  const confirmedResultCount = rows.filter(isConfirmedPass).length;
   return {
     sampleSize: n,
-    verifiedCount: rows.filter((r) => r.reviewStatus === "검수 완료").length,
+    verifiedCount,
+    confirmedResultCount,
+    unknownResultCount: rows.filter((r) => !r.result || /확인\s*필요/.test(r.result)).length,
+    confidence: confidenceOf(n, verifiedCount),
     elementAverages,
     keywordFrequency: freq(rows.map((r) => r.keywords), n),
     processFrequency: freq(rows.map((r) => r.processKeywords), n),
@@ -276,7 +315,7 @@ function formatStats(rows: CuratedReview[]): { formatMentions: { format: string;
 /* ------------------------------------------------------------------ */
 
 export interface TrendInsight {
-  kind: "strong" | "gap" | "process" | "format";
+  kind: "strong" | "gap" | "process" | "format" | "caution";
   title: string;
   body: string;
 }
@@ -289,17 +328,21 @@ const LABEL: Record<RubricCode, string> = {
 export function trendInsights(r: TrendReport): TrendInsight[] {
   if (!r.sampleSize) return [];
   const out: TrendInsight[] = [];
+  if (r.confidence.level === "low") {
+    out.push({ kind: "caution", title: `후기가 ${r.sampleSize}건뿐이에요`, body: `${r.confidence.hint} 분야를 '전체'로 넓혀 보거나, 비슷한 분야를 함께 보세요.` });
+  }
   const sorted = [...r.elementAverages].sort((a, b) => b.avg - a.avg);
   const top = sorted.slice(0, 2).filter((e) => e.avg > 0);
   if (top.length) {
     out.push({
       kind: "strong",
       title: `합격 후기에서 가장 강한 요인: ${top.map((e) => LABEL[e.code]).join(" · ")}`,
-      body: top.map((e) => `${LABEL[e.code]}은 평균 ${e.avg.toFixed(2)}점, ${Math.round(e.strongShare * 100)}%가 2점(뚜렷하게 드러남)이에요`).join(". ") + ". 지원서 첫 문항에서 이 둘을 먼저 보여 주세요.",
+      body: top.map((e) => `${LABEL[e.code]}은 평균 ${e.avg.toFixed(2)}점, ${Math.round(e.strongShare * 100)}%가 2점(뚜렷하게 드러남)이에요`).join(". ") + `. 지원서 첫 문항에서 이 둘을 먼저 보여 주세요. (후기 ${r.sampleSize}건 기준)`,
     });
   }
   const gaps = [...r.elementAverages].sort((a, b) => a.avg - b.avg).filter((e) => e.avg < 0.5).slice(0, 2);
-  if (gaps.length) {
+  // '드물다'는 결론은 표본이 적으면 내지 않는다 (1건에서 0점은 아무 뜻이 없다)
+  if (gaps.length && r.confidence.level !== "low") {
     out.push({
       kind: "gap",
       title: `차별화할 틈: ${gaps.map((e) => LABEL[e.code]).join(" · ")}`,
@@ -309,7 +352,7 @@ export function trendInsights(r: TrendReport): TrendInsight[] {
   if (r.interview.mentioned) {
     out.push({
       kind: "process",
-      title: `면접을 언급한 후기 ${r.interview.mentioned}건 중 ${r.interview.yes}건이 면접을 봤어요`,
+      title: `면접을 언급한 후기 ${r.interview.mentioned}건 중 ${r.interview.yes}건이 면접을 봤어요${r.interview.mentioned < MIN_SAMPLE ? " (표본 적음)" : ""}`,
       body: `사전미션은 언급한 ${r.preMission.mentioned}건 중 ${r.preMission.yes}건. 서류에 쓴 경험을 면접에서 다시 묻는 경우가 많으니 숫자와 근거를 준비해 두세요.`,
     });
   }
@@ -317,7 +360,7 @@ export function trendInsights(r: TrendReport): TrendInsight[] {
   if (f && r.formatMentionedIn) {
     out.push({
       kind: "format",
-      title: `가장 많이 언급된 포맷: ${f.format}`,
+      title: `가장 많이 언급된 포맷: ${f.format}${r.formatMentionedIn < MIN_SAMPLE ? " (표본 적음)" : ""}`,
       body: `포맷을 언급한 후기 ${r.formatMentionedIn}건 중 ${f.count}건${r.formatMentions[1] ? `, 다음은 ${r.formatMentions[1].format} ${r.formatMentions[1].count}건` : ""}. 지원 전 콘텐츠 일정에 이 포맷을 먼저 넣어요.`,
     });
   }
