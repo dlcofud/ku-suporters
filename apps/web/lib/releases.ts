@@ -1,7 +1,12 @@
 /** 릴리즈 노트. 새 기능을 합칠 때 맨 위에 한 줄씩 추가해 주세요. */
-export const APP_VERSION = "0.18.1";
+export const APP_VERSION = "0.18.2";
 
 export const RELEASES: { version: string; date: string; items: string[] }[] = [
+  {
+    version: "0.18.2",
+    date: "2026-11-21",
+    items: ["후기 분석 · 검수 · 엑셀 관리는 관리자 계정에서만 보이고 열려요"],
+  },
   {
     version: "0.18.1",
     date: "2026-11-20",

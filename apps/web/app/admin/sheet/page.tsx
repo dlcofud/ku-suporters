@@ -150,7 +150,7 @@ export default async function SheetPage({ searchParams }: { searchParams: Promis
         </table>
         <p className="small muted" style={{ margin: 0 }}>올린 시트는 GitHub의 data/curated.csv를 바꾸지 않아요. 저장소에도 남기고 싶으면 'CSV'로 받아 data 폴더에 올려 주세요.</p>
       </section>
-      <p className="small"><Link href="/admin">← 업로드 자료 검수</Link> · <Link href="/reviews">후기 분석 (팀)</Link></p>
+      <p className="small"><Link href="/admin">← 업로드 자료 검수</Link> · <Link href="/reviews">후기 분석</Link></p>
     </>
   );
 }
