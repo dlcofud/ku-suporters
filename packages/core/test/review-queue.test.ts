@@ -66,10 +66,10 @@ describe("검수 순서와 두 사람 원칙", () => {
   });
 });
 
-import { agreementByCode, agreementCross, compareScores } from "../src/trends/index.js";
+import { agreementByCode, agreementCross, compareScores, type RubricCode, type Score } from "../src/trends/index.js";
 
 describe("AI 교차 검수", () => {
-  const s = (v: number[]) => Object.fromEntries(v.map((x, i) => [`E${i + 1}`, x])) as Record<"E1", 0 | 1 | 2>;
+  const s = (v: number[]) => Object.fromEntries(v.map((x, i) => [`E${i + 1}`, x])) as Record<RubricCode, Score>;
   it("모두 같으면 일치, 1점 차이 2개 이하면 거의 일치, 2점 차이나 3개 이상이면 불일치", () => {
     expect(compareScores(s([1, 1, 1, 1, 1, 1, 1, 1]), s([1, 1, 1, 1, 1, 1, 1, 1]))).toEqual({ verdict: "match", diff: [] });
     expect(compareScores(s([1, 1, 1, 1, 1, 1, 1, 1]), s([2, 0, 1, 1, 1, 1, 1, 1]))).toEqual({ verdict: "near", diff: ["E1", "E2"] });
