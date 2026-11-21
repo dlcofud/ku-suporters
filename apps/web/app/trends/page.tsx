@@ -68,7 +68,7 @@ export default async function TrendsPage({ searchParams }: { searchParams: Promi
         <span className="trust-badge">{conf.level === "high" ? "●" : conf.level === "medium" ? "◐" : "○"} 신뢰도 · {conf.label}</span>
         <span className="small">{conf.hint}</span>
         <span className="small trust-nums">
-          검수 완료 <b>{report.verifiedCount}/{report.sampleSize}</b> · 결과 확인 <b>{report.confirmedResultCount}</b> · 결과 확인 필요 <b>{report.unknownResultCount}</b>
+          검수 완료 <b>{report.verifiedCount}/{report.sampleSize}</b>{report.crossCheckedCount ? <> · AI 교차 확인 <b>{report.crossCheckedCount}</b></> : null} · 결과 확인 <b>{report.confirmedResultCount}</b> · 결과 확인 필요 <b>{report.unknownResultCount}</b>
         </span>
         {isTeam ? (
           <Link className="btn small-btn" href="/reviews">검수하러 가기 →</Link>
