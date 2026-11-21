@@ -5,13 +5,13 @@ import { fullTable, tableToXlsx, versionCsv } from "@/lib/sheet";
 export const dynamic = "force-dynamic";
 
 /**
- * 수집 시트 내려받기 (팀·관리자).
+ * 수집 시트 내려받기 (관리자).
  *  ?format=xlsx|csv  (기본 xlsx: 작성 방법·코드북 탭과 목록 선택이 있는 틀)
  *  ?version=<키>     예전 버전 (없으면 지금 데이터 전체: 시트 + 앱에서 검수·코딩한 후기)
  */
 export async function GET(req: Request) {
   const user = await currentUser();
-  if (!user || !rolesOf(user).includes("team")) return new Response("팀원만 받을 수 있어요", { status: 403 });
+  if (!user || !rolesOf(user).includes("admin")) return new Response("관리자만 받을 수 있어요", { status: 403 });
   const q = new URL(req.url).searchParams;
   const version = q.get("version");
   let table: trends.SheetTable;

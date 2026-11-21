@@ -14,7 +14,7 @@ const ERR: Record<string, string> = {
 };
 
 export default async function ReviewsPage({ searchParams }: { searchParams: Promise<{ error?: string; imported?: string; alldone?: string }> }) {
-  const me = await requireRole("team");
+  const me = await requireRole("admin");
   const { error, imported, alldone } = await searchParams;
   const [raw, sheet] = await Promise.all([repo.listCodedReviews(), loadCurated().catch(() => [])]);
   // 검수 대기 먼저, 그다음 최근 것

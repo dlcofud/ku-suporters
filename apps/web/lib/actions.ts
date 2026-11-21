@@ -763,7 +763,7 @@ const REVIEW_RESULTS = ["최종 합격", "서류 합격", "불합격", "확인 �
 
 /** 후기 본문을 코드북으로 코딩해 'AI 초안'으로 저장한다. 본문은 저장하지 않는다. */
 export async function codeReviewAction(formData: FormData) {
-  const user = await requireRole("team");
+  const user = await requireRole("admin");
   const url = String(formData.get("url") || "").trim();
   const text = String(formData.get("text") || "");
   if (!/^https?:\/\//.test(url)) redirect("/reviews?error=url");
@@ -800,7 +800,7 @@ export async function codeReviewAction(formData: FormData) {
 
 /** 수집 시트 행 중 아직 앱에 없는 것을 검수 대기로 가져온다 (같은 URL이면 건너뜀) */
 export async function importSheetAction() {
-  await requireRole("team");
+  await requireRole("admin");
   const [sheet, coded] = await Promise.all([loadCurated().catch(() => []), repo.listCodedReviews()]);
   const have = new Set(coded.map((r) => r.meta.url));
   const now = new Date().toISOString();
@@ -824,7 +824,7 @@ export async function verifyAndNextAction(formData: FormData) {
 
 /** 사람이 점수를 확인·수정하고 '검수 완료'로 바꾼다 */
 export async function verifyReviewAction(formData: FormData) {
-  const user = await requireRole("team");
+  const user = await requireRole("admin");
   const id = String(formData.get("id") || "");
   const r = await repo.getCodedReview(id);
   if (!r) redirect("/reviews");

@@ -27,7 +27,7 @@ export default async function TrendsPage({ searchParams }: { searchParams: Promi
   const { field, verified, confirmed } = await searchParams;
   const [all, user] = await Promise.all([loadAllReviews(), currentUser()]);
   const act = user ? await currentActivity(user.id) : undefined;
-  const isTeam = user ? rolesOf(user).includes("team") : false;
+  const isTeam = user ? rolesOf(user).includes("admin") : false;
   const report = trends.buildTrendReport(all, { field: field || undefined, verifiedOnly: verified === "1", confirmedOnly: confirmed === "1" });
   const insights = trends.trendInsights(report);
   const conf = report.confidence;

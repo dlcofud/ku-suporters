@@ -9,7 +9,7 @@ import { SubmitButton, PendingNote } from "@/components/Pending";
 const SCORE_LABEL = ["0 · 없음", "1 · 언급", "2 · 구체적"];
 
 export default async function ReviewDetail({ params, searchParams }: { params: Promise<{ id: string }>; searchParams: Promise<{ dup?: string; saved?: string; aierror?: string; own?: string }> }) {
-  const me = await requireRole("team");
+  const me = await requireRole("admin");
   const { id } = await params;
   const q = await searchParams;
   const r = await repo.getCodedReview(id);

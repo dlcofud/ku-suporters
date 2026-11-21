@@ -21,7 +21,7 @@ const TOOLS: [string, string, ("admin" | "team" | "act")?][] = [
   ["/studio", "콘텐츠 제작", "act"],
   ["/account", "계정 만들기", "act"],
   ["/contribute", "합격 경험 공유"],
-  ["/reviews", "후기 분석 (팀)", "team"],
+  ["/reviews", "후기 분석 (관리자)", "admin"],
   ["/admin", "검수 (관리자)", "admin"],
   ["/admin/sheet", "엑셀 관리 (관리자)", "admin"],
 ];

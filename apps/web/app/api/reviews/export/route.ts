@@ -6,7 +6,7 @@ import { repo } from "@/lib/repo";
 export async function GET(req: Request) {
   const user = await currentUser();
   if (!user) return new Response("로그인이 필요해요", { status: 401 });
-  if (!rolesOf(user).includes("team")) return new Response("후기 분석 팀만 내려받을 수 있어요", { status: 403 });
+  if (!rolesOf(user).includes("admin")) return new Response("관리자만 내려받을 수 있어요", { status: 403 });
   const onlyDone = new URL(req.url).searchParams.get("status") === "done";
   const list = (await repo.listCodedReviews()).filter((r) => !onlyDone || r.status === "검수 완료");
   const csv = "﻿" + trends.toSheetCsv(list);
