@@ -35,6 +35,8 @@ export interface CuratedReview {
   newAccount?: string;
   /** 면접 질문 요약 (팀이 자기 말로 정리) */
   interviewSummary?: string;
+  /** 앱에서 AI 교차 검수로 점수가 맞는 것을 확인함 (사람 검수는 아님) */
+  crossChecked?: boolean;
 }
 
 /** 따옴표·쉼표·줄바꿈을 처리하는 작은 CSV 파서 */
@@ -171,6 +173,8 @@ export function confidenceOf(n: number, verified = 0): Confidence {
 export interface TrendReport {
   sampleSize: number;
   verifiedCount: number;
+  /** 사람 검수 전이지만 AI 교차 검수로 점수가 맞는 것을 확인한 후기 수 */
+  crossCheckedCount: number;
   /** 결과(최종·서류 합격)를 확인한 후기 수, 확인하지 못한 후기 수 */
   confirmedResultCount: number;
   unknownResultCount: number;
@@ -246,6 +250,7 @@ export function buildTrendReport(all: CuratedReview[], filter: TrendFilter = {})
   return {
     sampleSize: n,
     verifiedCount,
+    crossCheckedCount: rows.filter((r) => r.reviewStatus !== "검수 완료" && r.crossChecked).length,
     confirmedResultCount,
     unknownResultCount: rows.filter((r) => !r.result || /확인\s*필요/.test(r.result)).length,
     confidence: confidenceOf(n, verifiedCount),

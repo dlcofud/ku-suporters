@@ -65,3 +65,24 @@ describe("검수 순서와 두 사람 원칙", () => {
     expect(nextToVerify(list.slice(0, 1), "u1")).toBeUndefined();
   });
 });
+
+import { agreementByCode, agreementCross, compareScores } from "../src/trends/index.js";
+
+describe("AI 교차 검수", () => {
+  const s = (v: number[]) => Object.fromEntries(v.map((x, i) => [`E${i + 1}`, x])) as Record<"E1", 0 | 1 | 2>;
+  it("모두 같으면 일치, 1점 차이 2개 이하면 거의 일치, 2점 차이나 3개 이상이면 불일치", () => {
+    expect(compareScores(s([1, 1, 1, 1, 1, 1, 1, 1]), s([1, 1, 1, 1, 1, 1, 1, 1]))).toEqual({ verdict: "match", diff: [] });
+    expect(compareScores(s([1, 1, 1, 1, 1, 1, 1, 1]), s([2, 0, 1, 1, 1, 1, 1, 1]))).toEqual({ verdict: "near", diff: ["E1", "E2"] });
+    expect(compareScores(s([0, 1, 1, 1, 1, 1, 1, 1]), s([2, 1, 1, 1, 1, 1, 1, 1])).verdict).toBe("differ");
+    expect(compareScores(s([1, 1, 1, 1, 1, 1, 1, 1]), s([2, 2, 2, 1, 1, 1, 1, 1])).verdict).toBe("differ");
+  });
+  it("교차 일치도는 교차 검수한 후기로, 사람-AI 일치도에서는 한꺼번에 검수한 후기를 뺀다", () => {
+    const base = fromCurated(sheetRow, "2026-11-21");
+    const crossed = { ...base, id: "x1", cross: { ok: true as const, scores: { ...base.ai.scores }, model: "g", at: "", verdict: "match" as const, diff: [] } };
+    const bulk = { ...base, id: "x2", status: "검수 완료" as const, human: { scores: { ...base.ai.scores }, reviewer: "a", reviewedAt: "", via: "bulk" as const } };
+    expect(agreementCross([crossed, bulk])[0]!.n).toBe(1);
+    expect(agreementByCode([crossed, bulk])[0]!.n).toBe(0);
+    expect(toCurated(crossed).crossChecked).toBe(true);
+    expect(buildTrendReport([toCurated(crossed)]).crossCheckedCount).toBe(1);
+  });
+});

@@ -91,6 +91,13 @@ export default async function ReviewDetail({ params, searchParams }: { params: P
             <div className="row">{r.ai.keywords.map((k) => <span key={k} className="tag">{k}</span>)}</div>
             <div className="row">{r.ai.processKeywords.map((k) => <span key={k} className="tag k-check">{k}</span>)}</div>
             {r.ai.formats.length > 0 && <p className="small muted" style={{ margin: 0 }}>언급된 포맷: {r.ai.formats.join(", ")}</p>}
+            {r.cross?.ok && (
+              <p className="small" style={{ margin: 0 }}>
+                <b>AI 교차 검수</b> ({r.cross.model}) {trends.CROSS_LABEL[r.cross.verdict]} — {trends.CODES.map((k) => `${k} ${r.ai.scores[k]}→${r.cross!.ok ? (r.cross as { scores: Record<string, number> }).scores[k] : "-"}`).join(" · ")}
+                {r.cross.diff.length > 0 && <span className="red"> · 다른 코드: {r.cross.diff.join(", ")}</span>}
+              </p>
+            )}
+            {r.cross && !r.cross.ok && <p className="small muted" style={{ margin: 0 }}>AI 교차 검수: {r.cross.error}</p>}
             {r.sheet?.interviewSummary && !/^(언급 없음|확인 필요|-)$/.test(r.sheet.interviewSummary) && <p className="small" style={{ margin: 0 }}><b>면접 질문 요약</b> {r.sheet.interviewSummary}</p>}
             {r.sheet && <p className="small muted" style={{ margin: 0 }}>사전미션 {r.sheet.preMission ?? "-"} · 면접 {r.sheet.interview ?? "-"} · 새 계정 {r.sheet.newAccount ?? "-"}</p>}
           </div>

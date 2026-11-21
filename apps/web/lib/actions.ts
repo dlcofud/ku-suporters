@@ -1024,3 +1024,31 @@ export async function activateSheetAction(formData: FormData) {
   revalidatePath("/reviews");
   redirect("/admin/sheet?restored=1");
 }
+
+/**
+ * 고른 후기를 한꺼번에 검수 완료 (관리자).
+ * 사람이 목록에서 AI 교차 검수 결과를 보고 고른 것만 처리한다. 점수는 지금 점수를 그대로 받아들인다(via: "bulk").
+ * 직접 코딩한 후기는 두 사람 원칙에 따라 건너뛴다.
+ */
+export async function bulkVerifyAction(formData: FormData) {
+  const user = await requireRole("admin");
+  const ids = formData.getAll("ids").map(String);
+  const now = new Date().toISOString();
+  let n = 0;
+  let skipped = 0;
+  for (const id of ids) {
+    const r = await repo.getCodedReview(id);
+    if (!r || r.status === "검수 완료") continue;
+    if (!trends.canVerify(r, user.id)) {
+      skipped++;
+      continue;
+    }
+    r.human = { scores: { ...r.ai.scores }, reviewer: user.nickname, reviewedAt: now, via: "bulk" };
+    r.status = "검수 완료";
+    await repo.saveCodedReview(r);
+    n++;
+  }
+  revalidatePath("/reviews");
+  revalidatePath("/trends");
+  redirect(`/reviews?bulk=${n}${skipped ? `&skipped=${skipped}` : ""}`);
+}

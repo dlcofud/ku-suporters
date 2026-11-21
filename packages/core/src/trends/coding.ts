@@ -118,7 +118,10 @@ export interface CodedReview {
   id: string;
   meta: ReviewMeta;
   ai: CodingResult & { codedAt: string };
-  human?: { scores: Record<RubricCode, Score>; reviewer: string; reviewedAt: string };
+  /** via "bulk": 'AI 교차 확인'을 보고 사람이 여러 건을 한꺼번에 검수 완료한 경우 (점수는 기존 점수를 그대로 받아들임) */
+  human?: { scores: Record<RubricCode, Score>; reviewer: string; reviewedAt: string; via?: "bulk" };
+  /** AI 교차 검수: 원문을 다시 읽고 다른 AI가 매긴 점수와 비교한 결과 (사람 검수를 대신하지 않는다) */
+  cross?: CrossCheck;
   status: "AI 초안" | "검수 완료";
   /** 코딩한 사람 (시트에서 가져온 행은 "sheet") */
   createdBy: string;
@@ -137,6 +140,26 @@ export interface CodedReview {
     interviewSummary?: string;
   };
 }
+
+export type CrossVerdict = "match" | "near" | "differ";
+export type CrossCheck =
+  | { ok: true; scores: Record<RubricCode, Score>; model: string; at: string; verdict: CrossVerdict; diff: RubricCode[] }
+  | { ok: false; error: string; at: string };
+
+/**
+ * 두 점수를 비교한다.
+ *  - match: 8개 코드가 모두 같음
+ *  - near: 2점 차이는 없고, 1점 차이가 2개 코드 이하
+ *  - differ: 그 밖 (사람이 꼭 열어 봐야 함)
+ */
+export function compareScores(a: Record<RubricCode, Score>, b: Record<RubricCode, Score>): { verdict: CrossVerdict; diff: RubricCode[] } {
+  const diff = CODES.filter((c) => a[c] !== b[c]);
+  if (!diff.length) return { verdict: "match", diff };
+  const big = diff.some((c) => Math.abs(a[c] - b[c]) >= 2);
+  return { verdict: !big && diff.length <= 2 ? "near" : "differ", diff };
+}
+
+export const CROSS_LABEL: Record<CrossVerdict, string> = { match: "AI 교차 일치", near: "AI 교차 거의 일치", differ: "AI 교차 불일치" };
 
 /** 시트에서 가져온 행의 '코딩한 사람' */
 export const SHEET_AUTHOR = "sheet";
@@ -372,6 +395,7 @@ export function toCurated(r: CodedReview): CuratedReview {
     tip: r.ai.tip,
     reliability: r.status === "검수 완료" ? "상" : "중",
     reviewStatus: r.status,
+    crossChecked: !!r.cross?.ok && r.cross.verdict !== "differ",
     ...(r.sheet
       ? {
           activityType: r.sheet.activityType,
@@ -421,12 +445,24 @@ export interface AgreementRow {
 
 /** 검수 완료된 후기들로 코드별 사람-AI 일치도를 계산한다 (규칙 기반 초안은 제외) */
 export function agreementByCode(reviews: CodedReview[]): AgreementRow[] {
-  const done = reviews.filter((r) => r.status === "검수 완료" && r.human && r.ai.model !== "rules");
+  // 한꺼번에 검수한 행은 기존 점수를 그대로 받아들인 것이라 일치도 계산에서 뺀다
+  const done = reviews.filter((r) => r.status === "검수 완료" && r.human && r.human.via !== "bulk" && r.ai.model !== "rules");
   return CODES.map((code) => {
     const ai = done.map((r) => r.ai.scores[code]);
     const hu = done.map((r) => r.human!.scores[code]);
     const k = cohenKappa(ai, hu);
     return { code, n: done.length, exact: done.length ? ai.filter((v, i) => v === hu[i]).length / done.length : 0, kappa: k, label: kappaLabel(k) };
+  });
+}
+
+/** 기존 점수(시트·AI 초안)와 AI 교차 검수 점수의 코드별 일치도 */
+export function agreementCross(reviews: CodedReview[]): AgreementRow[] {
+  const done = reviews.filter((r) => r.cross?.ok && r.ai.model !== "rules");
+  return CODES.map((code) => {
+    const a = done.map((r) => r.ai.scores[code]);
+    const b = done.map((r) => (r.cross as Extract<CrossCheck, { ok: true }>).scores[code]);
+    const k = cohenKappa(a, b);
+    return { code, n: done.length, exact: done.length ? a.filter((v, i) => v === b[i]).length / done.length : 0, kappa: k, label: kappaLabel(k) };
   });
 }
 

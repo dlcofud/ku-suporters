@@ -1,7 +1,16 @@
 /** 릴리즈 노트. 새 기능을 합칠 때 맨 위에 한 줄씩 추가해 주세요. */
-export const APP_VERSION = "0.18.2";
+export const APP_VERSION = "0.19.0";
 
 export const RELEASES: { version: string; date: string; items: string[] }[] = [
+  {
+    version: "0.19.0",
+    date: "2026-11-21",
+    items: [
+      "후기 분석(관리자): AI 교차 검수 — AI가 원문을 다시 읽고 점수를 새로 매겨 지금 점수와 비교해요 (일치 · 거의 일치 · 불일치)",
+      "일치한 후기는 목록에서 골라 한꺼번에 검수 완료, 불일치한 후기만 하나씩 열어 보면 돼요",
+      "합격 경향 신뢰도 띠에 'AI 교차 확인' 수를 따로 보여 줘요 (사람 검수와 섞지 않아요)",
+    ],
+  },
   {
     version: "0.18.2",
     date: "2026-11-21",
