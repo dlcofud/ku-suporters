@@ -66,7 +66,8 @@ describe("검수 순서와 두 사람 원칙", () => {
   });
 });
 
-import { agreementByCode, agreementCross, compareScores, type RubricCode, type Score } from "../src/trends/index.js";
+import { agreementByCode, agreementCross, compareScores, type Score } from "../src/trends/index.js";
+import type { RubricCode } from "../src/skeleton/index.js";
 
 describe("AI 교차 검수", () => {
   const s = (v: number[]) => Object.fromEntries(v.map((x, i) => [`E${i + 1}`, x])) as Record<RubricCode, Score>;
