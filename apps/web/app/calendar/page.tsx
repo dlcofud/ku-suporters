@@ -84,7 +84,6 @@ export default async function ActivityCalendar({ searchParams }: { searchParams:
             <input type="hidden" name="deadline" value={plan.deadline} />
             <button className="btn" type="submit" title="오늘부터 남은 일정을 다시 나눠요">일정 다시 계산</button>
           </form>
-          <Link className="btn" href="/account" title="서포터즈 활동용 인스타 계정 아이디·소개글·첫 게시물 준비">계정 준비</Link>
           {thisWeek && <Link className="btn pri" href={`/studio?item=${thisWeek.id}`}>이번 주 콘텐츠 만들기</Link>}
         </div>
       </header>

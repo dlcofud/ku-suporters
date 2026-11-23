@@ -318,21 +318,47 @@ export async function skeletonAction(formData: FormData) {
   redirect("/skeleton");
 }
 
-/* ---------------- 계정 만들기 ---------------- */
+/* ---------------- 계정 관리 (이미 있는 계정) ---------------- */
 
-export async function accountKitAction(formData: FormData) {
+const ACCOUNT_URL = "/feedback#account";
+
+/** "@chae.tech", "instagram.com/chae.tech/" 무엇을 넣어도 아이디만 남긴다 */
+function handleOf(raw: string): string {
+  const s = raw.trim().replace(/^(https?:\/\/)?(www\.)?instagram\.com\//i, "").replace(/^@/, "").split(/[/?#\s]/)[0] ?? "";
+  return s.toLowerCase();
+}
+
+/** 지금 프로필(아이디·이름·소개글·링크)을 저장한다. 인스타 프로필은 API로 바꿀 수 없어서 사용자가 앱에서 직접 고친다 */
+export async function saveProfileAction(formData: FormData) {
   const user = await requireUser();
   const act = await activityOrRedirect(user.id);
-  const input: account.AccountInput = {
-    activityName: act.name,
-    brand: String(formData.get("brand") || act.name.split(" ")[0] || "브랜드"),
-    field: String(formData.get("field") || "기타"),
-    nickname: String(formData.get("nickname") || user.nickname),
-    interests: String(formData.get("interests") || "").split(",").map((s) => s.trim()).filter(Boolean),
+  const handle = handleOf(String(formData.get("username") || ""));
+  if (handle && account.validateUsername(handle).length) redirect(`/feedback?acct=${encodeURIComponent(`아이디: ${account.validateUsername(handle)[0]!}`)}#account`);
+  const website = String(formData.get("website") || "").trim().slice(0, 300);
+  if (website && !/^https?:\/\//i.test(website) && !/^[\w-]+(\.[\w-]+)+/.test(website)) redirect(`/feedback?acct=${encodeURIComponent("링크 주소를 확인해 주세요")}#account`);
+  const profile: account.AccountProfile = {
+    ...(act.accountKit?.profile ?? {}),
+    username: handle || undefined,
+    name: String(formData.get("name") || "").trim().slice(0, 30) || undefined,
+    bio: String(formData.get("bio") || "").replace(/\r/g, "").slice(0, 300) || undefined,
+    website: website || undefined,
+    interest: String(formData.get("interest") || "").trim().slice(0, 20) || undefined,
+    source: user.ig ? "instagram" : "manual",
+    at: todayISO(),
   };
-  act.accountKit = account.buildAccountKit(input, Number(formData.get("concept") || 0));
+  act.accountKit = { ...(act.accountKit ?? {}), profile };
   await repo.saveActivity(act);
-  redirect("/account");
+  if (!user.ig && handle !== (user.igHandle ?? "")) await repo.setIgHandle(user.id, handle || null);
+  revalidatePath("/feedback");
+  redirect("/feedback?acct=saved#account");
+}
+
+/** 공식 연결을 끊는다. 아이디와 옮겨 적은 프로필은 남긴다 */
+export async function disconnectIgAction() {
+  const user = await requireUser();
+  await repo.clearUserIg(user.id);
+  revalidatePath("/", "layout");
+  redirect("/feedback?acct=disconnected#account");
 }
 
 /* ---------------- 캘린더 · 피드백 반영 ---------------- */

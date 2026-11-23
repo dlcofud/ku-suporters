@@ -428,3 +428,28 @@ label>.lbl{display:block}
 @media (max-width:900px){.shoot-row{grid-template-columns:1fr}}
 .shotlist{display:grid;gap:10px;grid-template-columns:repeat(auto-fill,minmax(260px,1fr))}
 .shot{border:1.5px solid var(--ink);border-radius:12px;padding:12px;display:grid;gap:6px;background:var(--surface)}
+
+/* ---- 성과 → 계정 관리 ---- */
+.acct{display:grid;gap:14px}
+.acct-grid{display:grid;grid-template-columns:minmax(0,1fr) minmax(0,1.15fr) minmax(0,1fr);gap:20px;align-items:start}
+.acct-h{margin:0;font-size:15px}
+.acct-me{display:flex;gap:10px;align-items:center}
+.acct-me img,.acct-me i{width:44px;height:44px;border-radius:999px;border:1.5px solid var(--ink);object-fit:cover;flex:none}
+.acct-me i{display:flex;align-items:center;justify-content:center;font-style:normal;font-weight:900;background:var(--hl)}
+.acct-opt{display:grid;gap:6px;padding:10px 12px;border:1.5px solid var(--ink);border-radius:10px;background:var(--paper,#fff)}
+.acct-opt .btn{justify-self:start}
+.acct-checks{list-style:none;margin:0;padding:0;display:grid;gap:8px}
+.acct-checks li{display:flex;gap:8px;align-items:flex-start;font-size:14px}
+.acct-checks li>span{flex:none;width:20px;height:20px;border-radius:999px;border:1.5px solid var(--ink);display:flex;align-items:center;justify-content:center;font-size:11px;font-weight:900;margin-top:1px}
+.acct-checks li.ok>span{background:var(--okbg)}
+.acct-checks li.todo>span{background:var(--hl)}
+.acct-checks li.ok b{font-weight:600}
+.acct-sug{border-top:1.5px dashed var(--rule);padding-top:12px}
+.acct-sug summary{cursor:pointer}
+.acct-sug-grid{display:grid;grid-template-columns:minmax(0,1.2fr) minmax(0,1fr);gap:20px;margin-top:12px}
+.acct-bio{display:grid;gap:6px;padding:10px 12px;border:1.5px solid var(--ink);border-radius:10px;background:#fffbe8}
+.acct-bio .tag{justify-self:start}
+.acct-bio pre{margin:0;white-space:pre-wrap;font-family:inherit;font-size:14px;line-height:1.6}
+.acct-line{padding:6px 10px;border:1px solid var(--rule);border-radius:8px;background:var(--paper,#fff);font-size:14px}
+@media (max-width:1100px){.acct-grid{grid-template-columns:1fr 1fr}.acct-grid>:last-child{grid-column:1/-1}}
+@media (max-width:700px){.acct-grid,.acct-sug-grid{grid-template-columns:1fr}}
