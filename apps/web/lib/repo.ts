@@ -23,6 +23,8 @@ export interface User {
   loginId?: string;
   createdAt: string;
   ig?: { userId: string; username?: string; accessToken: string };
+  /** 공식 연결 없이 아이디만 등록한 인스타 계정 (연결돼 있으면 ig.username과 같다) */
+  igHandle?: string;
 }
 
 export interface Activity {
@@ -34,7 +36,8 @@ export interface Activity {
   guides: N.ActionGuide[];
   plan?: P.Plan;
   skeleton?: S.Skeleton;
-  accountKit?: A.AccountKit;
+  /** 계정 관리: 지금 프로필(옮겨 적은 값). 예전 계정 만들기 결과가 남아 있을 수 있다 */
+  accountKit?: A.AccountState;
   /** 지원서 코치와의 대화 + 문항별 글 */
   application?: AP.Application;
   createdAt: string;
@@ -78,6 +81,10 @@ export interface Repo {
   setCredentials(userId: string, c: { loginId?: string; passwordHash: string }): Promise<void>;
   setNickname(userId: string, nickname: string): Promise<void>;
   setUserIg(id: string, ig: NonNullable<User["ig"]>): Promise<void>;
+  /** 공식 연결을 끊는다 (토큰을 지우고 아이디는 남긴다) */
+  clearUserIg(id: string): Promise<void>;
+  /** 공식 연결 없이 아이디만 등록·변경한다. null이면 지운다 */
+  setIgHandle(id: string, handle: string | null): Promise<void>;
   latestActivity(userId: string): Promise<Activity | undefined>;
   /** 최신순 */
   listActivities(userId: string): Promise<Activity[]>;
@@ -201,7 +208,21 @@ class MemoryRepo implements Repo {
   }
   async setUserIg(id: string, ig: NonNullable<User["ig"]>) {
     const u = this.users.get(id);
-    if (u) u.ig = ig;
+    if (u) {
+      u.ig = ig;
+      u.igHandle = ig.username ?? u.igHandle;
+    }
+  }
+  async clearUserIg(id: string) {
+    const u = this.users.get(id);
+    if (u) {
+      u.igHandle = u.ig?.username ?? u.igHandle;
+      u.ig = undefined;
+    }
+  }
+  async setIgHandle(id: string, handle: string | null) {
+    const u = this.users.get(id);
+    if (u) u.igHandle = handle ?? undefined;
   }
   async latestActivity(userId: string) {
     return (await this.listActivities(userId))[0];
@@ -384,6 +405,7 @@ class SupabaseRepo implements Repo {
       loginId: (r.login_id as string) ?? undefined,
       createdAt: r.created_at as string,
       ig: r.ig_user_id && r.ig_access_token ? { userId: r.ig_user_id as string, username: (r.ig_username as string) ?? undefined, accessToken: r.ig_access_token as string } : undefined,
+      igHandle: (r.ig_username as string) ?? undefined,
     };
   }
   async createUser(nickname: string, creds?: { loginId: string; passwordHash: string }) {
@@ -419,6 +441,12 @@ class SupabaseRepo implements Repo {
   }
   async setUserIg(id: string, ig: NonNullable<User["ig"]>) {
     must(await this.sb.from("app_users").update({ ig_user_id: ig.userId, ig_username: ig.username ?? null, ig_access_token: ig.accessToken }).eq("id", id), "users.ig");
+  }
+  async clearUserIg(id: string) {
+    must(await this.sb.from("app_users").update({ ig_user_id: null, ig_access_token: null }).eq("id", id), "users.ig.clear");
+  }
+  async setIgHandle(id: string, handle: string | null) {
+    must(await this.sb.from("app_users").update({ ig_username: handle }).eq("id", id), "users.ig.handle");
   }
   private toActivity(a: Record<string, any>): Activity {
     return {

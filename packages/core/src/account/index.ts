@@ -158,3 +158,106 @@ export function buildAccountKit(input: AccountInput, conceptIndex = 0): AccountK
 export function describeGrid(grid: GridCell[]): string {
   return grid.map((c) => `${c.position}. [${FORMAT_LABEL[c.format]}] ${c.title}`).join("\n");
 }
+
+/* ------------------------------------------------------------------ */
+/* 이미 있는 계정 관리: 지금 프로필 점검 + 바꿀 만한 추천                  */
+/* ------------------------------------------------------------------ */
+
+/** 지금 계정의 프로필. 인스타 연결이면 API에서, 아니면 사용자가 옮겨 적은 값 */
+export interface AccountProfile {
+  username?: string;
+  /** 프로필 이름 칸 (검색에 걸리는 이름) */
+  name?: string;
+  bio?: string;
+  website?: string;
+  followers?: number;
+  mediaCount?: number;
+  hasPicture?: boolean;
+  /** 사용자가 적은 관심 분야. 인스타에는 없는 값으로 추천에만 쓴다 */
+  interest?: string;
+  source: "instagram" | "manual";
+  at: string;
+}
+
+/** 활동에 저장하는 계정 관리 상태. 예전 '계정 만들기' 결과(AccountKit)가 남아 있을 수 있다 */
+export type AccountState = Partial<AccountKit> & { profile?: AccountProfile };
+
+export interface ProfileCheck {
+  id: "username" | "bio" | "who" | "fit" | "link" | "name" | "picture" | "posts";
+  ok: boolean;
+  label: string;
+  /** 고칠 때 할 일 (ok면 없음) */
+  tip?: string;
+}
+
+export interface ProfileContext {
+  activityName: string;
+  brand: string;
+  /** 활동 분야나 관심사. 소개글 추천에 넣는다 */
+  interests?: string[];
+}
+
+const WHO = /대학생|학생|\d{2}학번|대학교|학과|전공/;
+
+/** 지금 프로필이 서포터즈 지원용으로 준비됐는지 항목별로 본다. 사실(글자 수·포함 여부)만 보고 판단한다 */
+export function checkProfile(p: AccountProfile, ctx: ProfileContext): ProfileCheck[] {
+  const bio = (p.bio ?? "").trim();
+  const words = [ctx.brand, ...ctx.activityName.split(/\s+/).filter((w) => w.length >= 2 && !/서포터즈|기|모집|공식/.test(w)), ...(ctx.interests ?? [])]
+    .map((w) => w.trim())
+    .filter((w) => w.length >= 2);
+  const out: ProfileCheck[] = [];
+  if (p.username !== undefined) {
+    const errs = validateUsername(p.username);
+    out.push({ id: "username", ok: errs.length === 0, label: "아이디 규칙", tip: errs[0] });
+  }
+  out.push(
+    !bio
+      ? { id: "bio", ok: false, label: "소개글", tip: "소개글이 비어 있어요. 아래 추천 중 하나로 시작해 보세요" }
+      : bio.length > BIO_MAX
+        ? { id: "bio", ok: false, label: `소개글 ${bio.length}자`, tip: `인스타는 ${BIO_MAX}자까지예요. ${bio.length - BIO_MAX}자를 줄여 주세요` }
+        : { id: "bio", ok: true, label: `소개글 ${bio.length}/${BIO_MAX}자` },
+  );
+  out.push({ id: "who", ok: WHO.test(bio), label: "누구인지 보여요", tip: "‘대학생’, 학과·학번처럼 누구인지 한눈에 보이는 말을 넣어 주세요" });
+  out.push({
+    id: "fit",
+    ok: words.some((w) => bio.includes(w)),
+    label: "이 활동과 이어져요",
+    tip: `담당자가 보고 바로 알 수 있게 ${ctx.brand ? `‘${ctx.brand}’나 ` : ""}관심 분야를 소개글에 넣어 주세요`,
+  });
+  out.push({ id: "link", ok: !!p.website?.trim(), label: "프로필 링크", tip: "노션 포트폴리오나 대표 콘텐츠 링크를 넣으면 지원서의 SNS 주소를 볼 때 함께 봐요" });
+  out.push({ id: "name", ok: !!p.name && p.name.trim() !== p.username, label: "이름 칸", tip: "이름 칸은 검색에 걸려요. 예: ‘채령 | 대학생 리뷰’" });
+  if (p.source === "instagram") {
+    if (p.hasPicture !== undefined) out.push({ id: "picture", ok: p.hasPicture, label: "프로필 사진", tip: "얼굴이나 계정 분위기가 보이는 사진을 올려 주세요" });
+    if (p.mediaCount !== undefined) out.push({ id: "posts", ok: p.mediaCount >= 3, label: `게시물 ${p.mediaCount}개`, tip: "피드를 볼 때 비어 보이지 않게 3개 이상 올려 두세요. 업로드 일정의 첫 콘텐츠부터 올리면 돼요" });
+  }
+  return out;
+}
+
+export interface ProfileSuggestions {
+  bios: { concept: string; text: string }[];
+  names: string[];
+  highlights: string[];
+  links: string[];
+}
+
+function clip(s: string, max: number) {
+  return s.length > max ? s.slice(0, max - 1) + "…" : s;
+}
+
+/** 바꿀 만한 소개글·이름·하이라이트·링크 추천. 지어낸 수치나 경력은 넣지 않는다 */
+export function suggestProfile(p: AccountProfile, ctx: ProfileContext): ProfileSuggestions {
+  const interest = ctx.interests?.[0] ?? "일상";
+  const brand = ctx.brand || "브랜드";
+  const first = (p.name ?? p.username ?? "").split(/[\s|·_.]/)[0] || "이름";
+  const bios = [
+    { concept: "리뷰어형", text: `${interest} 좋아하는 대학생\n${brand} 신제품, 대학생 시선으로 솔직하게 리뷰해요\n📍 ${ctx.activityName} 준비 중` },
+    { concept: "생활 밀착형", text: `${interest} 기록하는 대학생 🎒\n하루 속에 ${brand}를 자연스럽게 담아요\n📍 ${ctx.activityName} 준비 중` },
+    { concept: "분석가형", text: `예비 마케터 · 대학생\n${brand} SNS를 분석하고 직접 만들어 봐요\n📍 ${ctx.activityName} 준비 중` },
+  ].map((b) => ({ ...b, text: clip(b.text, BIO_MAX) }));
+  return {
+    bios,
+    names: [`${first} | 대학생 ${interest}`, `${first} · ${brand} 리뷰`, `${first} | 콘텐츠 기록`].map((n) => clip(n, 30)),
+    highlights: ["소개", `${brand} 리뷰`, "콘텐츠 기획", "활동 기록"],
+    links: ["노션 포트폴리오 (지원서·만든 콘텐츠 모음)", "가장 반응 좋았던 릴스 링크", "링크 모음 페이지 (블로그·유튜브가 더 있다면)"],
+  };
+}

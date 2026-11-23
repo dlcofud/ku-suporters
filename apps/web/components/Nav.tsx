@@ -8,13 +8,13 @@ const I = (d: ReactNode) => (
 );
 
 /**
- * 고른 서포터즈 안에서 쓰는 메뉴. 지원 → 일정 → 제작 → 성과 순서 그대로.
+ * 고른 서포터즈 안에서 쓰는 메뉴. 지원 → 제작 → 성과 순서 그대로.
+ * 업로드 일정은 사이드바의 서포터즈 카드를 누르면 열려서 여기엔 두지 않는다.
  * 이름은 화면 제목과 같게 짧게.
  */
 const ACTIVITY: [string, string, ReactNode][] = [
   ["/notice/result", "공고 요약", I(<><path d="M5 4h14v16H5z" /><path d="M9 8h6M9 12h6M9 16h3" /></>)],
   ["/skeleton", "지원서", I(<><path d="M14 3H6a1 1 0 0 0-1 1v16a1 1 0 0 0 1 1h12a1 1 0 0 0 1-1V8z" /><path d="M14 3v5h5" /><path d="M9 13h6M9 17h4" /></>)],
-  ["/calendar", "업로드 일정", I(<><rect x="3" y="5" width="18" height="16" rx="2" /><path d="M3 10h18M8 3v4M16 3v4" /></>)],
   ["/studio", "콘텐츠 만들기", I(<><rect x="3" y="6" width="13" height="12" rx="2" /><path d="M16 10l5-3v10l-5-3" /></>)],
   ["/feedback", "성과", I(<><path d="M20 12a8 8 0 1 1-2.34-5.66" /><path d="M20 4v5h-5" /></>)],
 ];
