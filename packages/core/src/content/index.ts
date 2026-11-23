@@ -30,6 +30,14 @@ export interface Scene {
   what: string;
   onScreenText: string;
   tip: string;
+  /** 촬영 가이드(참고 자료로 만든 장면): 카메라 위치·각도·움직임 */
+  how?: string;
+  /** 이 장면에서 말할 대사·내레이션 (없으면 빈칸) */
+  line?: string;
+  /** 필요한 소품·대상 */
+  props?: string;
+  /** 빛·색감 (분위기 사진에서) */
+  light?: string;
 }
 
 export interface ScenePlanInput {

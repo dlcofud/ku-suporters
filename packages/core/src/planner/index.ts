@@ -33,6 +33,37 @@ export interface PlanItem {
   caption?: string;
   /** 주제를 AI가 활동에 맞춰 바꿨으면 true */
   aiTopic?: boolean;
+  /** 콘텐츠 만들기에 넣은 참고 자료와 분석 (사진·영상 원본은 저장하지 않는다) */
+  shoot?: ShootMemo;
+}
+
+export interface ShootMemo {
+  refLinks: string[];
+  script?: string;
+  subject?: string;
+  targetSec?: number;
+  analysis?: ShootAnalysis;
+  /** 화면 녹화로 잰 참고 릴스 컷 길이(초) */
+  refCuts?: number[];
+  at: string;
+}
+
+/** 참고 릴스·분위기 사진을 읽고 정리한 것 */
+export interface ShootAnalysis {
+  /** 컷 리듬 (예: 1초 안팎으로 빠르게 끊김) */
+  pace: string;
+  /** 첫 장면(훅) 방식 */
+  hook: string;
+  /** 화면 자막 스타일 (위치·크기·말투) */
+  textStyle: string;
+  /** 분위기·톤 */
+  mood: string;
+  /** 대표 색 (#RRGGBB) */
+  palette: string[];
+  /** 음악·소리 */
+  sound: string;
+  /** 전체 흐름 한 줄 */
+  structure: string;
 }
 
 export interface Plan {
