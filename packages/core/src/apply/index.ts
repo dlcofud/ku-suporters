@@ -76,15 +76,6 @@ export interface TrendBrief {
   interview: string[];
 }
 
-/** 모든 문항 초안을 먼저 써 달라는 말 (빠른 버튼) */
-export const DRAFT_ALL = "합격 경향을 참고해서 모든 문항 초안을 먼저 써 주세요";
-
-/** 초안의 빈칸: 【채울 것】 */
-export const BLANK_RE = /【([^】]{1,30})】/g;
-export function blanksOf(text: string): string[] {
-  return [...text.matchAll(BLANK_RE)].map((m) => m[1]!.trim());
-}
-
 /** 코치에게 올린 자료 (정리한 요약만 남긴다. 글 파일은 정리 전까지 본문을 잠깐 보관) */
 export interface Material {
   id: string;
@@ -150,23 +141,10 @@ export function startApplication(input: { activityName: string; notice: NoticeAn
     role: "coach",
     at: now(),
     text: questions.length
-      ? `안녕하세요! ${input.activityName} 지원서를 같이 완성해 볼게요. 공고에서 찾은 문항은 ${questions.length}개예요.\n${list}\n\n합격 후기 경향을 참고해서 제가 초안을 먼저 써 둘 수 있어요. 모르는 내용은 【빈칸】으로 남겨 두니, 빈칸만 하나씩 알려 주시면 돼요. 사실은 말씀해 주신 것과 올려 주신 자료에 있는 것만 써요. 아래 '✨ 경향 보고 전체 초안'을 눌러 보세요.\n예전에 쓴 자기소개서, 활동 보고서, 포트폴리오, SNS 성과 캡처가 있으면 📎로 여러 개 한 번에 올려 주세요. 제가 정리해서 맞는 문항에 바로 써 둘게요.\n\n먼저 1번부터 해요. ${OPENER[first!.type]}`
+      ? `안녕하세요! ${input.activityName} 지원서를 같이 완성해 볼게요. 공고에서 찾은 문항은 ${questions.length}개예요.\n${list}\n\n경험이나 생각을 한 줄만 말씀해 주셔도 합격 후기 경향을 참고해서 제가 여러 줄 답으로 늘려 써 둘게요. 숫자나 이름 같은 사실은 말씀해 주신 것과 올려 주신 자료에 있는 것만 써요.\n예전에 쓴 자기소개서, 활동 보고서, 포트폴리오, SNS 성과 캡처가 있으면 📎로 여러 개 한 번에 올려 주세요. 제가 정리해서 맞는 문항에 바로 써 둘게요.\n\n먼저 1번부터 해요. ${OPENER[first!.type]}`
       : `안녕하세요! ${input.activityName} 지원서를 같이 써 볼게요. 공고에서 지원서 문항을 찾지 못했어요. 지원서 양식 아래 '문항 추가'로 문항을 넣어 주시거나, 여기에 문항을 붙여넣어 주세요.`,
   });
   return app;
-}
-
-/** AI 없이 쓰는 빈칸 뼈대 (합격 경향의 기본 뼈대: 주장 → 근거 경험 → 활동에서 할 일) */
-function blankSkeleton(q: ApplyQuestion): string {
-  const focus = q.emphasize[0] ? RUBRIC[q.emphasize[0]] : "강점";
-  switch (q.type) {
-    case "motivation":
-      return `저는 【이 활동에 끌린 이유 한 줄】 때문에 지원했습니다. 【관련 경험】에서 【내가 한 일】을 하며 【결과·숫자】를 얻었고, 이 경험을 ${focus}과 연결해 서포터즈 활동에서 【하고 싶은 콘텐츠】를 만들고 싶습니다.`;
-    case "content_idea":
-      return `【타깃】을 위해 【콘텐츠 형식】으로 【주제】를 다루고 싶습니다. 【관련 경험】에서 【결과·숫자】를 만든 방식대로, 【주기·횟수】 꾸준히 올려 【목표 반응】을 이끌겠습니다.`;
-    default:
-      return `제 강점은 ${focus}입니다. 【관련 경험】에서 【내가 맡은 일】을 하며 【결과·숫자】를 만들었습니다. 이 경험을 살려 서포터즈로서 【활동에서 할 일】을 하겠습니다.`;
-  }
 }
 
 /** 문항 유형별 첫 질문 */
@@ -251,24 +229,26 @@ export function buildCoachPrompt(
     "- 자료가 문항·활동과 관련이 약하면 어디에 쓰기 어려운지 솔직하게 말합니다.",
     "- 글씨를 읽기 어려운 자료는 읽지 못했다고 말합니다. 추측해서 채우지 않습니다.",
     "",
-    "[초안 먼저, 빈칸으로]",
-    "- 사용자가 다 말해 주기를 기다리지 않습니다. 비어 있는 문항이나 사용자가 초안을 원하는 문항은 이번 답에서 바로 완성된 초안을 씁니다.",
-    "- 모르는 사실(경험 이름·역할·숫자·기간·기관명)은 지어내지 말고 【채울 것】 빈칸으로 남깁니다. 빈칸 안에는 무엇을 채울지 12자 이내로 씁니다. 예: 【동아리 이름】, 【팔로워 몇 명→몇 명】, 【내가 맡은 일】.",
-    "- 빈칸은 한 문항에 4개 이하. 빈칸을 빼고 읽어도 문장이 자연스럽게 이어지게 씁니다.",
-    "- 사용자가 빈칸에 답하면(예: '【동아리 이름】: 사진 동아리 빛담') 그 빈칸을 채운 전체 글을 updates에 넣고, 그 사실을 facts에 넣습니다.",
-    "- reply에서는 가장 중요한 빈칸 하나만 물어봅니다. 비슷한 빈칸이 여러 문항에 있으면 한 번에 묻습니다.",
-    `- 사용자가 '${DRAFT_ALL}'라고 하면 모든 문항의 초안을 이번 답에서 한꺼번에 updates에 넣습니다. 문항마다 가장 잘 맞는 경험 자리를 다르게 잡습니다.`,
+    "[한 줄을 여러 줄로]",
+    "- 사용자가 경험이나 생각을 한 줄만 말해도 기다리지 말고, 그 한 줄로 지금 문항(focus)의 완성된 답을 이번 답에서 바로 씁니다. 더 잘 맞는 문항이 있으면 그 문항에 씁니다.",
+    "- 길이는 글자 수 제한의 85~100% (제한이 없으면 400~600자). 한 줄을 여러 문장으로 늘리는 방법:",
+    "  · 첫 문장: 그 경험에서 드러나는 나의 강점을 이 활동에 맞게 한 문장으로 주장 (합격경향의 강한 요인과 문항의 강조하면좋은점 중 맞는 것).",
+    "  · 가운데: 사용자가 말한 경험을 장면으로 풀어 씁니다 — 왜 했는지, 무엇을 신경 썼는지, 그 경험에서 무엇을 알게 됐는지. 말한 내용에서 자연스럽게 따라 나오는 동기·생각·태도는 1인칭으로 써도 됩니다.",
+    "  · 끝: 공고의 활동 내용과 이어서 이 활동에서 무엇을 하겠다는 구체적인 계획 (콘텐츠 형식·주제·대상). 계획은 제안이라 새로 써도 됩니다.",
+    "- 늘릴 때도 확인할 수 있는 사실(숫자·기관명·동아리 이름·기간·직책·수상·팔로워 수)은 사용자가 말한 것만 씁니다. 그런 사실이 있으면 더 좋아지는 자리는 문장을 비우지 말고 일반적인 표현으로 쓰고, reply에서 하나만 물어봅니다.",
+    "- reply는 짧게: 어떤 경향을 반영했는지 한 줄 + 글을 더 강하게 만들 사실 하나를 질문 (예: '팔로워나 조회수가 얼마나 늘었는지 알려 주시면 숫자로 바꿔 드릴게요').",
+    "- 사용자가 더 말하면 그 사실을 넣어 전체 글을 다시 씁니다. 사용자가 고친 문장(by=user)은 살립니다.",
     "",
     "[합격 경향 쓰기]",
     "- ctx의 합격경향은 실제 합격 후기를 코드북(E1~E8)으로 분석한 결과입니다. 글의 뼈대와 강조점을 정하는 데 씁니다.",
-    "- 강한 요인(합격자 대부분이 갖춘 것)은 글의 앞부분에 근거와 함께 둡니다. 차별화 요인(드문 것)은 사용자 사실이 있으면 한 줄 넣고, 없으면 빈칸으로 자리를 만듭니다.",
+    "- 강한 요인(합격자 대부분이 갖춘 것)은 글의 앞부분에 근거와 함께 둡니다. 차별화 요인(드문 것)은 사용자가 말한 내용에 닿는 게 있으면 한 줄로 살리고, 없으면 reply에서 그런 경험이 있는지 물어봅니다.",
     "- 공고와이어지는요인의 조언을 따릅니다. 문항의 강조하면좋은점과 겹치는 요인을 먼저 씁니다.",
     "- 기본 뼈대: 첫 문장에 핵심 주장(이 활동에 맞는 나의 강점) → 근거 경험(장면·내 행동·숫자 결과) → 이 활동에서 할 일(공고의 활동 내용과 연결).",
     "- 합격자팁과 면접질문은 사용자가 이유를 물을 때 근거로 짧게 말해 줍니다 (예: '합격 후기 42건 중 대부분이 전공과 활동을 이어 썼어요'). 다른 사람의 후기 문장을 옮기지 않습니다.",
     "- change에 경향을 반영한 점을 짧게 씁니다 (예: '분야 연결 경험을 첫 문장으로').",
     "",
     "[초안 작성 규칙]",
-    "- 사실(경험·숫자·기관명·기간)은 대화, facts, 자료에 있는 것만 씁니다. 없는 숫자나 경험은 절대 지어내지 말고 【빈칸】으로 남기세요.",
+    "- 사실(경험·숫자·기관명·기간)은 대화, facts, 자료에 있는 것만 씁니다. 없는 숫자나 경험은 절대 지어내지 마세요.",
     "- 1인칭(저는), 구체적인 장면과 내가 한 행동 중심, 결과는 숫자로. '열정', '최선을 다하겠습니다', '소통의 중요성을 깨달았습니다' 같은 상투어를 쓰지 않습니다.",
     "- 글자 수 제한이 있으면 공백 포함 제한의 85~100% 길이로 씁니다. 절대 넘기지 않습니다.",
     "- 사용자가 직접 고친 문항(by=user)은 사용자의 문장을 최대한 살리고, 새 사실을 넣거나 요청이 있을 때만 고칩니다.",
@@ -289,7 +269,6 @@ export function buildCoachPrompt(
       강조하면좋은점: q.emphasize.map((c) => `${c} ${RUBRIC[c]}`),
       지금글: app.answers[i]?.text ?? "",
       지금글글자수: charCount(app.answers[i]?.text ?? ""),
-      남은빈칸: blanksOf(app.answers[i]?.text ?? ""),
       마지막으로쓴쪽: app.answers[i]?.by ?? "coach",
     })),
     양식에서직접채울항목: (app.formFields ?? []).map((f) => f.title),
@@ -349,9 +328,8 @@ export async function coachTurn(
   const readable = materials.filter((m) => m.kind === "text" || llm.vision);
   // 프롬프트를 먼저 만든다 (새 메시지는 <사용자_새_메시지>로 따로 넣는다)
   const { system, user } = buildCoachPrompt(app, ctx.notice, ctx.activityName, userMessage, readable, ctx.trend);
-  // 자료를 정리하거나 여러 문항 초안을 한꺼번에 쓰면 더 길게, 더 오래 기다린다
-  const draftAll = userMessage.includes(DRAFT_ALL) || /(모든|전체|전부)\s*문항.*초안|초안.*(모두|전부|한꺼번에)/.test(userMessage);
-  const heavy = draftAll || readable.length > 0 || (app.materials ?? []).some((m) => !m.summary && m.text);
+  // 자료를 정리하면 여러 문항을 한 번에 쓰니 더 길게, 더 오래 기다린다
+  const heavy = readable.length > 0 || (app.materials ?? []).some((m) => !m.summary && m.text);
   const images = readable.filter((m) => m.kind !== "text" && m.data && m.mediaType).map((m) => ({ mediaType: m.mediaType!, data: m.data! }));
   const res = await llm.complete({
     system,
@@ -475,21 +453,6 @@ export function coachTurnByRules(
   const say = (text: string) => next.chat.push({ role: "coach", text, at: now(), edits: edits.length ? [...edits] : undefined });
   const msg = userMessage.trim();
   next.rule ??= next.questions.map(() => ({ stage: "experience", notes: [] }));
-
-  // 전체 초안: AI 없이도 문항 유형별 빈칸 뼈대를 채워 준다 (비어 있는 문항만)
-  if (msg.includes(DRAFT_ALL)) {
-    next.questions.forEach((q, i) => {
-      if ((next.answers[i]?.text ?? "").trim()) return;
-      next.answers[i] = { text: blankSkeleton(q), by: "coach" };
-      edits.push({ q: i, change: "빈칸 뼈대 초안" });
-    });
-    say(
-      edits.length
-        ? `비어 있던 ${edits.length}개 문항에 빈칸 뼈대를 써 뒀어요. 【 】 안을 하나씩 알려 주시면 채워 넣을게요. 지금은 AI가 연결되지 않아 문장이 단순해요.`
-        : "모든 문항에 이미 글이 있어요. 고치고 싶은 문항을 말씀해 주세요.",
-    );
-    return done();
-  }
 
   // 규칙 기반 코치는 자료를 읽고 정리하지 못한다: 글 자료는 보관해 두고 AI가 연결되면 정리한다
   if (materials.length) {
