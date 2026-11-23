@@ -45,11 +45,9 @@ export default async function RootLayout({ children }: { children: ReactNode }) 
       <body>
         <div className="shell">
           <aside className={user ? "side" : "side guest"} id="menu" aria-label="메뉴">
-            <Link href="/" className="logo">
-              <i>
-                <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="#1C2140" strokeWidth="2.4" strokeLinecap="round" strokeLinejoin="round" aria-hidden="true"><path d="M4 17l5-5 4 4 7-8" /><path d="M15 8h5v5" /></svg>
-              </i>
-              서포트랩
+            <Link href="/" className="logo" aria-label="서포트랩 홈">
+              {/* eslint-disable-next-line @next/next/no-img-element -- 남색 사이드바용 흰 가로 로고 (SVG라 최적화가 필요 없다) */}
+              <img src="/brand/supportlab-logo-horizontal-white.svg" alt="서포트랩 SUPPORT LAB" width={173} height={55} />
             </Link>
 
             {user && (
