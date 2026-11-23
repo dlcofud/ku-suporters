@@ -361,3 +361,9 @@ label>.lbl{display:block}
 .verify-queue .progress{height:10px;border:1.5px solid var(--ink);border-radius:999px;overflow:hidden;background:#fff}
 .verify-queue .progress i{display:block;height:100%;background:var(--ink)}
 .small-btn{padding:4px 12px;font-size:13px}
+
+/* 지원서: 빈칸 칩 */
+.blanks{display:flex;flex-wrap:wrap;align-items:center;gap:6px}
+.blank-chip{border:1.5px dashed var(--red);color:var(--red);background:#FFF5F5;border-radius:8px;padding:3px 8px;font:inherit;font-size:12px;font-weight:800;cursor:pointer}
+.blank-chip:hover{background:var(--red);color:#fff}
+.chip-btn.hl{background:var(--hl);border-color:var(--ink);font-weight:900}

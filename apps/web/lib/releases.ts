@@ -1,7 +1,16 @@
 /** 릴리즈 노트. 새 기능을 합칠 때 맨 위에 한 줄씩 추가해 주세요. */
-export const APP_VERSION = "0.19.0";
+export const APP_VERSION = "0.20.0";
 
 export const RELEASES: { version: string; date: string; items: string[] }[] = [
+  {
+    version: "0.20.0",
+    date: "2026-11-23",
+    items: [
+      "지원서 코치: '✨ 경향 보고 전체 초안' — 합격 후기 경향을 참고해 모든 문항 초안을 먼저 써 줘요",
+      "모르는 내용은 지어내지 않고 【빈칸】으로 남겨요. 문항 아래 빈칸 칩을 누르면 바로 답할 수 있어요",
+      "코치가 합격 경향(강한 요인·차별화 요인·이 공고와 이어지는 요인)으로 글의 뼈대와 순서를 잡아요",
+    ],
+  },
   {
     version: "0.19.0",
     date: "2026-11-21",

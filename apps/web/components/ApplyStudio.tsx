@@ -7,6 +7,9 @@ const RUBRIC: Record<string, string> = {
   E1: "SNS 운영 성과", E2: "사전 제작 콘텐츠", E3: "툴 활용", E4: "분야 연결 경험",
   E5: "브랜드 이해", E6: "기획안 구체성", E7: "협업 경험", E8: "진정성·스토리",
 };
+/** core apply.DRAFT_ALL 과 같은 문장 (클라이언트에서 core 전체를 불러오지 않으려고 따로 둔다) */
+const DRAFT_ALL = "합격 경향을 참고해서 모든 문항 초안을 먼저 써 주세요";
+const blanksOf = (t: string) => [...t.matchAll(/【([^】]{1,30})】/g)].map((m) => m[1]!.trim());
 const QUICK = ["다음 문항으로 가요", "이 문항 더 짧게 다듬어 주세요", "숫자를 넣어서 다시 써 주세요", "다른 경험으로 바꿀래요", "관련 자료가 없어요"];
 const ACCEPT = ".txt,.md,.docx,.hwpx,.pdf,.png,.jpg,.jpeg,.webp,image/*";
 const MAX_FILES = 6;
@@ -55,6 +58,13 @@ export function ApplyStudio({ initial, activityName, aiLabel, aiMode, prefill }:
   const [sec, setSec] = useState(0);
   const [notice, setNotice] = useState<string>();
   const [tab, setTab] = useState<"chat" | "sheet">("chat");
+  const chatInput = useRef<HTMLTextAreaElement>(null);
+  /** 빈칸 칩을 누르면 대화창에 '【빈칸】: '을 넣어 바로 답하게 한다 */
+  function answerBlank(i: number, b: string) {
+    setTab("chat");
+    setInput(`${i + 1}번 【${b}】: `);
+    setTimeout(() => chatInput.current?.focus(), 50);
+  }
   const [unseen, setUnseen] = useState(0);
   const [saved, setSaved] = useState<string>();
   const [newQ, setNewQ] = useState("");
@@ -214,6 +224,8 @@ export function ApplyStudio({ initial, activityName, aiLabel, aiMode, prefill }:
   /** 고치는 중이던 글을 먼저 저장하고 워드 파일을 받는다 (blur 저장과 내려받기가 엇갈리지 않게) */
   const [downloading, setDownloading] = useState(false);
   async function downloadDocx() {
+    const left = texts.reduce((n, t) => n + blanksOf(t ?? "").length, 0);
+    if (left && !confirm(`아직 채우지 않은 【빈칸】이 ${left}개 있어요. 그래도 받을까요?`)) return;
     setDownloading(true);
     try {
       if (dirty.size) {
@@ -275,6 +287,7 @@ export function ApplyStudio({ initial, activityName, aiLabel, aiMode, prefill }:
         </div>
         {notice && <p className="note warn small" style={{ margin: 0 }}>{notice}</p>}
         <div className="quick">
+          <button type="button" className="chip-btn hl" disabled={busy} onClick={() => send(DRAFT_ALL)} title="합격 후기 경향을 참고해 모든 문항 초안을 한 번에 써요. 모르는 내용은 【빈칸】으로 남겨요">✨ 경향 보고 전체 초안</button>
           {QUICK.map((q) => <button key={q} type="button" className="chip-btn" disabled={busy} onClick={() => send(q)}>{q}</button>)}
         </div>
         {files.length > 0 && (
@@ -293,6 +306,7 @@ export function ApplyStudio({ initial, activityName, aiLabel, aiMode, prefill }:
             <input type="file" multiple accept={ACCEPT} hidden disabled={busy} onChange={(e) => { void addFiles(e.target.files); e.target.value = ""; }} />
           </label>
           <textarea
+            ref={chatInput}
             value={input}
             onChange={(e) => setInput(e.target.value)}
             onKeyDown={(e) => { if (e.key === "Enter" && !e.shiftKey && !e.nativeEvent.isComposing) { e.preventDefault(); send(); } }}
@@ -341,6 +355,14 @@ export function ApplyStudio({ initial, activityName, aiLabel, aiMode, prefill }:
                 aria-label={`${i + 1}번 문항 답`}
                 className={typing[i] ? "typing" : undefined}
               />
+              {blanksOf(texts[i] ?? "").length > 0 && !typing[i] && (
+                <div className="blanks" aria-label="채울 빈칸">
+                  <span className="small">채울 빈칸</span>
+                  {blanksOf(texts[i] ?? "").map((b, k) => (
+                    <button key={`${b}${k}`} type="button" className="blank-chip" disabled={busy} onClick={() => answerBlank(i, b)} title="눌러서 대화창에서 답하기">【{b}】</button>
+                  ))}
+                </div>
+              )}
               <div className="row between small">
                 <span className="muted">
                   {typing[i] ? "코치가 쓰는 중…" : a?.text ? (dirty.has(i) || a.by === "user" ? "내가 고친 글" : "코치가 쓴 초안 · 직접 고쳐도 돼요") : "아직 비어 있어요"}

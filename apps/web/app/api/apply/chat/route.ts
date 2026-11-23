@@ -4,6 +4,7 @@ import { currentUser, currentActivity } from "@/lib/session";
 import { repo, newId } from "@/lib/repo";
 import { getLLM, llmStatus } from "@/lib/llm";
 import { ensureApplication, publicApp, saveApp } from "@/lib/apply";
+import { trendBriefFor } from "@/lib/trends";
 
 // 로컬 모델은 한 번에 1~2분 걸릴 수 있다
 export const maxDuration = 120;
@@ -51,7 +52,7 @@ export async function POST(req: Request) {
 
   let app = ensureApplication(act);
   if (Array.isArray(body.edits)) app = apply.applyUserEdits(app, body.edits);
-  const ctx = { notice: act.analysis, activityName: act.name };
+  const ctx = { notice: act.analysis, activityName: act.name, trend: await trendBriefFor(act.analysis) };
   let notice: string | undefined;
   let result: apply.CoachTurnResult;
 

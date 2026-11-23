@@ -1,4 +1,4 @@
-import { trends } from "@supportlab/core";
+import { trends, apply, skeleton } from "@supportlab/core";
 import { repo } from "./repo";
 import { activeCsv } from "./sheet";
 
@@ -28,4 +28,29 @@ export async function loadAllReviews(): Promise<trends.CuratedReview[]> {
   const mine = coded.filter((r) => !r.pendingApproval).map(trends.toCurated);
   const urls = new Set(mine.map((r) => r.url));
   return [...mine, ...sheet.filter((r) => !urls.has(r.url))];
+}
+
+/**
+ * 지원서 코치에게 줄 합격 경향 요약.
+ * 공고 문구로 분야를 짐작하지 않고 전체 합격 후기로 계산한다 (분야별 표본이 아직 적어서).
+ * 실패해도 코치는 경향 없이 동작한다.
+ */
+export async function trendBriefFor(notice: { preferred: string[]; activities: string[] }): Promise<apply.TrendBrief | undefined> {
+  try {
+    const report = trends.buildTrendReport(await loadAllReviews());
+    if (!report.sampleSize) return undefined;
+    const label = (e: { code: string; avg: number }) => `${e.code} ${skeleton.RUBRIC[e.code as keyof typeof skeleton.RUBRIC]} (평균 ${e.avg.toFixed(1)}점)`;
+    const sorted = [...report.elementAverages].sort((a, b) => b.avg - a.avg);
+    return {
+      sample: report.sampleSize,
+      strong: sorted.slice(0, 2).map(label),
+      gaps: sorted.filter((e) => e.avg < 0.5).slice(-2).map(label),
+      notice: trends.noticeEmphasis(notice, report).map((n) => ({ from: n.from.slice(0, 60), factor: `${n.code} ${n.label}`, advice: n.advice })),
+      tips: report.tips.map((t) => t.text).slice(0, 6),
+      interview: report.interviewQuestions.map((q) => q.text).slice(0, 6),
+    };
+  } catch (e) {
+    console.error("[trends] 코치용 경향 요약 실패", e);
+    return undefined;
+  }
 }
