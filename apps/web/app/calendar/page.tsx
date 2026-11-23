@@ -31,7 +31,7 @@ export default async function ActivityCalendar({ searchParams }: { searchParams:
     return (
       <>
         <header>
-          <span className="eyebrow">{act.name} · 콘텐츠 캘린더</span>
+          <span className="eyebrow">{act.name} · 업로드 일정</span>
           <h1>마감일을 알려 주세요</h1>
         </header>
         <form action={setDeadlineAction} className="card row" style={{ maxWidth: 640 }}>
@@ -75,7 +75,7 @@ export default async function ActivityCalendar({ searchParams }: { searchParams:
     <>
       <header className="row between" style={{ alignItems: "flex-end" }}>
         <div className="grid" style={{ gap: 4 }}>
-          <span className="eyebrow">{act.name} · 콘텐츠 캘린더</span>
+          <span className="eyebrow">{act.name} · 업로드 일정</span>
           <h1>{daysLeft > 0 ? <>마감까지 <span className="hl">{daysLeft}일</span></> : daysLeft === 0 ? <>오늘 <span className="red">마감</span>이에요</> : "모집이 마감됐어요"}</h1>
           {daysLeft >= 0 && <p className="lede" style={{ margin: 0 }}>콘텐츠 {left}개 남았어요</p>}
         </div>
@@ -84,7 +84,8 @@ export default async function ActivityCalendar({ searchParams }: { searchParams:
             <input type="hidden" name="deadline" value={plan.deadline} />
             <button className="btn" type="submit" title="오늘부터 남은 일정을 다시 나눠요">일정 다시 계산</button>
           </form>
-          {thisWeek && <Link className="btn pri" href={`/studio?item=${thisWeek.id}`}>이번 주 초안 만들기</Link>}
+          <Link className="btn" href="/account" title="서포터즈 활동용 인스타 계정 아이디·소개글·첫 게시물 준비">계정 준비</Link>
+          {thisWeek && <Link className="btn pri" href={`/studio?item=${thisWeek.id}`}>이번 주 콘텐츠 만들기</Link>}
         </div>
       </header>
 

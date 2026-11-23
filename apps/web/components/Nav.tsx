@@ -7,36 +7,44 @@ const I = (d: ReactNode) => (
   <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.9" strokeLinecap="round" strokeLinejoin="round" aria-hidden="true">{d}</svg>
 );
 
-/** 선택한 활동 안에서 쓰는 메뉴 (스크린샷의 "이 활동") */
+/**
+ * 고른 서포터즈 안에서 쓰는 메뉴. 지원 → 일정 → 제작 → 성과 순서 그대로.
+ * 이름은 화면 제목과 같게 짧게.
+ */
 const ACTIVITY: [string, string, ReactNode][] = [
-  ["/trends", "경향 분석", I(<><path d="M4 20V10" /><path d="M10 20V4" /><path d="M16 20v-7" /><path d="M3 20h18" /></>)],
-  ["/skeleton", "지원서 작성", I(<><path d="M14 3H6a1 1 0 0 0-1 1v16a1 1 0 0 0 1 1h12a1 1 0 0 0 1-1V8z" /><path d="M14 3v5h5" /><path d="M9 13h6M9 17h4" /></>)],
-  ["/calendar", "콘텐츠 캘린더", I(<><rect x="3" y="5" width="18" height="16" rx="2" /><path d="M3 10h18M8 3v4M16 3v4" /></>)],
-  ["/feedback", "성과 피드백", I(<><path d="M20 12a8 8 0 1 1-2.34-5.66" /><path d="M20 4v5h-5" /></>)],
+  ["/notice/result", "공고 요약", I(<><path d="M5 4h14v16H5z" /><path d="M9 8h6M9 12h6M9 16h3" /></>)],
+  ["/skeleton", "지원서", I(<><path d="M14 3H6a1 1 0 0 0-1 1v16a1 1 0 0 0 1 1h12a1 1 0 0 0 1-1V8z" /><path d="M14 3v5h5" /><path d="M9 13h6M9 17h4" /></>)],
+  ["/calendar", "업로드 일정", I(<><rect x="3" y="5" width="18" height="16" rx="2" /><path d="M3 10h18M8 3v4M16 3v4" /></>)],
+  ["/studio", "콘텐츠 만들기", I(<><rect x="3" y="6" width="13" height="12" rx="2" /><path d="M16 10l5-3v10l-5-3" /></>)],
+  ["/feedback", "성과", I(<><path d="M20 12a8 8 0 1 1-2.34-5.66" /><path d="M20 4v5h-5" /></>)],
 ];
 
-/** 그 밖의 도구 */
-/** 세 번째 값: 필요한 권한, 또는 "act"(서포터즈 하나를 고른 화면에서만 보임) */
-const TOOLS: [string, string, ("admin" | "team" | "act")?][] = [
-  ["/studio", "콘텐츠 제작", "act"],
-  ["/account", "계정 만들기", "act"],
-  ["/contribute", "합격 경험 공유"],
-  ["/reviews", "후기 분석 (관리자)", "admin"],
-  ["/admin", "검수 (관리자)", "admin"],
-  ["/admin/sheet", "엑셀 관리 (관리자)", "admin"],
+/** 서포터즈와 상관없이 보는 것 */
+const REFERENCE: [string, string][] = [["/trends", "합격 경향"]];
+
+/** 관리자만 */
+const ADMIN: [string, string][] = [
+  ["/reviews", "후기 검수"],
+  ["/admin", "공유 승인"],
+  ["/admin/sheet", "후기 시트 (엑셀)"],
 ];
 
 /** roles: 서버에서 정한 권한. 메뉴만 숨기는 것이고, 실제 막는 건 각 페이지·액션의 requireRole */
 export function Nav({ hasActivity, roles = [] }: { hasActivity: boolean; roles?: ("admin" | "team")[] }) {
   const path = usePathname();
+  const all = [...ACTIVITY.map(([h]) => h), ...REFERENCE.map(([h]) => h), ...ADMIN.map(([h]) => h)];
   // 더 긴 메뉴 주소가 맞으면 그쪽만 켠다 (/admin 과 /admin/sheet)
-  const isOn = (href: string) =>
-    href === "/" ? path === "/" : path.startsWith(href) && !TOOLS.some(([h]) => h.length > href.length && h.startsWith(href) && path.startsWith(h));
+  const isOn = (href: string) => path.startsWith(href) && !all.some((h) => h.length > href.length && h.startsWith(href) && path.startsWith(h));
+  const small = (href: string, label: string) => (
+    <Link key={href} href={href} className={isOn(href) ? "nav sm on" : "nav sm"} aria-current={isOn(href) ? "page" : undefined}>
+      {label}
+    </Link>
+  );
   return (
     <>
       {hasActivity && path !== "/" && (
-        <nav className="navgroup" aria-label="이 활동">
-          <span className="navlabel">이 활동</span>
+        <nav className="navgroup" aria-label="이 서포터즈">
+          <span className="navlabel">이 서포터즈</span>
           {ACTIVITY.map(([href, label, icon]) => (
             <Link key={href} href={href} className={isOn(href) ? "nav on" : "nav"} aria-current={isOn(href) ? "page" : undefined}>
               <span className="row" style={{ gap: 10, flexWrap: "nowrap" }}>{icon}{label}</span>
@@ -44,14 +52,16 @@ export function Nav({ hasActivity, roles = [] }: { hasActivity: boolean; roles?:
           ))}
         </nav>
       )}
-      <nav className="navgroup tools" aria-label="도구">
-        <span className="navlabel">도구</span>
-        {TOOLS.filter(([, , need]) => !need || (need === "act" ? hasActivity && path !== "/" : roles.includes(need))).map(([href, label]) => (
-          <Link key={href} href={href} className={isOn(href) ? "nav sm on" : "nav sm"} aria-current={isOn(href) ? "page" : undefined}>
-            {label}
-          </Link>
-        ))}
+      <nav className="navgroup tools" aria-label="참고">
+        <span className="navlabel">참고</span>
+        {REFERENCE.map(([h, l]) => small(h, l))}
       </nav>
+      {roles.includes("admin") && (
+        <nav className="navgroup tools" aria-label="관리자">
+          <span className="navlabel">관리자</span>
+          {ADMIN.map(([h, l]) => small(h, l))}
+        </nav>
+      )}
     </>
   );
 }
@@ -62,10 +72,10 @@ const T = (d: ReactNode) => (
 
 /** 모바일 아래 탭 5개. 메뉴는 본문 아래에 있는 사이드바(#menu)로 내려간다 */
 const TABS: [string, string, ReactNode][] = [
-  ["/", "캘린더", T(<><rect x="3" y="5" width="18" height="16" rx="2" /><path d="M3 10h18M8 3v4M16 3v4" /></>)],
-  ["/studio", "제작", T(<><rect x="3" y="6" width="13" height="12" rx="2" /><path d="M16 10l5-3v10l-5-3" /></>)],
-  ["/feedback", "성과", T(<><path d="M4 20V10" /><path d="M10 20V4" /><path d="M16 20v-7" /><path d="M3 20h18" /></>)],
+  ["/", "홈", T(<><path d="M3 11l9-7 9 7" /><path d="M5 10v10h14V10" /></>)],
   ["/skeleton", "지원서", T(<><path d="M14 3H6a1 1 0 0 0-1 1v16a1 1 0 0 0 1 1h12a1 1 0 0 0 1-1V8z" /><path d="M14 3v5h5" /><path d="M9 13h6M9 17h4" /></>)],
+  ["/calendar", "일정", T(<><path d="M8 3v4M16 3v4" /><rect x="3" y="5" width="18" height="16" rx="2" /><path d="M8 13h3" /></>)],
+  ["/studio", "만들기", T(<><rect x="3" y="6" width="13" height="12" rx="2" /><path d="M16 10l5-3v10l-5-3" /></>)],
   ["#menu", "메뉴", T(<><path d="M4 7h16M4 12h16M4 17h16" /></>)],
 ];
 
