@@ -11,11 +11,42 @@ const ERR: Record<string, string> = {
   credits: "크레딧이 부족해요. 왼쪽 아래 '충전 · 내역'에서 충전하거나, 합격 경험을 공유하면 크레딧을 받을 수 있어요.",
 };
 
+/** 긴 공고 주소 대신 사이트 이름만 보여 준다 (전체 주소는 title로) */
+function hostOf(url: string) {
+  try { return new URL(url).hostname.replace(/^www\./, "") + " 공고 원문 ↗"; } catch { return url; }
+}
+
+/**
+ * 혜택을 번호 단위로 나눈다.
+ * "1 웰컴 키트 제공 2 월별 활동비 3 우수 활동자 시상"처럼 한 줄로 붙은 것도 1, 2, 3… 항목으로 쪼개고 앞 번호는 뗀다.
+ * 번호가 1부터 차례로 이어질 때만 나눠서 "2026년", "3기" 같은 숫자는 건드리지 않는다.
+ */
+function splitBenefits(list: string[]) {
+  const out: string[] = [];
+  for (const raw of list) {
+    for (const part of raw.split(/\s+·\s+/)) {
+      const text = part.trim();
+      if (!text) continue;
+      let next = 1;
+      const cuts: number[] = [];
+      for (const m of text.matchAll(/(?:^|\s)(\d{1,2})[.)]?\s+(?=\S)/g)) {
+        if (Number(m[1]) === next) { cuts.push(m.index! + (m[0].length - m[0].trimStart().length)); next++; }
+      }
+      if (cuts.length >= 2 || (cuts.length === 1 && cuts[0] === 0)) {
+        if (cuts[0] > 0) out.push(text.slice(0, cuts[0]).trim());
+        cuts.forEach((c, i) => out.push(text.slice(c, cuts[i + 1]).replace(/^\d{1,2}[.)]?\s+/, "").trim()));
+      } else out.push(text.replace(/^\d{1,2}[.)]?\s+(?=\S)/, ""));
+    }
+  }
+  return out.filter(Boolean);
+}
+
 export default async function NoticeResult({ searchParams }: { searchParams: Promise<{ error?: string; msg?: string; url?: string; form?: string; fq?: string; ff?: string; fa?: string; formerror?: string; ocr?: string; oi?: string; or?: string }> }) {
   const user = await requireUser();
   const { error, msg, url, form, fq, ff, fa, formerror, ocr, oi, or } = await searchParams;
   const act = await currentActivity(user.id);
   if (!act) redirect("/notice");
+  const benefits = splitBenefits(act.analysis.benefits);
   return (
     <>
       <header className="row between" style={{ alignItems: "flex-end" }}>
@@ -39,17 +70,30 @@ export default async function NoticeResult({ searchParams }: { searchParams: Pro
         <section className="grid g2" style={{ alignItems: "start" }}>
           <div className="card">
             <h2>공고 요약</h2>
-            <table>
-              <tbody>
-                <tr><th>마감</th><td>{act.analysis.deadline ?? "찾지 못함 (캘린더에서 직접 입력)"}</td></tr>
-                <tr><th>발표</th><td>{act.analysis.announcementDate ?? "-"}</td></tr>
-                <tr><th>제출물</th><td>{act.analysis.submissions.map((s) => SUB[s]).join(", ") || "-"}</td></tr>
-                <tr><th>전형</th><td>{act.analysis.stages.map((s) => STAGE[s]).join(" → ") || "-"}</td></tr>
-                <tr><th>혜택</th><td>{act.analysis.benefits.join(" · ") || "-"}</td></tr>
-                <tr><th>지원서 문항</th><td><ul className="clean">{act.analysis.questions.map((q) => <li key={q}>{q}</li>)}</ul></td></tr>
-                {act.sourceUrl && <tr><th>출처</th><td><a href={act.sourceUrl}>{act.sourceUrl}</a></td></tr>}
-              </tbody>
-            </table>
+            <dl className="facts">
+              <dt>마감</dt><dd>{act.analysis.deadline ?? <span className="muted">찾지 못했어요 · 캘린더에서 직접 넣어 주세요</span>}</dd>
+              <dt>발표</dt><dd>{act.analysis.announcementDate ?? <span className="muted">-</span>}</dd>
+              <dt>제출물</dt><dd>{act.analysis.submissions.map((s) => SUB[s]).join(", ") || <span className="muted">-</span>}</dd>
+              <dt>전형</dt><dd>{act.analysis.stages.map((s) => STAGE[s]).join(" → ") || <span className="muted">-</span>}</dd>
+              <dt>혜택</dt>
+              <dd>
+                {benefits.length > 1
+                  ? <ol className="numlist">{benefits.map((b, i) => <li key={i}>{b}</li>)}</ol>
+                  : benefits[0] ?? <span className="muted">-</span>}
+              </dd>
+              <dt>지원서 문항</dt>
+              <dd>
+                {act.analysis.questions.length
+                  ? <ol className="numlist">{act.analysis.questions.map((q, i) => <li key={i}>{q}</li>)}</ol>
+                  : <span className="muted">찾지 못했어요 · 지원서 작성에서 직접 넣을 수 있어요</span>}
+              </dd>
+              {act.sourceUrl && (
+                <>
+                  <dt>출처</dt>
+                  <dd><a className="src" href={act.sourceUrl} title={act.sourceUrl} target="_blank" rel="noreferrer">{hostOf(act.sourceUrl)}</a></dd>
+                </>
+              )}
+            </dl>
           </div>
           <div className="card hi">
             <h2>우대사항 → 이렇게 준비하세요</h2>
