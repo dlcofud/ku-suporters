@@ -7,8 +7,8 @@ import { SuggestionCard } from "@/components/SuggestionCard";
 import { CopyButton } from "@/components/CopyButton";
 import { addMediaAction, removeMediaAction } from "@/lib/actions";
 import { SubmitButton } from "@/components/Pending";
-import { AccountPanel } from "@/components/AccountPanel";
-import { repo, todayISO } from "@/lib/repo";
+import { SnsTabs } from "@/components/SnsTabs";
+import { todayISO } from "@/lib/repo";
 
 const SUG_TAG: Record<feedback.Suggestion["kind"], [string, string]> = {
   switch_format: ["일정 조정 제안", "k-reels"],
@@ -19,11 +19,11 @@ const SUG_TAG: Record<feedback.Suggestion["kind"], [string, string]> = {
 const dot = (iso: string) => `${Number(iso.slice(5, 7))}.${iso.slice(8, 10)}`;
 const n = (v: number) => Math.round(v).toLocaleString("ko-KR");
 
-export default async function FeedbackPage({ searchParams }: { searchParams: Promise<{ error?: string; added?: string; acct?: string; ig?: string }> }) {
-  const { error, added, acct, ig } = await searchParams;
+export default async function FeedbackPage({ searchParams }: { searchParams: Promise<{ error?: string; added?: string }> }) {
+  const { error, added } = await searchParams;
   const user = await requireUser();
   const act = await currentActivity(user.id);
-  if (!act?.plan) return <div className="card"><h1>먼저 업로드 일정을 만들어 주세요</h1><Link className="btn pri" href="/calendar">업로드 일정 만들기</Link></div>;
+  if (!act?.plan) return <><SnsTabs on="feedback" /><div className="card"><h1>먼저 업로드 일정을 만들어 주세요</h1><Link className="btn pri" href="/calendar">업로드 일정 만들기</Link></div></>;
   const today = todayISO();
   const { media, source, igError } = await myMedia(user);
   const manual = source === "manual";
@@ -33,28 +33,26 @@ export default async function FeedbackPage({ searchParams }: { searchParams: Pro
   const sentence = feedback.achievementSentence(s, start, today);
   const maxViews = Math.max(1, ...s.byFormat.map((f) => f.avgViews));
   const rows = [...media].sort((a, b) => (a.date < b.date ? 1 : -1));
-  const others = (await repo.listActivities(user.id)).filter((a) => a.id !== act.id);
-  // 연결 전이면 계정 관리를 위로 (연결해야 숫자가 자동으로 들어온다), 연결 뒤엔 아래로
-  const panel = <AccountPanel user={user} act={act} others={others} msg={ig ?? acct} />;
 
   return (
     <>
       <header className="row between" style={{ alignItems: "flex-end" }}>
         <div>
-          <span className="eyebrow">{act.name} · 성과 피드백 · {Number(today.slice(5, 7))}월 {Number(today.slice(8, 10))}일 기준</span>
+          <span className="eyebrow">{act.name} · SNS 관리 · 업로드 성과 · {Number(today.slice(5, 7))}월 {Number(today.slice(8, 10))}일 기준</span>
           <h1>{s.topByViews ? `${fmtLabel(s.topByViews.format)} 반응이 가장 좋아요` : "아직 성과가 없어요"}</h1>
         </div>
         {manual ? <span className="tag pill" title="인스타를 연결하면 자동으로 가져와요">직접 입력</span> : <span className="tag pill k-post">인스타 연결됨</span>}
       </header>
+      <SnsTabs on="feedback" />
+      {!user.ig && media.length > 0 && <div className="note">인스타를 연결하면 조회수·좋아요·저장 수를 자동으로 가져와요. <Link href="/account">계정 관리에서 연결하기 →</Link></div>}
       {igError && <div className="note warn">인스타에서 지표를 가져오지 못해 직접 입력한 숫자를 보여 줘요. 계정 연결을 다시 확인해 주세요.</div>}
       {added && <div className="note ok" role="status">게시물 성과를 더했어요.</div>}
-      {!user.ig && panel}
       {media.length === 0 && (
         <div className="card hi">
           <h2>올린 게시물의 숫자를 알려 주세요</h2>
           <p style={{ margin: 0 }}>성과 피드백은 실제 숫자로만 만들어요. 두 가지 방법이 있어요.</p>
           <ul className="clean">
-            <li><b>인스타 연결</b> · 조회수·좋아요·저장 수를 자동으로 가져와요 (<a href="#account">아래에서 계정 연결하기</a>)</li>
+            <li><b>인스타 연결</b> · 조회수·좋아요·저장 수를 자동으로 가져와요 (<Link href="/account">계정 관리에서 연결하기</Link>)</li>
             <li><b>직접 입력</b> · 인스타 앱의 '인사이트 보기'에 나오는 숫자를 아래에 적어 주세요</li>
           </ul>
         </div>
@@ -165,7 +163,6 @@ export default async function FeedbackPage({ searchParams }: { searchParams: Pro
           )}
         </div>
       </section>
-      {user.ig && panel}
     </>
   );
 }

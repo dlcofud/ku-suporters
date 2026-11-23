@@ -14,7 +14,7 @@ const MSG: Record<string, [boolean, string]> = {
 };
 
 /**
- * 성과 화면의 '계정 관리': 이미 있는 계정을 연결하고, 프로필(아이디·이름·소개글·링크)을 점검하고, 바꿀 만한 추천을 준다.
+ * SNS 관리 → 계정 관리: 이미 있는 계정을 연결하고, 프로필(아이디·이름·소개글·링크)을 점검하고, 바꿀 만한 추천을 준다.
  * 인스타 API는 프로필을 읽기만 할 수 있어서, 고치는 건 사용자가 앱에서 직접 한다 (추천은 복사해서 붙여넣기).
  */
 export async function AccountPanel({ user, act, others, msg }: { user: User; act: Activity; others: Activity[]; msg?: string }) {
@@ -38,7 +38,6 @@ export async function AccountPanel({ user, act, others, msg }: { user: User; act
     <section id="account" className="card acct">
       <div className="row between" style={{ alignItems: "flex-start" }}>
         <div className="grid" style={{ gap: 2 }}>
-          <h2 style={{ margin: 0 }}>계정 관리</h2>
           <span className="small muted">서포터즈 활동에 쓰는 인스타 계정을 연결하고 프로필을 다듬어요</span>
         </div>
         {user.ig ? <span className="tag pill k-post">공식 연결됨</span> : handle ? <span className="tag pill">아이디로 연결됨</span> : <span className="tag pill">연결 전</span>}

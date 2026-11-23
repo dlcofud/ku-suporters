@@ -1,7 +1,7 @@
 "use client";
 import Link from "next/link";
 import { usePathname } from "next/navigation";
-import type { ReactNode } from "react";
+import { useState, type ReactNode } from "react";
 
 const I = (d: ReactNode) => (
   <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.9" strokeLinecap="round" strokeLinejoin="round" aria-hidden="true">{d}</svg>
@@ -16,7 +16,13 @@ const ACTIVITY: [string, string, ReactNode][] = [
   ["/notice/result", "공고 요약", I(<><path d="M5 4h14v16H5z" /><path d="M9 8h6M9 12h6M9 16h3" /></>)],
   ["/skeleton", "지원서", I(<><path d="M14 3H6a1 1 0 0 0-1 1v16a1 1 0 0 0 1 1h12a1 1 0 0 0 1-1V8z" /><path d="M14 3v5h5" /><path d="M9 13h6M9 17h4" /></>)],
   ["/studio", "콘텐츠 만들기", I(<><rect x="3" y="6" width="13" height="12" rx="2" /><path d="M16 10l5-3v10l-5-3" /></>)],
-  ["/feedback", "성과", I(<><path d="M20 12a8 8 0 1 1-2.34-5.66" /><path d="M20 4v5h-5" /></>)],
+];
+
+/** SNS 관리: 누르면 계정 관리 · 업로드 성과 두 개로 펼쳐진다 */
+const SNS_ICON = I(<><rect x="3" y="3" width="18" height="18" rx="5" /><circle cx="12" cy="12" r="4" /><circle cx="17.5" cy="6.5" r="0.6" fill="currentColor" /></>);
+const SNS: [string, string][] = [
+  ["/account", "계정 관리"],
+  ["/feedback", "업로드 성과"],
 ];
 
 /** 서포터즈와 상관없이 보는 것 */
@@ -32,7 +38,7 @@ const ADMIN: [string, string][] = [
 /** roles: 서버에서 정한 권한. 메뉴만 숨기는 것이고, 실제 막는 건 각 페이지·액션의 requireRole */
 export function Nav({ hasActivity, roles = [] }: { hasActivity: boolean; roles?: ("admin" | "team")[] }) {
   const path = usePathname();
-  const all = [...ACTIVITY.map(([h]) => h), ...REFERENCE.map(([h]) => h), ...ADMIN.map(([h]) => h)];
+  const all = [...ACTIVITY.map(([h]) => h), ...SNS.map(([h]) => h), ...REFERENCE.map(([h]) => h), ...ADMIN.map(([h]) => h)];
   // 더 긴 메뉴 주소가 맞으면 그쪽만 켠다 (/admin 과 /admin/sheet)
   const isOn = (href: string) => path.startsWith(href) && !all.some((h) => h.length > href.length && h.startsWith(href) && path.startsWith(h));
   const small = (href: string, label: string) => (
@@ -40,6 +46,9 @@ export function Nav({ hasActivity, roles = [] }: { hasActivity: boolean; roles?:
       {label}
     </Link>
   );
+  const snsOn = SNS.some(([h]) => isOn(h));
+  const [open, setOpen] = useState(snsOn);
+  const shown = open || snsOn;
   return (
     <>
       {hasActivity && path !== "/" && (
@@ -50,6 +59,17 @@ export function Nav({ hasActivity, roles = [] }: { hasActivity: boolean; roles?:
               <span className="row" style={{ gap: 10, flexWrap: "nowrap" }}>{icon}{label}</span>
             </Link>
           ))}
+          <button type="button" className={snsOn ? "nav parent on-parent" : "nav parent"} aria-expanded={shown} aria-controls="nav-sns" onClick={() => setOpen((o) => !o)}>
+            <span className="row" style={{ gap: 10, flexWrap: "nowrap" }}>{SNS_ICON}SNS 관리</span>
+            <span className="caret" aria-hidden="true">{shown ? "▾" : "▸"}</span>
+          </button>
+          {shown && (
+            <div id="nav-sns" className="navsub">
+              {SNS.map(([href, label]) => (
+                <Link key={href} href={href} className={isOn(href) ? "nav sm on" : "nav sm"} aria-current={isOn(href) ? "page" : undefined}>{label}</Link>
+              ))}
+            </div>
+          )}
         </nav>
       )}
       <nav className="navgroup tools" aria-label="참고">

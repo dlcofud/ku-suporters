@@ -320,7 +320,6 @@ export async function skeletonAction(formData: FormData) {
 
 /* ---------------- 계정 관리 (이미 있는 계정) ---------------- */
 
-const ACCOUNT_URL = "/feedback#account";
 
 /** "@chae.tech", "instagram.com/chae.tech/" 무엇을 넣어도 아이디만 남긴다 */
 function handleOf(raw: string): string {
@@ -333,9 +332,9 @@ export async function saveProfileAction(formData: FormData) {
   const user = await requireUser();
   const act = await activityOrRedirect(user.id);
   const handle = handleOf(String(formData.get("username") || ""));
-  if (handle && account.validateUsername(handle).length) redirect(`/feedback?acct=${encodeURIComponent(`아이디: ${account.validateUsername(handle)[0]!}`)}#account`);
+  if (handle && account.validateUsername(handle).length) redirect(`/account?acct=${encodeURIComponent(`아이디: ${account.validateUsername(handle)[0]!}`)}`);
   const website = String(formData.get("website") || "").trim().slice(0, 300);
-  if (website && !/^https?:\/\//i.test(website) && !/^[\w-]+(\.[\w-]+)+/.test(website)) redirect(`/feedback?acct=${encodeURIComponent("링크 주소를 확인해 주세요")}#account`);
+  if (website && !/^https?:\/\//i.test(website) && !/^[\w-]+(\.[\w-]+)+/.test(website)) redirect(`/account?acct=${encodeURIComponent("링크 주소를 확인해 주세요")}`);
   const profile: account.AccountProfile = {
     ...(act.accountKit?.profile ?? {}),
     username: handle || undefined,
@@ -349,8 +348,8 @@ export async function saveProfileAction(formData: FormData) {
   act.accountKit = { ...(act.accountKit ?? {}), profile };
   await repo.saveActivity(act);
   if (!user.ig && handle !== (user.igHandle ?? "")) await repo.setIgHandle(user.id, handle || null);
-  revalidatePath("/feedback");
-  redirect("/feedback?acct=saved#account");
+  revalidatePath("/account");
+  redirect("/account?acct=saved");
 }
 
 /** 공식 연결을 끊는다. 아이디와 옮겨 적은 프로필은 남긴다 */
@@ -358,7 +357,7 @@ export async function disconnectIgAction() {
   const user = await requireUser();
   await repo.clearUserIg(user.id);
   revalidatePath("/", "layout");
-  redirect("/feedback?acct=disconnected#account");
+  redirect("/account?acct=disconnected");
 }
 
 /* ---------------- 캘린더 · 피드백 반영 ---------------- */

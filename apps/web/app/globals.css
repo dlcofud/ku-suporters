@@ -454,3 +454,12 @@ label>.lbl{display:block}
 .acct-line{padding:6px 10px;border:1px solid var(--rule);border-radius:8px;background:var(--paper,#fff);font-size:14px}
 @media (max-width:1100px){.acct-grid{grid-template-columns:1fr 1fr}.acct-grid>:last-child{grid-column:1/-1}}
 @media (max-width:700px){.acct-grid,.acct-sug-grid{grid-template-columns:1fr}}
+
+/* ---- SNS 관리 (사이드바 펼침 + 화면 위 탭) ---- */
+button.nav.parent{width:100%;background:none;border:0;font:inherit;cursor:pointer;text-align:left}
+button.nav.parent.on-parent{color:#fff;font-weight:800}
+.nav .caret{font-size:12px;color:#C3C8DD}
+.navsub{display:grid;gap:2px;margin:-2px 0 2px 28px;padding-left:8px;border-left:1.5px solid rgba(255,255,255,.18)}
+.subtabs{display:flex;gap:6px;border-bottom:1.5px solid var(--ink);padding-bottom:0}
+.subtabs a{padding:8px 16px;border:1.5px solid var(--ink);border-bottom:0;border-radius:10px 10px 0 0;text-decoration:none;color:var(--ink);font-weight:700;background:var(--paper,#fff);margin-bottom:-1.5px}
+.subtabs a.on{background:var(--hl);font-weight:900}

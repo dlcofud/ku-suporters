@@ -1,7 +1,12 @@
 /** 릴리즈 노트. 새 기능을 합칠 때 맨 위에 한 줄씩 추가해 주세요. */
-export const APP_VERSION = "0.22.0";
+export const APP_VERSION = "0.22.1";
 
 export const RELEASES: { version: string; date: string; items: string[] }[] = [
+  {
+    version: "0.22.1",
+    date: "2026-11-23",
+    items: ["메뉴 '성과'를 'SNS 관리'로 바꿨어요. 누르면 '계정 관리'와 '업로드 성과' 두 화면으로 나뉘어요"],
+  },
   {
     version: "0.22.0",
     date: "2026-11-23",
