@@ -144,3 +144,61 @@ export async function analyzeClipFeatures(path: string, info: { durationSec: num
   }
   return { step, durationSec: info.durationSec, motion, loud, silences };
 }
+
+/* ------------------------------------------------------------------ */
+/* 참고 릴스 화면 녹화: 컷 나누기 · 장면 사진 뽑기                        */
+/* ------------------------------------------------------------------ */
+
+/** showinfo 로그에서 컷이 바뀐 시각(초) */
+export function parseSceneTimes(log: string): number[] {
+  return [...log.matchAll(/pts_time:(\d+(?:\.\d+)?)/g)].map((m) => Number(m[1])).filter((t) => Number.isFinite(t));
+}
+
+/**
+ * 컷 시각 → 컷 길이. 너무 짧은 컷(0.4초 미만, 화면 녹화의 흔들림·전환 효과)은 앞 컷에 붙인다.
+ * 앞뒤 화면 녹화 군더더기(처음·끝 0.3초)는 길이에만 포함한다.
+ */
+export function cutsFromTimes(times: number[], durationSec: number, minCut = 0.4): number[] {
+  const marks = [0, ...times.filter((t) => t > 0 && t < durationSec).sort((a, b) => a - b), durationSec];
+  const out: number[] = [];
+  for (let i = 1; i < marks.length; i++) {
+    const d = marks[i]! - marks[i - 1]!;
+    if (d < minCut && out.length) out[out.length - 1]! += d;
+    else out.push(d);
+  }
+  // 맨 앞 컷이 너무 짧으면 다음 컷에 붙인다
+  if (out.length > 1 && out[0]! < minCut) out.splice(0, 2, out[0]! + out[1]!);
+  return out.map((d) => Math.round(d * 100) / 100);
+}
+
+/**
+ * 화면 녹화한 참고 릴스를 읽는다: 컷 길이와, 컷마다 가운데 장면 사진(최대 maxFrames장, 짧은 변 540px JPEG).
+ * 음성·자막 글자는 읽지 않는다(사진으로 AI가 본다).
+ */
+export async function analyzeReferenceVideo(
+  path: string,
+  opts: { workDir: string; ffmpegPath?: string; threshold?: number; maxFrames?: number; maxSec?: number },
+): Promise<{ durationSec: number; cuts: number[]; frames: string[] }> {
+  const ff = opts.ffmpegPath ?? "ffmpeg";
+  await mkdir(opts.workDir, { recursive: true });
+  const info = await probeWithFfmpeg(path, ff);
+  const durationSec = Math.min(info.durationSec, opts.maxSec ?? 90);
+  const log = await runFfmpeg(ff, ["-hide_banner", "-t", String(durationSec), "-i", path, "-vf", `select='gt(scene,${opts.threshold ?? 0.3})',showinfo`, "-an", "-f", "null", "-"]);
+  const cuts = cutsFromTimes(parseSceneTimes(log), durationSec);
+  // 컷 가운데 시각에서 한 장씩. 컷이 많으면 고르게 고른다
+  let t = 0;
+  const mids = cuts.map((d) => {
+    const m = t + d / 2;
+    t += d;
+    return m;
+  });
+  const max = opts.maxFrames ?? 10;
+  const pick = mids.length <= max ? mids : Array.from({ length: max }, (_, i) => mids[Math.round((i * (mids.length - 1)) / (max - 1))]!);
+  const frames: string[] = [];
+  for (const [i, at] of pick.entries()) {
+    const out = `${opts.workDir}/frame_${i}.jpg`;
+    await runFfmpeg(ff, ["-hide_banner", "-y", "-ss", at.toFixed(2), "-i", path, "-frames:v", "1", "-vf", "scale='if(gt(iw,ih),-2,540)':'if(gt(iw,ih),540,-2)'", "-q:v", "4", out]);
+    frames.push(out);
+  }
+  return { durationSec: Math.round(durationSec * 100) / 100, cuts, frames };
+}

@@ -2,7 +2,8 @@ import Link from "next/link";
 import { requireUser, currentActivity } from "@/lib/session";
 import { repo } from "@/lib/repo";
 import { ClipUploader } from "@/components/ClipUploader";
-import { planScenesAction, captionAction, saveCaptionAction, uploadClipsAction, renderAction, scheduleAction, runTickNowAction, cancelPostAction } from "@/lib/actions";
+import { ShootForm } from "@/components/ShootForm";
+import { captionAction, saveCaptionAction, uploadClipsAction, renderAction, scheduleAction, runTickNowAction, cancelPostAction } from "@/lib/actions";
 import { CopyButton } from "@/components/CopyButton";
 import { llmStatus } from "@/lib/llm";
 import { content } from "@supportlab/core";
@@ -41,7 +42,7 @@ export default async function StudioPage({ searchParams }: { searchParams: Promi
   return (
     <>
       <header>
-        <span className="eyebrow">{act.name} · 콘텐츠 제작</span>
+        <span className="eyebrow">{act.name} · 콘텐츠 만들기</span>
         <h1>{md(item.date)} {fmtLabel(item.format)} · {item.title}</h1>
       </header>
       {sp.error && <div className="note warn">{ERR[sp.error] ?? sp.error}</div>}
@@ -53,55 +54,77 @@ export default async function StudioPage({ searchParams }: { searchParams: Promi
 
       <section className="card">
         <div className="steps">
-          {["장면 기획", "촬영·업로드", "AI 편집", "예약 게시"].map((label, i) => (
+          {["참고 자료", "촬영·업로드", "자동 편집", "캡션·게시"].map((label, i) => (
             <span key={label} className={`step ${i === stepNow ? "on" : ""}`}><b>{i + 1}</b>{label}</span>
           ))}
         </div>
-        <form action={planScenesAction} className="grid" style={{ gap: 12 }}>
-          <input type="hidden" name="planItemId" value={item.id} />
-          <p className="small muted" style={{ margin: 0 }}>{item.purpose}</p>
-          <label>보여 주고 싶은 내 경험이나 아이디어 (선택)
-            <textarea name="idea" defaultValue={item.idea ?? ""} maxLength={600} placeholder="예: 도서관 가는 길에 노이즈 캔슬링을 켜는 순간을 찍고 싶어요. 시험 기간이라 공감될 것 같아요." style={{ minHeight: 72 }} />
-          </label>
-          <div className="row">
-            <label style={{ flex: 2 }}>제품·주제<input type="text" name="product" defaultValue={item.product ?? act.name.split(" ")[0]} maxLength={40} /></label>
-            <label style={{ flex: 1 }}>스타일
-              <select name="style" defaultValue="review"><option value="review">리뷰</option><option value="challenge">챌린지</option><option value="routine">루틴</option></select>
-            </label>
-            <label style={{ flex: 1 }}>길이
-              <select name="targetSec" defaultValue="15"><option value="15">15초</option><option value="20">20초</option><option value="30">30초</option></select>
-            </label>
-            <SubmitButton pendingText="장면 짜는 중…" style={{ alignSelf: "flex-end" }}>{scenes ? "장면 다시 짜기" : "찍을 장면 받기"}</SubmitButton>
-          </div>
-          <span className="small muted">{ai.mode === "demo" ? "AI가 연결되지 않아 기본 장면 틀로 만들어요." : `${ai.label}가 공고와 내 아이디어에 맞춰 장면을 짜요. 스타일은 AI가 답을 못 줄 때 쓰는 기본 틀이에요.`}</span>
-          <PendingNote steps={["공고의 활동 내용을 읽고 있어요", "내 아이디어로 장면을 짜고 있어요", "장면 길이를 맞추고 있어요"]} hint="로컬 모델은 30초~1분 걸릴 수 있어요." />
-        </form>
-        {sp.made && <p className={sp.made === "ai" ? "note ok small" : "note small"} role="status" style={{ margin: 0 }}>{sp.made === "ai" ? "AI가 장면을 짰어요. 마음에 안 들면 아이디어를 고쳐 다시 짜 보세요." : sp.note ?? "기본 장면 틀로 만들었어요."}</p>}
+        <p className="small muted" style={{ margin: 0 }}>{item.purpose}</p>
       </section>
+
+      <details className="shoot-details" open={!scenes}>
+        <summary className="card"><b>① 참고 자료 넣고 촬영 가이드 받기</b>{scenes ? <span className="small muted"> · 다시 만들려면 펼치세요</span> : null}</summary>
+        <ShootForm
+          planItemId={item.id}
+          product={item.product ?? act.name.split(" ")[0] ?? ""}
+          idea={item.idea ?? ""}
+          links={item.shoot?.refLinks.join("\n") ?? ""}
+          script={item.shoot?.script ?? ""}
+          subject={item.shoot?.subject ?? ""}
+          hasPlan={!!scenes}
+          aiLabel={ai.mode === "demo" ? "AI가 연결되지 않아 기본 장면 틀로 만들어요." : `${ai.label}가 사진까지 읽고 만들어요 · 20~40초`}
+        />
+      </details>
+
+      {item.shoot?.analysis && (
+        <section className="card">
+          <h2>참고 자료에서 읽은 것</h2>
+          <div className="grid g2" style={{ gap: 8 }}>
+            {[
+              ["컷 리듬", item.shoot.analysis.pace],
+              ["첫 장면", item.shoot.analysis.hook],
+              ["자막 스타일", item.shoot.analysis.textStyle],
+              ["분위기", item.shoot.analysis.mood],
+              ["소리", item.shoot.analysis.sound],
+              ["흐름", item.shoot.analysis.structure],
+            ].filter(([, v]) => v).map(([k, v]) => (
+              <div key={k} className="small"><b>{k}</b> · {v}</div>
+            ))}
+          </div>
+          {item.shoot.analysis.palette.length > 0 && (
+            <div className="row small" style={{ gap: 6 }}>
+              <b>색감</b>
+              {item.shoot.analysis.palette.map((c) => <span key={c} className="swatch" style={{ background: c }} title={c} />)}
+            </div>
+          )}
+          {item.shoot.refLinks.length > 0 && (
+            <p className="small muted" style={{ margin: 0 }}>참고: {item.shoot.refLinks.map((l, i) => <a key={l} href={l} target="_blank" rel="noreferrer">릴스 {i + 1}{" "}</a>)}</p>
+          )}
+        </section>
+      )}
 
       {scenes && match && (
         <form action={uploadClipsAction} className="card">
           <input type="hidden" name="planItemId" value={item.id} />
-          <div className="row between"><h2>찍어야 할 장면 {scenes.length}개</h2><span className="small muted">장면마다 영상을 하나씩 올려 주세요. 가로·세로 모두 괜찮아요 (9:16으로 맞춰 드려요).</span></div>
-          <table>
-            <thead><tr><th>#</th><th>길이</th><th>구도</th><th>찍을 것</th><th>화면 자막</th><th>영상</th></tr></thead>
-            <tbody>
-              {match.matches.map((m) => (
-                <tr key={m.scene.index}>
-                  <td className="num">{m.scene.index}</td>
-                  <td>{m.scene.durationSec}초</td>
-                  <td>{content.SHOT_LABEL[m.scene.shot]}</td>
-                  <td><b>{m.scene.what}</b><br /><span className="small muted">{m.scene.tip}</span></td>
-                  <td>{m.scene.onScreenText}</td>
-                  <td>
-                    {m.clip ? <span className="tag k-post">올림 · {m.clip.durationSec.toFixed(1)}초</span> : <span className="tag">아직</span>}
-                    {m.problem && m.clip && <div className="small" style={{ color: "var(--warn)" }}>{m.problem}</div>}
-                    {repo.kind === "memory" && <input type="file" name={`scene_${m.scene.index}`} accept="video/*" aria-label={`${m.scene.index}번 장면 영상`} />}
-                  </td>
-                </tr>
-              ))}
-            </tbody>
-          </table>
+          <div className="row between"><h2>② 촬영 가이드 · 장면 {scenes.length}개 · {scenes.reduce((s2, x) => s2 + x.durationSec, 0)}초</h2><span className="small muted">장면마다 영상을 하나씩 찍어 올려 주세요. 조금 길게 찍으면 좋은 부분만 골라 써요. 가로·세로 모두 괜찮아요 (9:16으로 맞춰요).</span></div>
+          <div className="shotlist">
+            {match.matches.map((m) => (
+              <article key={m.scene.index} className="shot">
+                <div className="row between">
+                  <b>#{m.scene.index} · {m.scene.durationSec}초 · {content.SHOT_LABEL[m.scene.shot]}</b>
+                  {m.clip ? <span className="tag k-post">올림 · {m.clip.durationSec.toFixed(1)}초</span> : <span className="tag">아직</span>}
+                </div>
+                <p style={{ margin: 0, fontWeight: 800 }}>{m.scene.what}</p>
+                {m.scene.how && <p className="small" style={{ margin: 0 }}><b>찍는 법</b> {m.scene.how}</p>}
+                {m.scene.line && <p className="small" style={{ margin: 0 }}><b>대사</b> “{m.scene.line}”</p>}
+                <p className="small" style={{ margin: 0 }}><b>화면 자막</b> {m.scene.onScreenText}</p>
+                {m.scene.props && <p className="small" style={{ margin: 0 }}><b>소품</b> {m.scene.props}</p>}
+                {m.scene.light && <p className="small" style={{ margin: 0 }}><b>빛·색감</b> {m.scene.light}</p>}
+                {m.scene.tip && <p className="small muted" style={{ margin: 0 }}>💡 {m.scene.tip}</p>}
+                {m.problem && m.clip && <div className="small" style={{ color: "var(--warn)" }}>{m.problem}</div>}
+                {repo.kind === "memory" && <input type="file" name={`scene_${m.scene.index}`} accept="video/*" aria-label={`${m.scene.index}번 장면 영상`} />}
+              </article>
+            ))}
+          </div>
           {repo.kind === "memory" ? (
             <>
               <SubmitButton className="btn" pendingText="올리는 중…" style={{ alignSelf: "flex-start" }}>영상 올리기</SubmitButton>
@@ -117,7 +140,7 @@ export default async function StudioPage({ searchParams }: { searchParams: Promi
         <section id="caption" className="grid g2" style={{ alignItems: "start" }}>
           <form action={captionAction} className="card">
             <input type="hidden" name="planItemId" value={item.id} />
-            <h2>캡션 코치</h2>
+            <h2>캡션 쓰기</h2>
             <p className="small muted" style={{ margin: 0 }}>캡션은 내가 실제로 겪은 일로만 써요. 없는 경험이나 숫자는 넣지 않아요.</p>
             {sp.ask && <div className="note warn" role="status"><b>코치</b> · {sp.ask}</div>}
             <label>이 콘텐츠에 넣을 내 경험
@@ -148,7 +171,7 @@ export default async function StudioPage({ searchParams }: { searchParams: Promi
         <form action={renderAction} className="card row between">
           <input type="hidden" name="planItemId" value={item.id} />
           <div>
-            <h2>AI 편집</h2>
+            <h2>③ 자동 편집</h2>
             <span className="small muted">장면마다 움직임·말소리를 재서 장면에 맞는 구간을 고르고, 9:16으로 맞추고, 화면 자막을 넣어 하나의 릴스로 만들어요 (오픈소스 ffmpeg).{!match.ready && " 빠진 장면은 건너뛰어요."}</span>
           </div>
           <label className="check"><input type="checkbox" name="captions" value="on" defaultChecked />화면 자막 넣기</label>
@@ -180,7 +203,7 @@ export default async function StudioPage({ searchParams }: { searchParams: Promi
         <section className="card">
           <div className="row between">
             <h2>예약 현황</h2>
-            <form action={runTickNowAction}><button className="btn" type="submit">{user.ig ? "지금 상태 확인" : "데모: 지금 게시 진행"}</button></form>
+            {user.ig && <form action={runTickNowAction}><button className="btn" type="submit">지금 상태 확인</button></form>}
           </div>
           <table>
             <thead><tr><th>게시 시각</th><th>상태</th><th>기록</th><th /></tr></thead>

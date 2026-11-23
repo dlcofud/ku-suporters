@@ -1,7 +1,16 @@
 /** 릴리즈 노트. 새 기능을 합칠 때 맨 위에 한 줄씩 추가해 주세요. */
-export const APP_VERSION = "0.20.1";
+export const APP_VERSION = "0.21.0";
 
 export const RELEASES: { version: string; date: string; items: string[] }[] = [
+  {
+    version: "0.21.0",
+    date: "2026-11-23",
+    items: [
+      "콘텐츠 만들기: 참고 릴스(링크·캡처), 분위기 사진, 대본, 찍을 대상·소품을 넣으면 장면마다 자세한 촬영 가이드를 만들어요",
+      "화면 녹화를 올리면 참고 릴스의 컷 길이를 재서 같은 리듬으로 장면을 나눠요 (영상·사진은 분석 뒤 지워요)",
+      "장면별로 찍은 영상을 올리면 그 리듬대로 자동 편집해요",
+    ],
+  },
   {
     version: "0.20.1",
     date: "2026-11-23",

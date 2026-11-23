@@ -361,3 +361,19 @@ label>.lbl{display:block}
 .verify-queue .progress{height:10px;border:1.5px solid var(--ink);border-radius:999px;overflow:hidden;background:#fff}
 .verify-queue .progress i{display:block;height:100%;background:var(--ink)}
 .small-btn{padding:4px 12px;font-size:13px}
+
+/* 콘텐츠 만들기: 참고 자료 · 촬영 가이드 */
+.shoot-details>summary{list-style:none;cursor:pointer}
+.shoot-details>summary::-webkit-details-marker{display:none}
+.shoot-details[open]>summary{margin-bottom:12px}
+.shoot-block{display:grid;gap:10px;padding:14px}
+.shoot-block legend{padding:0 6px}
+.thumbs{display:flex;flex-wrap:wrap;gap:6px}
+.thumb{position:relative;width:72px;height:96px;border:1.5px solid var(--ink);border-radius:8px;overflow:hidden;background:#eee}
+.thumb img{width:100%;height:100%;object-fit:cover;display:block}
+.thumb button{position:absolute;top:2px;right:2px;border:0;border-radius:999px;width:20px;height:20px;background:rgba(0,0,0,.65);color:#fff;font-size:11px;cursor:pointer;line-height:20px;padding:0}
+.cuts{display:flex;gap:2px;height:22px;margin-top:6px}
+.cuts i{background:var(--hl);border:1px solid var(--ink);border-radius:3px;font-style:normal;font-size:10px;font-weight:800;display:flex;align-items:center;justify-content:center;min-width:14px;overflow:hidden}
+.swatch{display:inline-block;width:22px;height:22px;border-radius:6px;border:1.5px solid var(--ink)}
+.shotlist{display:grid;gap:10px;grid-template-columns:repeat(auto-fill,minmax(260px,1fr))}
+.shot{border:1.5px solid var(--ink);border-radius:12px;padding:12px;display:grid;gap:6px;background:var(--surface)}

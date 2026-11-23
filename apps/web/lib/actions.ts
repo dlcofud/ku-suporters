@@ -24,6 +24,7 @@ import { manualMedia } from "./media";
 import { getLLM, llmStatus } from "./llm";
 import { publisherFor } from "./publisher";
 import { ffmpegPath, captionFont } from "./ffmpeg";
+import { withCredits, briefFor } from "./aiwork";
 
 const WORK_DIR = join(process.env.SUPPORTLAB_DATA_DIR || tmpdir(), "supportlab-work");
 
@@ -356,33 +357,6 @@ export async function applySuggestionAction(formData: FormData) {
  * - AI가 연결되지 않았거나(데모 모드) 크레딧이 모자라면 규칙 기반 결과를 준다 (크레딧 0)
  * - AI가 실제로 만든 결과(source=ai)일 때만 크레딧을 정산하고, 규칙으로 대신했으면 잡아 둔 크레딧을 돌려준다
  */
-async function withCredits<T>(userId: string, kind: credits.TaskKind, run: (llm: ReturnType<typeof getLLM>) => Promise<content.AiResult<T>>, rules: () => T): Promise<content.AiResult<T>> {
-  const rulesOnly = (note: string): content.AiResult<T> => ({ value: rules(), source: "rules", usage: { inputTokens: 0, outputTokens: 0 }, tier: "local", note });
-  if (llmStatus().mode === "demo") return rulesOnly("AI가 연결되지 않아 기본 틀로 만들었어요.");
-  const hold = await repo.ledger.hold(userId, kind, newId("job")).catch(() => null);
-  if (!hold) return rulesOnly("크레딧이 모자라서 기본 틀로 만들었어요. 크레딧 화면에서 충전할 수 있어요.");
-  try {
-    const r = await run(getLLM());
-    if (r.source === "ai") await repo.ledger.settle(hold, r.usage, r.tier);
-    else await repo.ledger.release(hold);
-    return r;
-  } catch (e) {
-    await repo.ledger.release(hold);
-    throw e;
-  }
-}
-
-function briefFor(act: Activity, item: planner.PlanItem, product: string, idea?: string): content.ContentBrief {
-  return {
-    activityName: act.name,
-    format: (item.format === "check" || !item.format ? "reels" : item.format) as content.MakeFormat,
-    title: item.title,
-    purpose: item.purpose,
-    product: product || act.name.split(" ")[0] || "제품",
-    idea,
-    notice: { activities: act.analysis.activities ?? [], preferred: act.analysis.preferred ?? [], signalKeywords: act.analysis.signalKeywords ?? [] },
-  };
-}
 
 function hashtagsFor(act: Activity): string[] {
   return ["서포터즈", act.name.split(" ")[0] ?? "", "대학생"].filter(Boolean);
@@ -745,6 +719,15 @@ export async function signClipUploadAction(planItemId: string, sceneIndex: numbe
   const signedUrl = await files.createUploadUrl(storageKey);
   if (!signedUrl) throw new Error("직접 업로드는 Supabase 모드에서만 쓸 수 있어요");
   return { storageKey, signedUrl };
+}
+
+/** 참고 릴스 화면 녹화를 저장소로 바로 올릴 주소 (분석이 끝나면 지운다). 로컬 개발이면 null */
+export async function signRefUploadAction(planItemId: string, fileName: string) {
+  const user = await requireUser();
+  const ext = (fileName.split(".").pop() || "mp4").toLowerCase().replace(/[^a-z0-9]/g, "").slice(0, 5) || "mp4";
+  const storageKey = `refs/${user.id}/${planItemId.replace(/[^\w-]/g, "")}/${newId("ref")}.${ext}`;
+  const signedUrl = await files.createUploadUrl(storageKey);
+  return signedUrl ? { storageKey, signedUrl } : null;
 }
 
 /** 업로드가 끝난 클립을 등록한다 (길이·오디오는 서버가 내려받아 확인). */
