@@ -375,5 +375,31 @@ label>.lbl{display:block}
 .cuts{display:flex;gap:2px;height:22px;margin-top:6px}
 .cuts i{background:var(--hl);border:1px solid var(--ink);border-radius:3px;font-style:normal;font-size:10px;font-weight:800;display:flex;align-items:center;justify-content:center;min-width:14px;overflow:hidden}
 .swatch{display:inline-block;width:22px;height:22px;border-radius:6px;border:1.5px solid var(--ink)}
+.shoot-row{display:grid;grid-template-columns:minmax(0,1.1fr) minmax(0,1fr);gap:14px;align-items:start}
+.shoot-row>textarea{width:100%}
+.ex{display:grid;gap:8px;padding:12px;border:1.5px dashed var(--ink);border-radius:10px;background:#fffbe8;font-size:13px}
+.ex .swatch{width:14px;height:14px;vertical-align:middle;border-radius:4px}
+.ex-h{display:inline-block;justify-self:start;background:var(--hl);border:1.5px solid var(--ink);border-radius:999px;padding:1px 10px;font-size:12px}
+.ex-link{font-size:12px;background:#fff;border:1px solid #ddd;border-radius:6px;padding:3px 6px;justify-self:start}
+.ex-phones{display:flex;gap:8px;justify-content:flex-start}
+.ex-phones figure{margin:0;flex:0 1 96px;display:grid;gap:4px;font-size:11px;text-align:center;line-height:1.35}
+.ex-phone{aspect-ratio:9/16;border:2px solid var(--ink);border-radius:10px;display:flex;align-items:center;justify-content:center;padding:4px}
+.ex-phone i{font-style:normal;font-size:10px;font-weight:700;color:#fff;background:rgba(0,0,0,.45);border-radius:4px;padding:1px 4px}
+.ex-phone i.cap{background:#fff;color:var(--ink);font-size:12px;font-weight:900}
+.ex-phone.p1{background:linear-gradient(160deg,#efe6d8,#c9b59b)}
+.ex-phone.p2{background:linear-gradient(160deg,#b9a48c,#7d6a57)}
+.ex-phone.p3{background:linear-gradient(160deg,#5b6b78,#2f3a45)}
+.ex-moods{display:flex;gap:6px}
+.ex-mood{flex:0 1 96px;aspect-ratio:1/1;border:1.5px solid var(--ink);border-radius:8px;display:flex;align-items:flex-end;padding:5px;font-size:11px;font-weight:700}
+.ex-mood.m1{background:linear-gradient(180deg,#fff6e0,#efe6d8)}
+.ex-mood.m2{background:linear-gradient(180deg,#d9c8b2,#b9a48c)}
+.ex-mood.m3{background:linear-gradient(180deg,#4a5866,#2f3a45);color:#fff}
+.ex-text{margin:0;white-space:pre-wrap;font-family:inherit;font-size:13px;line-height:1.6;background:#fff;border:1px solid #e5e0cc;border-radius:8px;padding:8px 10px}
+.ex-dl{display:grid;grid-template-columns:auto 1fr;gap:4px 10px;margin:0}
+.ex-dl dt{font-weight:800}
+.ex-dl dd{margin:0}
+.ex-cuts{opacity:.55}
+.ex .btn.sm{justify-self:start}
+@media (max-width:900px){.shoot-row{grid-template-columns:1fr}}
 .shotlist{display:grid;gap:10px;grid-template-columns:repeat(auto-fill,minmax(260px,1fr))}
 .shot{border:1.5px solid var(--ink);border-radius:12px;padding:12px;display:grid;gap:6px;background:var(--surface)}
