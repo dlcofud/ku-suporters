@@ -193,7 +193,7 @@ export default async function StudioPage({ searchParams }: { searchParams: Promi
             <h2>예약 게시</h2>
             <label>캡션 (빈칸은 직접 채워 주세요)<textarea name="caption" defaultValue={caption} /></label>
             <label>게시 시각 (한국 시간)<input type="datetime-local" name="publishAt" defaultValue={defaultAt} required /></label>
-            {!user.ig && <div className="note">인스타 계정을 연결하지 않아 <b>데모 게시</b>로 동작해요. 실제 게시는 <Link href="/feedback#account">성과 → 계정 관리</Link>에서 연결해 주세요.</div>}
+            {!user.ig && <div className="note">인스타 계정을 연결하지 않아 <b>데모 게시</b>로 동작해요. 실제 게시는 <Link href="/account">SNS 관리 → 계정 관리</Link>에서 연결해 주세요.</div>}
             <SubmitButton pendingText="예약하는 중…">예약하기</SubmitButton>
           </form>
         </section>
