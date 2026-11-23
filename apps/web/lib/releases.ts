@@ -1,7 +1,15 @@
 /** 릴리즈 노트. 새 기능을 합칠 때 맨 위에 한 줄씩 추가해 주세요. */
-export const APP_VERSION = "0.19.0";
+export const APP_VERSION = "0.20.0";
 
 export const RELEASES: { version: string; date: string; items: string[] }[] = [
+  {
+    version: "0.20.0",
+    date: "2026-11-23",
+    items: [
+      "지원서 코치: 경험을 한 줄만 말해도 합격 후기 경향을 반영해 여러 줄 답으로 늘려 써 줘요",
+      "글 순서는 합격 경향대로: 강점 한 문장 → 경험 장면 → 이 활동에서 할 일. 숫자·이름 같은 사실은 말한 것만 쓰고 하나씩 물어봐요",
+    ],
+  },
   {
     version: "0.19.0",
     date: "2026-11-21",

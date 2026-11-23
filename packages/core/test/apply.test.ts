@@ -130,3 +130,40 @@ describe("양식", () => {
     expect(c.endsWith("다.")).toBe(true);
   });
 });
+
+import { coachTurn as coachTurn2, buildCoachPrompt as prompt2, startApplication as start2, type TrendBrief } from "../src/apply/index.js";
+
+describe("한 줄을 경향 반영해 여러 줄로", () => {
+  const notice2 = {
+    title: "갤럭시 서포터즈", preferred: ["SNS 운영 경험자 우대"], activities: ["릴스 제작"], benefits: [], submissions: [], stages: [],
+    questions: ["지원 동기를 작성해 주세요. (300자)", "본인의 역량과 경험을 작성해 주세요. (500자)"], signalKeywords: [],
+  } as unknown as Parameters<typeof start2>[0]["notice"];
+  const trend: TrendBrief = {
+    sample: 42, strong: ["E4 분야 연결 경험 (평균 1.2점)"], gaps: ["E7 협업 경험 (평균 0.3점)"],
+    notice: [{ from: "SNS 운영 경험자 우대", factor: "E1 SNS 운영 성과", advice: "숫자로" }], tips: ["전공을 활동과 이어 써요"], interview: ["공식 SNS 장단점"],
+  };
+
+  it("프롬프트에 합격 경향과 '한 줄을 여러 줄로' 규칙이 들어가고, 빈칸 규칙은 없다", () => {
+    const app = start2({ activityName: "갤럭시", notice: notice2 });
+    const p = prompt2(app, notice2, "갤럭시", "동아리 인스타를 1년 동안 운영했어요", [], trend);
+    expect(p.system).toContain("[한 줄을 여러 줄로]");
+    expect(p.system).toContain("[합격 경향 쓰기]");
+    expect(p.system).not.toContain("【");
+    expect(p.user).toContain("합격경향");
+    expect(p.user).toContain("E4 분야 연결 경험");
+    expect(app.chat[0]!.text).toContain("한 줄만");
+  });
+
+  it("한 줄을 받아 쓴 긴 답이 지원서에 들어간다", async () => {
+    const app = start2({ activityName: "갤럭시", notice: notice2 });
+    const long = "저는 꾸준히 반응을 살피며 콘텐츠를 만드는 사람입니다. ".repeat(6);
+    const r = await coachTurn2(app, { notice: notice2, activityName: "갤럭시", trend }, "동아리 인스타를 1년 동안 운영했어요", {
+      model: "x", tier: "paid",
+      async complete() {
+        return { text: JSON.stringify({ reply: "분야 연결 경험을 첫 문장에 뒀어요. 팔로워가 얼마나 늘었나요?", focus: 0, updates: [{ q: 0, text: long, change: "한 줄을 경향 반영해 늘림" }], facts: ["동아리 인스타 1년 운영"], materials: [] }), inputTokens: 1, outputTokens: 1, model: "x" };
+      },
+    });
+    expect(r.app.answers[0]!.text.length).toBeGreaterThan(150);
+    expect(r.app.facts).toContain("동아리 인스타 1년 운영");
+  });
+});

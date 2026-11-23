@@ -55,6 +55,7 @@ export function ApplyStudio({ initial, activityName, aiLabel, aiMode, prefill }:
   const [sec, setSec] = useState(0);
   const [notice, setNotice] = useState<string>();
   const [tab, setTab] = useState<"chat" | "sheet">("chat");
+
   const [unseen, setUnseen] = useState(0);
   const [saved, setSaved] = useState<string>();
   const [newQ, setNewQ] = useState("");
@@ -296,7 +297,7 @@ export function ApplyStudio({ initial, activityName, aiLabel, aiMode, prefill }:
             value={input}
             onChange={(e) => setInput(e.target.value)}
             onKeyDown={(e) => { if (e.key === "Enter" && !e.shiftKey && !e.nativeEvent.isComposing) { e.preventDefault(); send(); } }}
-            placeholder={files.length ? "자료에 대해 한마디 덧붙여도 돼요 (예: 2번 문항에 써 주세요)" : "경험이나 생각을 편하게 적어 주세요. 📎로 자료를 올려도 돼요 (Enter 보내기)"}
+            placeholder={files.length ? "자료에 대해 한마디 덧붙여도 돼요 (예: 2번 문항에 써 주세요)" : "한 줄이면 돼요. 예: 동아리 인스타를 1년 동안 운영했어요 (Enter 보내기 · 📎 자료)"}
             rows={3}
             aria-label="코치에게 보낼 말"
             disabled={busy}
