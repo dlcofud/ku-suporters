@@ -74,7 +74,7 @@ export default async function RootLayout({ children }: { children: ReactNode }) 
                   <div className="bar thin"><i style={{ width: `${fill}%` }} /></div>
                   <div className="row between small">
                     <Link href="/credits" style={{ fontWeight: 800 }}>충전 · 내역</Link>
-                    <Link href="/contribute">공유하고 받기</Link>
+                    <Link href="/contribute">합격 경험 공유하고 받기</Link>
                   </div>
                 </div>
                 {!user.loginId && <Link href="/settings" className="side-warn">아이디·비밀번호를 정해 주세요 →</Link>}
