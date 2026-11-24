@@ -5,8 +5,8 @@ import { AccountPanel } from "@/components/AccountPanel";
 import { SnsTabs } from "@/components/SnsTabs";
 
 /** SNS 관리 → 계정 관리: 이미 쓰는 인스타 계정 연결 · 프로필 점검 · 추천 */
-export default async function AccountPage({ searchParams }: { searchParams: Promise<{ acct?: string; ig?: string }> }) {
-  const { acct, ig } = await searchParams;
+export default async function AccountPage({ searchParams }: { searchParams: Promise<{ acct?: string; ig?: string; fix?: string }> }) {
+  const { acct, ig, fix } = await searchParams;
   const user = await requireUser();
   const act = await currentActivity(user.id);
   if (!act) return <div className="card"><h1>먼저 지원할 서포터즈를 추가해 주세요</h1><Link className="btn pri" href="/notice">새 서포터즈 추가</Link></div>;
@@ -18,7 +18,7 @@ export default async function AccountPage({ searchParams }: { searchParams: Prom
         <h1>계정 관리</h1>
       </header>
       <SnsTabs on="account" />
-      <AccountPanel user={user} act={act} others={others} msg={ig ?? acct} />
+      <AccountPanel user={user} act={act} others={others} msg={ig ?? acct} fix={fix} />
     </>
   );
 }

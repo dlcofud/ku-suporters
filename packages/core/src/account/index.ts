@@ -180,7 +180,11 @@ export interface AccountProfile {
 }
 
 /** 활동에 저장하는 계정 관리 상태. 예전 '계정 만들기' 결과(AccountKit)가 남아 있을 수 있다 */
-export type AccountState = Partial<AccountKit> & { profile?: AccountProfile };
+export type AccountState = Partial<AccountKit> & {
+  profile?: AccountProfile;
+  /** 연결한 네이버 블로그 아이디 (공식 API가 없어 공개 RSS로 글 목록만 읽는다) */
+  blog?: { id: string; at: string };
+};
 
 export interface ProfileCheck {
   id: "username" | "bio" | "who" | "fit" | "link" | "name" | "picture" | "posts";
@@ -261,3 +265,5 @@ export function suggestProfile(p: AccountProfile, ctx: ProfileContext): ProfileS
     links: ["노션 포트폴리오 (지원서·만든 콘텐츠 모음)", "가장 반응 좋았던 릴스 링크", "링크 모음 페이지 (블로그·유튜브가 더 있다면)"],
   };
 }
+
+export * from "./insight.js";
