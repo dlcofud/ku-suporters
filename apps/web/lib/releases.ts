@@ -1,7 +1,12 @@
 /** 릴리즈 노트. 새 기능을 합칠 때 맨 위에 한 줄씩 추가해 주세요. */
-export const APP_VERSION = "0.23.0";
+export const APP_VERSION = "0.23.1";
 
 export const RELEASES: { version: string; date: string; items: string[] }[] = [
+  {
+    version: "0.23.1",
+    date: "2026-11-25",
+    items: ["휴대폰 아래 탭을 사이드바 메뉴와 같은 이름·순서로 맞췄어요: 전체 일정 · 공고 요약 · 지원서 · 콘텐츠 만들기 · SNS 관리 · 메뉴"],
+  },
   {
     version: "0.23.0",
     date: "2026-11-24",
