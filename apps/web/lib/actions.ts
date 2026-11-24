@@ -332,9 +332,9 @@ export async function saveProfileAction(formData: FormData) {
   const user = await requireUser();
   const act = await activityOrRedirect(user.id);
   const handle = handleOf(String(formData.get("username") || ""));
-  if (handle && account.validateUsername(handle).length) redirect(`/account?acct=${encodeURIComponent(`아이디: ${account.validateUsername(handle)[0]!}`)}`);
+  if (handle && account.validateUsername(handle).length) redirect(`/account?fix=profile&acct=${encodeURIComponent(`아이디: ${account.validateUsername(handle)[0]!}`)}#improve`);
   const website = String(formData.get("website") || "").trim().slice(0, 300);
-  if (website && !/^https?:\/\//i.test(website) && !/^[\w-]+(\.[\w-]+)+/.test(website)) redirect(`/account?acct=${encodeURIComponent("링크 주소를 확인해 주세요")}`);
+  if (website && !/^https?:\/\//i.test(website) && !/^[\w-]+(\.[\w-]+)+/.test(website)) redirect(`/account?fix=profile&acct=${encodeURIComponent("링크 주소를 확인해 주세요")}#improve`);
   const profile: account.AccountProfile = {
     ...(act.accountKit?.profile ?? {}),
     username: handle || undefined,
@@ -349,7 +349,52 @@ export async function saveProfileAction(formData: FormData) {
   await repo.saveActivity(act);
   if (!user.ig && handle !== (user.igHandle ?? "")) await repo.setIgHandle(user.id, handle || null);
   revalidatePath("/account");
-  redirect("/account?acct=saved");
+  redirect("/account?acct=saved&fix=profile#improve");
+}
+
+/** 인스타 아이디만으로 연결 (공식 로그인 없이) */
+export async function connectInstaHandleAction(formData: FormData) {
+  const user = await requireUser();
+  const handle = handleOf(String(formData.get("username") || ""));
+  const err = handle ? account.validateUsername(handle)[0] : "인스타 아이디를 적어 주세요";
+  if (err) redirect(`/account?acct=${encodeURIComponent(`아이디: ${err}`)}`);
+  await repo.setIgHandle(user.id, handle);
+  revalidatePath("/", "layout");
+  redirect("/account?acct=connected");
+}
+
+/** 아이디로 연결한 인스타를 뺀다 (공식 연결이 있으면 그것도 끊는다) */
+export async function removeInstaAction() {
+  const user = await requireUser();
+  if (user.ig) await repo.clearUserIg(user.id);
+  await repo.setIgHandle(user.id, null);
+  revalidatePath("/", "layout");
+  redirect("/account?acct=removed");
+}
+
+/** 블로그 연결 상태를 내 모든 서포터즈에 똑같이 저장한다 (같은 블로그를 쓰니까) */
+async function setBlogAll(userId: string, blog: { id: string; at: string } | undefined) {
+  for (const a of await repo.listActivities(userId)) {
+    a.accountKit = { ...(a.accountKit ?? {}), blog };
+    await repo.saveActivity(a);
+  }
+}
+
+/** 네이버 블로그 연결: 공식 API가 없어 공개 RSS(글 제목·날짜·주소)만 읽는다 */
+export async function connectBlogAction(formData: FormData) {
+  const user = await requireUser();
+  const id = account.blogIdOf(String(formData.get("blog") || ""));
+  if (!id) redirect(`/account?acct=${encodeURIComponent("블로그 주소나 아이디를 확인해 주세요 (예: blog.naver.com/아이디)")}`);
+  await setBlogAll(user.id, { id, at: todayISO() });
+  revalidatePath("/account");
+  redirect("/account?acct=blog");
+}
+
+export async function removeBlogAction() {
+  const user = await requireUser();
+  await setBlogAll(user.id, undefined);
+  revalidatePath("/account");
+  redirect("/account?acct=blogremoved");
 }
 
 /** 공식 연결을 끊는다. 아이디와 옮겨 적은 프로필은 남긴다 */
