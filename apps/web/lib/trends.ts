@@ -39,12 +39,13 @@ export async function trendBriefFor(notice: { preferred: string[]; activities: s
   try {
     const report = trends.buildTrendReport(await loadAllReviews());
     if (!report.sampleSize) return undefined;
-    const label = (e: { code: string; avg: number }) => `${e.code} ${skeleton.RUBRIC[e.code as keyof typeof skeleton.RUBRIC]} (평균 ${e.avg.toFixed(1)}점)`;
-    const sorted = [...report.elementAverages].sort((a, b) => b.avg - a.avg);
+    // 언급 없음은 평균에서 빠지므로: 몇 건이 언급했는지 + 언급한 후기 안의 평균을 같이 준다
+    const label = (e: { code: string; avg: number; n: number }) =>
+      `${e.code} ${skeleton.RUBRIC[e.code as keyof typeof skeleton.RUBRIC]} (${report.sampleSize}건 중 ${e.n}건 언급, 평균 ${e.avg.toFixed(1)}점)`;
     return {
       sample: report.sampleSize,
-      strong: sorted.slice(0, 2).map(label),
-      gaps: sorted.filter((e) => e.avg < 0.5).slice(-2).map(label),
+      strong: trends.strongest(report.elementAverages).slice(0, 2).map(label),
+      gaps: trends.rarest(report.elementAverages).slice(0, 2).map(label),
       notice: trends.noticeEmphasis(notice, report).map((n) => ({ from: n.from.slice(0, 60), factor: `${n.code} ${n.label}`, advice: n.advice })),
       tips: report.tips.map((t) => t.text).slice(0, 6),
       interview: report.interviewQuestions.map((q) => q.text).slice(0, 6),

@@ -35,9 +35,9 @@ export default async function TrendsPage({ searchParams }: { searchParams: Promi
   for (const r of all) if (r.field && r.field !== "확인 필요") fieldCount.set(r.field, (fieldCount.get(r.field) ?? 0) + 1);
   const fields = [...fieldCount.keys()].sort();
   const emphasis = act ? trends.noticeEmphasis({ preferred: act.analysis.preferred ?? [], activities: act.analysis.activities ?? [] }, report) : [];
-  const ranked = [...report.elementAverages].sort((a, b) => b.avg - a.avg);
-  const topCodes = new Set(ranked.slice(0, 2).map((e) => e.code));
-  const gapCodes = new Set(conf.level === "low" ? [] : [...report.elementAverages].sort((a, b) => a.avg - b.avg).filter((e) => e.avg < 0.5).slice(0, 2).map((e) => e.code));
+  // 강한 요인: 많이 언급 × 뚜렷함, 틈: 30% 미만이 언급 (언급 없음은 평균에서 빠지므로 '드묾'은 언급 비율로 본다)
+  const topCodes = new Set(trends.strongest(report.elementAverages).slice(0, 2).map((e) => e.code));
+  const gapCodes = new Set(conf.level === "low" ? [] : trends.rarest(report.elementAverages).slice(0, 2).map((e) => e.code));
   const kwMax = report.keywordFrequency[0]?.count ?? 1;
   const fieldRows = Object.entries(report.byField).sort((a, b) => b[1] - a[1]);
   const resultRows = Object.entries(report.byResult).sort((a, b) => b[1] - a[1]);
@@ -80,7 +80,7 @@ export default async function TrendsPage({ searchParams }: { searchParams: Promi
       <section className="grid g4">
         <div className="card stat"><span className="small muted">표본</span><span className="num big">{report.sampleSize}건</span><span className="small muted">검수 완료 {report.verifiedCount}건</span></div>
         <div className="card stat"><span className="small muted">최종 합격 후기</span><span className="num big">{finalCount}건</span><span className="small muted">나머지는 서류 합격·확인 필요</span></div>
-        <div className="card stat"><span className="small muted">평균 총점</span><span className="num big">{report.avgTotal} <span className="small muted">/ 16</span></span><span className="small muted">요인 8개 × 0~2점</span></div>
+        <div className="card stat"><span className="small muted">언급된 요인 평균</span><span className="num big">{report.avgMark.toFixed(2)} <span className="small muted">/ 2</span></span><span className="small muted">후기 한 건이 요인 {report.avgMentioned}개 언급 (8개 중)</span></div>
         <div className="card stat dark"><span className="small" style={{ color: "#DDE1EE" }}>면접까지 본 후기</span><span className="num big" style={{ color: "var(--hl)" }}>{report.interview.yes} / {report.interview.mentioned}건</span><span className="small" style={{ color: "#DDE1EE" }}>면접을 언급한 후기 중</span></div>
       </section>
 
@@ -109,13 +109,13 @@ export default async function TrendsPage({ searchParams }: { searchParams: Promi
           ) : (
             <div style={{ overflowX: "auto" }}>
               <table>
-                <thead><tr><th>공고에서</th><th>합격 요인</th><th style={{ textAlign: "right" }}>합격 후기 평균</th><th>이렇게</th></tr></thead>
+                <thead><tr><th>공고에서</th><th>합격 요인</th><th style={{ textAlign: "right" }}>합격 후기 언급 · 평균</th><th>이렇게</th></tr></thead>
                 <tbody>
                   {emphasis.map((e) => (
                     <tr key={e.code}>
                       <td className="small">{e.from}</td>
                       <td><span className="tag">{e.code} {e.label}</span></td>
-                      <td className="num" style={{ textAlign: "right" }}>{e.avg.toFixed(2)}</td>
+                      <td className="num" style={{ textAlign: "right" }}>{Math.round(e.rate * 100)}% · {e.avg.toFixed(2)}</td>
                       <td className="small">{e.advice}</td>
                     </tr>
                   ))}
@@ -128,7 +128,7 @@ export default async function TrendsPage({ searchParams }: { searchParams: Promi
 
       <section className="grid g2" style={{ alignItems: "start" }}>
         <div className={report.sampleSize < MIN ? "card thin" : "card"}>
-          <h2>합격 요인 <span className="small muted" style={{ fontWeight: 500 }}>0~2점 평균 · 2점 비율 · {report.sampleSize}건</span> <Thin n={report.sampleSize} /></h2>
+          <h2>합격 요인 <span className="small muted" style={{ fontWeight: 500 }}>언급한 후기 수 · 그 안의 평균(0~2점) · {report.sampleSize}건 중</span> <Thin n={report.sampleSize} /></h2>
           {report.elementAverages.map((e) => (
             <BarRow
               key={e.code}
@@ -136,10 +136,10 @@ export default async function TrendsPage({ searchParams }: { searchParams: Promi
               strong={topCodes.has(e.code)}
               value={e.avg}
               max={2}
-              right={`${e.avg.toFixed(2)} · ${Math.round(e.strongShare * 100)}%`}
+              right={e.n ? `${e.n}건 언급 · 평균 ${e.avg.toFixed(2)}` : "언급 없음"}
             />
           ))}
-          <p className="small muted" style={{ margin: 0 }}>★ 가장 강한 요인 · 틈: 합격 후기에도 드물어 차별화하기 좋은 요인. 2점은 후기에서 그 요인이 뚜렷하게 드러난 경우예요.</p>
+          <p className="small muted" style={{ margin: 0 }}>막대는 그 요인을 언급한 후기 안의 평균이에요. 후기에 아예 안 나온 경우(언급 없음)는 평균에서 빼고, 나오기는 하는데 내용이 없으면 0점이에요. ★ 많이 언급되고 뚜렷한 요인 · 틈: 합격 후기 30% 미만이 언급해 차별화하기 좋은 요인.</p>
         </div>
         <div className="card">
           <h2>자주 나온 합격 키워드 <span className="small muted" style={{ fontWeight: 500 }}>{report.sampleSize}건 중</span></h2>

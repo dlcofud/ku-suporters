@@ -65,7 +65,7 @@ describe("후기 코딩", () => {
   it("LLM 응답을 점수·근거·태그로 정리한다 (범위를 벗어난 값은 고친다)", async () => {
     const llm = new MockLLM(() =>
       JSON.stringify({
-        scores: { E1: 2, E2: 2, E3: "1", E4: 0, E5: 0, E6: 0, E7: 1, E8: 7 },
+        scores: { E1: 2, E2: 2, E3: "1", E4: 0, E5: "-", E6: "0", E7: 1, E8: 7 },
         evidence: { E1: "릴스 조회수와 팔로워 증가를 숫자로 제시", E2: "편집 영상 포트폴리오 첨부" },
         summary: "숫자 성과와 포트폴리오로 증명",
         keywords: ["성과수치", "#포폴"],
@@ -76,8 +76,10 @@ describe("후기 코딩", () => {
       }),
     );
     const r = await codeReviewWithLLM(REVIEW, META, llm);
-    expect(r.scores).toEqual({ E1: 2, E2: 2, E3: 1, E4: 0, E5: 0, E6: 0, E7: 1, E8: 0 });
-    expect(r.evidence.E4).toBe("언급 없음");
+    // "-"·범위 밖 값 = 언급 없음(null), 0 = 언급만 있고 내용 없음
+    expect(r.scores).toEqual({ E1: 2, E2: 2, E3: 1, E4: 0, E5: null, E6: 0, E7: 1, E8: null });
+    expect(r.evidence.E5).toBe("언급 없음");
+    expect(r.evidence.E4).toBe("언급만 있고 내용 없음");
     expect(r.keywords).toEqual(["#성과수치", "#포폴"]);
     expect(r.detected.org).toBe("크라운제과");
     expect(r.model).toBe("mock");
@@ -146,7 +148,8 @@ describe("수집 시트로 내보내기", () => {
     const back = parseCuratedCsv(toSheetCsv([r]));
     expect(back).toHaveLength(1);
     expect(back[0]!.org).toBe("크라운제과, 해태");
-    expect(back[0]!.scores).toEqual(coded.scores);
+    // 언급 없음(null)은 시트에서 빈칸 → 다시 읽으면 빠진다
+    expect(back[0]!.scores).toEqual(Object.fromEntries(Object.entries(coded.scores).filter(([, v]) => v !== null)));
     expect(back[0]!.reviewStatus).toBe("원문 재확인 필요");
   });
 });

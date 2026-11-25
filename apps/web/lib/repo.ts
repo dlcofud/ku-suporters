@@ -10,7 +10,7 @@ import { mkdir, readFile, writeFile } from "node:fs/promises";
 import { existsSync } from "node:fs";
 import { dirname, join } from "node:path";
 import { randomUUID } from "node:crypto";
-import { credits, type contribution as C, type notice as N, type planner as P, type skeleton as S, type publish as PB, type feedback as F, type content as CT, type account as A, type trends as T, type apply as AP, type billing as B } from "@supportlab/core";
+import { credits, type contribution as C, type notice as N, type planner as P, type skeleton as S, type publish as PB, type feedback as F, type content as CT, type account as A, trends as T, type apply as AP, type billing as B } from "@supportlab/core";
 
 /* ------------------------------------------------------------------ */
 /* 타입                                                                 */
@@ -284,10 +284,11 @@ class MemoryRepo implements Repo {
     this.demo.set(u, m);
   }
   async listCodedReviews() {
-    return [...this.coded.values()].sort((a, b) => (a.createdAt < b.createdAt ? 1 : -1));
+    return [...this.coded.values()].map(T.upgradeCoded).sort((a, b) => (a.createdAt < b.createdAt ? 1 : -1));
   }
   async getCodedReview(id: string) {
-    return this.coded.get(id);
+    const r = this.coded.get(id);
+    return r && T.upgradeCoded(r);
   }
   async saveCodedReview(r: T.CodedReview) {
     this.coded.set(r.id, r);
@@ -545,11 +546,12 @@ class SupabaseRepo implements Repo {
   }
   async listCodedReviews() {
     const r = must(await this.sb.from("coded_reviews").select("data").order("created_at", { ascending: false }).limit(500), "coded.list");
-    return (r ?? []).map((x) => x.data as T.CodedReview);
+    // 코드북 1판(0점 = 언급 없음)으로 저장된 후기는 읽을 때 2판으로 바꾼다 (저장된 값은 그대로)
+    return (r ?? []).map((x) => T.upgradeCoded(x.data as T.CodedReview));
   }
   async getCodedReview(id: string) {
     const r = must(await this.sb.from("coded_reviews").select("data").eq("id", id).maybeSingle(), "coded.get");
-    return (r?.data as T.CodedReview | undefined) ?? undefined;
+    return r?.data ? T.upgradeCoded(r.data as T.CodedReview) : undefined;
   }
   async saveCodedReview(c: T.CodedReview) {
     must(

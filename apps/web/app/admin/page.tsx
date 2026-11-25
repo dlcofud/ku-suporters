@@ -41,7 +41,7 @@ export default async function AdminPage({ searchParams }: { searchParams: Promis
             const sc = trends.finalScores(rv);
             return (
               <div className="small">
-                <b>AI 코딩</b> {trends.CODES.map((k) => `${k} ${sc[k]}`).join(" · ")} · 총점 {trends.CODES.reduce((s, k) => s + sc[k], 0)}/16
+                <b>AI 코딩</b> {trends.CODES.map((k) => `${k} ${trends.markText(sc[k])}`).join(" · ")} · 총점 {trends.markSum(sc)}/16 (— 언급 없음)
                 {rv.ai.summary && <span className="muted"> — {rv.ai.summary}</span>}{" "}
                 <Link href={`/reviews/${rv.id}`}>점수 자세히 · 팀 검수</Link>
               </div>

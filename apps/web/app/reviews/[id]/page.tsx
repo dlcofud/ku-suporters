@@ -6,7 +6,8 @@ import { repo } from "@/lib/repo";
 import { verifyReviewAction, verifyAndNextAction } from "@/lib/actions";
 import { SubmitButton, PendingNote } from "@/components/Pending";
 
-const SCORE_LABEL = ["0 · 없음", "1 · 언급", "2 · 구체적"];
+/** 값 "-" = 언급 없음(평균에서 뺌). 0 = 언급은 있지만 내용 없음 */
+const SCORE_OPTIONS: [string, string][] = [["-", "— · 언급 없음"], ["0", "0 · 내용 없음"], ["1", "1 · 있음"], ["2", "2 · 구체적"]];
 
 export default async function ReviewDetail({ params, searchParams }: { params: Promise<{ id: string }>; searchParams: Promise<{ dup?: string; saved?: string; aierror?: string; own?: string }> }) {
   const me = await requireRole("admin");
@@ -66,13 +67,13 @@ export default async function ReviewDetail({ params, searchParams }: { params: P
                     <tr key={code}>
                       <td style={{ minWidth: 150 }}>
                         <b>{code} {b.name}</b>
-                        <details className="small muted"><summary>기준</summary>0 {b.s0}<br />1 {b.s1}<br />2 {b.s2}</details>
+                        <details className="small muted"><summary>기준</summary>— 언급 없음 (평균에서 뺌)<br />0 {b.s0}<br />1 {b.s1}<br />2 {b.s2}</details>
                       </td>
                       <td style={{ minWidth: 220 }}>{r.ai.evidence[code]}</td>
-                      <td className="num" style={{ textAlign: "right" }}>{r.ai.scores[code]}</td>
+                      <td className="num" style={{ textAlign: "right" }}>{trends.markText(r.ai.scores[code])}</td>
                       <td style={{ minWidth: 140 }}>
-                        <select name={code} defaultValue={String(cur[code])} aria-label={`${code} 검수 점수`} style={changed ? { borderColor: "var(--ink)", background: "var(--hlbg)" } : undefined}>
-                          {SCORE_LABEL.map((l, i) => <option key={i} value={i}>{l}</option>)}
+                        <select name={code} defaultValue={cur[code] === null || cur[code] === undefined ? "-" : String(cur[code])} aria-label={`${code} 검수 점수`} style={changed ? { borderColor: "var(--ink)", background: "var(--hlbg)" } : undefined}>
+                          {SCORE_OPTIONS.map(([v, l]) => <option key={v} value={v}>{l}</option>)}
                         </select>
                       </td>
                     </tr>
@@ -93,7 +94,7 @@ export default async function ReviewDetail({ params, searchParams }: { params: P
             {r.ai.formats.length > 0 && <p className="small muted" style={{ margin: 0 }}>언급된 포맷: {r.ai.formats.join(", ")}</p>}
             {r.cross?.ok && (
               <p className="small" style={{ margin: 0 }}>
-                <b>AI 교차 검수</b> ({r.cross.model}) {trends.CROSS_LABEL[r.cross.verdict]} — {trends.CODES.map((k) => `${k} ${r.ai.scores[k]}→${r.cross!.ok ? (r.cross as { scores: Record<string, number> }).scores[k] : "-"}`).join(" · ")}
+                <b>AI 교차 검수</b> ({r.cross.model}) {trends.CROSS_LABEL[r.cross.verdict]} — {trends.CODES.map((k) => `${k} ${trends.markText(r.ai.scores[k])}→${r.cross!.ok ? trends.markText((r.cross as Extract<trends.CrossCheck, { ok: true }>).scores[k]) : "-"}`).join(" · ")}
                 {r.cross.diff.length > 0 && <span className="red"> · 다른 코드: {r.cross.diff.join(", ")}</span>}
               </p>
             )}

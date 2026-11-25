@@ -712,6 +712,7 @@ async function codeStory(c: contribution.Contribution, userId: string): Promise<
     id: newId("rv"),
     meta,
     ai: { ...coded, codedAt: now },
+    codebook: trends.CODEBOOK_VERSION,
     status: "AI 초안",
     createdBy: userId,
     createdAt: now,
@@ -844,7 +845,7 @@ export async function codeReviewAction(formData: FormData) {
     failed = true;
   }
   const now = new Date().toISOString();
-  const r: trends.CodedReview = { id: newId("rv"), meta, ai: { ...coded, codedAt: now }, status: "AI 초안", createdBy: user.id, createdAt: now };
+  const r: trends.CodedReview = { id: newId("rv"), meta, ai: { ...coded, codedAt: now }, codebook: trends.CODEBOOK_VERSION, status: "AI 초안", createdBy: user.id, createdAt: now };
   await repo.saveCodedReview(r);
   revalidatePath("/reviews");
   revalidatePath("/trends");
@@ -883,12 +884,8 @@ export async function verifyReviewAction(formData: FormData) {
   if (!r) redirect("/reviews");
   // 직접 코딩한 후기는 다른 팀원이 원문과 대조해 검수한다 (README '꼭 지킬 것')
   if (!trends.canVerify(r, user.id)) redirect(`/reviews/${r.id}?own=1`);
-  const scores = Object.fromEntries(
-    trends.CODES.map((c) => {
-      const v = Number(formData.get(c));
-      return [c, v === 2 ? 2 : v === 1 ? 1 : 0];
-    }),
-  ) as Record<skeleton.RubricCode, trends.Score>;
+  // 빈 값("-") = 언급 없음(null) → 평균에서 빠진다
+  const scores = Object.fromEntries(trends.CODES.map((c) => [c, trends.clampMark(formData.get(c))])) as Record<skeleton.RubricCode, trends.Mark>;
   const field = String(formData.get("field") || "").trim();
   if (field) r.meta.field = field;
   const org = String(formData.get("org") || "").trim();
@@ -898,6 +895,7 @@ export async function verifyReviewAction(formData: FormData) {
   const result = String(formData.get("result") || "");
   if (REVIEW_RESULTS.includes(result)) r.meta.result = result;
   r.human = { scores, reviewer: user.nickname, reviewedAt: new Date().toISOString() };
+  r.codebook = trends.CODEBOOK_VERSION;
   r.status = "검수 완료";
   await repo.saveCodedReview(r);
   revalidatePath("/reviews");
