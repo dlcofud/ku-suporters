@@ -303,8 +303,8 @@ label>.lbl{display:block}
   .chip{height:6px;padding:0;border-radius:999px;font-size:0;border-width:1px}
   .chip b,.chip .ct{display:none}
   .chip.k-dead{border-width:1.5px}
-  .mainnav{display:none}
-  .tabs{display:grid;grid-template-columns:repeat(5,minmax(0,1fr));gap:2px;position:fixed;left:0;right:0;bottom:0;z-index:20;background:var(--surface);border-top:1.5px solid var(--ink);padding:6px 6px calc(6px + env(safe-area-inset-bottom,0px));min-height:var(--tabh)}
+  .homenav,.snsnav,.refnav{display:none}
+  .tabs{display:grid;grid-template-columns:repeat(4,minmax(0,1fr));gap:2px;position:fixed;left:0;right:0;bottom:0;z-index:20;background:var(--surface);border-top:1.5px solid var(--ink);padding:6px 6px calc(6px + env(safe-area-inset-bottom,0px));min-height:var(--tabh)}
   .tabs a{display:flex;flex-direction:column;align-items:center;justify-content:center;gap:2px;min-height:48px;border-radius:6px;font-size:11px;font-weight:700;color:var(--sub);text-decoration:none;padding:0 1px}
   .tabs a span{text-align:center;line-height:1.15;white-space:nowrap}
   .tabs a svg{width:18px;height:18px;flex:none}
@@ -500,4 +500,26 @@ button.nav.parent.on-parent{color:#fff;font-weight:800}
   .cmp-r{grid-template-columns:1fr;gap:4px}
 }
 
-.navgroup.more{scroll-margin-top:12px}
+#more{scroll-margin-top:12px}
+
+/* 서포터즈 안 화면 위: 이름 · 마감 · D-day + 탭 (B안) */
+.acthead{display:grid;gap:8px;background:var(--surface);border:1.5px solid var(--ink);border-radius:12px;padding:14px 18px 0;margin-bottom:20px}
+.acthead-back{font-size:13px;color:var(--sub);text-decoration:none;justify-self:start}
+.acthead-back:hover{color:var(--ink)}
+.acthead-top{display:flex;align-items:flex-end;justify-content:space-between;gap:12px}
+.acthead-name{display:grid;gap:2px;min-width:0}
+.acthead-name b{font-family:var(--display);font-weight:400;font-size:24px;line-height:1.2}
+.acthead-name span{font-size:13px;color:var(--sub)}
+.acthead-dd{font-weight:800;font-size:18px;font-variant-numeric:tabular-nums;flex:none}
+.acthead-dd.hot{color:var(--red)}
+.acttabs{display:flex;gap:2px;border-top:1px solid var(--line2);margin:4px -18px 0;padding:0 10px;overflow-x:auto}
+.acttabs a{padding:11px 14px;text-decoration:none;color:var(--sub);font-weight:700;border-bottom:3px solid transparent;white-space:nowrap;min-height:44px;box-sizing:border-box}
+.acttabs a:hover{color:var(--ink)}
+.acttabs a.on{color:var(--ink);font-weight:800;border-bottom-color:var(--ink)}
+@media (max-width:760px){
+  .acthead{border-radius:10px;padding:12px 14px 0;margin-bottom:14px}
+  .acthead-name b{font-size:19px}
+  .acttabs{margin:4px -14px 0;padding:0 4px;display:grid;grid-template-columns:repeat(4,minmax(0,1fr))}
+  .acttabs a{padding:11px 4px;text-align:center;font-size:13px}
+}
+.nav.act .actname>span{overflow:hidden;text-overflow:ellipsis;white-space:nowrap}

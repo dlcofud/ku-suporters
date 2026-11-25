@@ -52,7 +52,7 @@ export default async function NoticeResult({ searchParams }: { searchParams: Pro
       <header className="row between" style={{ alignItems: "flex-end" }}>
         <div>
           <span className="eyebrow">공고를 읽었어요</span>
-          <h1>{act.name}</h1>
+          <h1>공고 요약</h1>
         </div>
       </header>
       {error && <div className="note warn" role="alert">{error === "fetch" ? msg : ERR[error] ?? error}</div>}

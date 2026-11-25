@@ -17,7 +17,6 @@ export default async function ApplyPage({ searchParams }: { searchParams: Promis
   return (
     <>
       <header className="grid" style={{ gap: 4 }}>
-        <span className="eyebrow">{act.name} · <Link href="/notice/result">공고 다시 보기</Link></span>
         <h1>지원서 작성</h1>
         <p className="lede" style={{ margin: 0 }}>코치의 질문에 답하면 지원서 양식에 초안이 써져요. 관련 없어 보이는 경험도 같이 연결 고리를 찾아봐요.</p>
       </header>

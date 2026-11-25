@@ -1,7 +1,16 @@
 /** 릴리즈 노트. 새 기능을 합칠 때 맨 위에 한 줄씩 추가해 주세요. */
-export const APP_VERSION = "0.23.1";
+export const APP_VERSION = "0.24.0";
 
 export const RELEASES: { version: string; date: string; items: string[] }[] = [
+  {
+    version: "0.24.0",
+    date: "2026-11-25",
+    items: [
+      "메뉴를 새로 짰어요: 서포터즈를 고르면 화면 위에 업로드 일정 · 지원서 · 콘텐츠 · 공고 요약 탭이 생겨요",
+      "계정 관리 · 업로드 성과는 '내 SNS'로 모았어요. 계정과 성과는 모든 서포터즈가 같이 써요",
+      "휴대폰 아래 탭: 홈 · SNS · 합격 경향 · 더보기",
+    ],
+  },
   {
     version: "0.23.1",
     date: "2026-11-25",

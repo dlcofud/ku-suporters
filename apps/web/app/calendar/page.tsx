@@ -31,7 +31,7 @@ export default async function ActivityCalendar({ searchParams }: { searchParams:
     return (
       <>
         <header>
-          <span className="eyebrow">{act.name} · 업로드 일정</span>
+          <span className="eyebrow">업로드 일정</span>
           <h1>마감일을 알려 주세요</h1>
         </header>
         <form action={setDeadlineAction} className="card row" style={{ maxWidth: 640 }}>
@@ -75,7 +75,7 @@ export default async function ActivityCalendar({ searchParams }: { searchParams:
     <>
       <header className="row between" style={{ alignItems: "flex-end" }}>
         <div className="grid" style={{ gap: 4 }}>
-          <span className="eyebrow">{act.name} · 업로드 일정</span>
+          <span className="eyebrow">업로드 일정</span>
           <h1>{daysLeft > 0 ? <>마감까지 <span className="hl">{daysLeft}일</span></> : daysLeft === 0 ? <>오늘 <span className="red">마감</span>이에요</> : "모집이 마감됐어요"}</h1>
           {daysLeft >= 0 && <p className="lede" style={{ margin: 0 }}>콘텐츠 {left}개 남았어요</p>}
         </div>

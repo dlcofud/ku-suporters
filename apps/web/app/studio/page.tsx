@@ -42,7 +42,7 @@ export default async function StudioPage({ searchParams }: { searchParams: Promi
   return (
     <>
       <header>
-        <span className="eyebrow">{act.name} · 콘텐츠 만들기</span>
+        <span className="eyebrow">콘텐츠 만들기</span>
         <h1>{md(item.date)} {fmtLabel(item.format)} · {item.title}</h1>
       </header>
       {sp.error && <div className="note warn">{ERR[sp.error] ?? sp.error}</div>}

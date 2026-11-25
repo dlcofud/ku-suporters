@@ -1,7 +1,7 @@
 import "./globals.css";
 import Link from "next/link";
 import type { ReactNode } from "react";
-import { Nav, MobileTabs } from "@/components/Nav";
+import { Nav, MobileTabs, ActHeader } from "@/components/Nav";
 import { currentUser, currentActivity, rolesOf } from "@/lib/session";
 import { repo, todayISO } from "@/lib/repo";
 import { logout } from "@/lib/actions";
@@ -31,7 +31,9 @@ export default async function RootLayout({ children }: { children: ReactNode }) 
     dday: a.daysLeft === undefined ? "분석 중" : a.daysLeft < 0 ? "마감" : dday(a.daysLeft),
     hot: a.daysLeft !== undefined && a.daysLeft >= 0 && a.daysLeft <= 7,
     href: goHref(a.id, "/calendar"),
+    due: a.deadline ? `${Number(a.deadline.slice(5, 7))}월 ${Number(a.deadline.slice(8, 10))}일 마감` : "마감일 정하기",
   }));
+  const curSide = sideActs.find((a) => a.id === cur?.id);
   // 크레딧 막대: 가입 보너스 대비 남은 양 (보너스보다 많으면 가득)
   const fill = bal ? Math.min(100, (bal.available / Math.max(credits.CREDIT_POLICY.signupBonus, bal.available)) * 100) : 0;
   return (
@@ -51,11 +53,12 @@ export default async function RootLayout({ children }: { children: ReactNode }) 
             </Link>
 
             {user && (
-              <Nav hasActivity={!!cur} roles={rolesOf(user)}>
-                <SideActs acts={sideActs} currentId={cur?.id} />
-                <Link href="/notice" className="btn newact">
-                  <span aria-hidden="true" style={{ fontSize: 18, lineHeight: 1 }}>+</span> 새 서포터즈 추가
-                </Link>
+              <Nav roles={rolesOf(user)}>
+                <SideActs acts={sideActs} currentId={cur?.id}>
+                  <Link href="/notice" className="btn newact">
+                    <span aria-hidden="true" style={{ fontSize: 18, lineHeight: 1 }}>+</span> 새 서포터즈 추가
+                  </Link>
+                </SideActs>
               </Nav>
             )}
 
@@ -89,7 +92,10 @@ export default async function RootLayout({ children }: { children: ReactNode }) 
               </div>
             )}
           </aside>
-          <main className="main">{children}</main>
+          <main className="main">
+            {curSide && <ActHeader act={curSide} />}
+            {children}
+          </main>
         </div>
         {user && cur && <MobileTabs />}
       </body>
