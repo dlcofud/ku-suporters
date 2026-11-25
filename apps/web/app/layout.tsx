@@ -1,11 +1,10 @@
 import "./globals.css";
 import Link from "next/link";
 import type { ReactNode } from "react";
-import { Nav, MobileTabs } from "@/components/Nav";
+import { Nav, MobileTabs, type SideAct } from "@/components/Nav";
 import { currentUser, currentActivity, rolesOf } from "@/lib/session";
 import { repo, todayISO } from "@/lib/repo";
 import { logout } from "@/lib/actions";
-import { SideActs, type SideAct } from "@/components/SideActs";
 import { summarize, goHref } from "@/lib/overview";
 import { syncSubscription } from "@/lib/billing";
 import { credits } from "@supportlab/core";
@@ -51,8 +50,7 @@ export default async function RootLayout({ children }: { children: ReactNode }) 
             </Link>
 
             {user && (
-              <Nav hasActivity={!!cur} roles={rolesOf(user)}>
-                <SideActs acts={sideActs} currentId={cur?.id} />
+              <Nav acts={sideActs} currentId={cur?.id} roles={rolesOf(user)}>
                 <Link href="/notice" className="btn newact">
                   <span aria-hidden="true" style={{ fontSize: 18, lineHeight: 1 }}>+</span> 새 서포터즈 추가
                 </Link>

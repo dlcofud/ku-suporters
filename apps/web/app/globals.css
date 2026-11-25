@@ -303,7 +303,7 @@ label>.lbl{display:block}
   .chip{height:6px;padding:0;border-radius:999px;font-size:0;border-width:1px}
   .chip b,.chip .ct{display:none}
   .chip.k-dead{border-width:1.5px}
-  .mainnav{display:none}
+  .homenav,.actsub-main{display:none}
   .tabs{display:grid;grid-template-columns:repeat(5,minmax(0,1fr));gap:2px;position:fixed;left:0;right:0;bottom:0;z-index:20;background:var(--surface);border-top:1.5px solid var(--ink);padding:6px 6px calc(6px + env(safe-area-inset-bottom,0px));min-height:var(--tabh)}
   .tabs a{display:flex;flex-direction:column;align-items:center;justify-content:center;gap:2px;min-height:48px;border-radius:6px;font-size:11px;font-weight:700;color:var(--sub);text-decoration:none;padding:0 1px}
   .tabs a span{text-align:center;line-height:1.15;white-space:nowrap}
@@ -501,3 +501,11 @@ button.nav.parent.on-parent{color:#fff;font-weight:800}
 }
 
 .navgroup.more{scroll-margin-top:12px}
+
+/* 내 서포터즈: 고른 서포터즈 아래에 그 서포터즈 메뉴가 펼쳐진다 */
+.actblock{display:grid;gap:2px;grid-template-columns:minmax(0,1fr)}
+.actblock.open{padding-bottom:8px}
+.actsub{display:grid;gap:2px;grid-template-columns:minmax(0,1fr);margin:4px 0 0 10px;padding-left:8px;border-left:1.5px solid rgba(255,255,255,.18)}
+.navlabel.sub{padding:8px 12px 4px;font-size:11px}
+#more .newact{margin-top:8px}
+.nav.act .actname>span{overflow:hidden;text-overflow:ellipsis;white-space:nowrap}

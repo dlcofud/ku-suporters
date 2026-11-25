@@ -1,7 +1,12 @@
 /** 릴리즈 노트. 새 기능을 합칠 때 맨 위에 한 줄씩 추가해 주세요. */
-export const APP_VERSION = "0.23.1";
+export const APP_VERSION = "0.23.2";
 
 export const RELEASES: { version: string; date: string; items: string[] }[] = [
+  {
+    version: "0.23.2",
+    date: "2026-11-25",
+    items: ["사이드바에서 서포터즈를 고르면 그 아래에 지원서 · 콘텐츠 · SNS · 더보기(공고 요약 · 업로드 일정)가 펼쳐져요. 휴대폰 아래 탭과 같은 묶음이에요"],
+  },
   {
     version: "0.23.1",
     date: "2026-11-25",

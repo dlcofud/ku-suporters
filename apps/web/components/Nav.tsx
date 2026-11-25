@@ -8,10 +8,11 @@ const I = (d: ReactNode) => (
 );
 
 /**
- * 메뉴 구조 (사이드바 = 휴대폰 아래 탭, 이름·순서·아이콘 같음)
- *  주요: 홈 · 지원서 · 콘텐츠 · SNS(계정 관리 · 업로드 성과)
- *  더보기: 공고 요약 · 업로드 일정 · 합격 경향 · 내 서포터즈 · 크레딧 · 계정
- * 탭은 3~5개가 넘지 않게 주요 4개 + 더보기만 둔다.
+ * 메뉴 구조 (사이드바 = 휴대폰 아래 탭)
+ *  홈(전체 일정)
+ *  내 서포터즈 → 고른 서포터즈를 누르면 그 아래에: 지원서 · 콘텐츠 · SNS(계정 관리 · 업로드 성과) · 더보기(공고 요약 · 업로드 일정)
+ *  참고: 합격 경향 / 크레딧 · 계정
+ * 휴대폰 탭: 홈 · 지원서 · 콘텐츠 · SNS · 더보기 (고른 서포터즈 기준, 3~5개)
  */
 const HOME: [string, string, ReactNode] = ["/", "홈", I(<><path d="M3 11l9-7 9 7" /><path d="M5 10v10h14V10" /></>)];
 const ACTIVITY: [string, string, ReactNode][] = [
@@ -27,12 +28,25 @@ const SNS: [string, string][] = [
   ["/feedback", "업로드 성과"],
 ];
 
-/** 더보기: 가끔 쓰는 것. needsAct면 서포터즈를 고른 뒤에만 보인다 */
-const MORE: [string, string, ReactNode, boolean][] = [
-  ["/notice/result", "공고 요약", I(<><path d="M5 4h14v16H5z" /><path d="M9 8h6M9 12h6M9 16h3" /></>), true],
-  ["/calendar", "업로드 일정", I(<><rect x="3" y="5" width="18" height="16" rx="2" /><path d="M3 10h18M8 3v4M16 3v4" /></>), true],
-  ["/trends", "합격 경향", I(<><path d="M4 19h16" /><path d="M7 16v-5M12 16V7M17 16v-8" /></>), false],
+/** 서포터즈 안 더보기: 가끔 쓰는 것 */
+const MORE: [string, string, ReactNode][] = [
+  ["/notice/result", "공고 요약", I(<><path d="M5 4h14v16H5z" /><path d="M9 8h6M9 12h6M9 16h3" /></>)],
+  ["/calendar", "업로드 일정", I(<><rect x="3" y="5" width="18" height="16" rx="2" /><path d="M3 10h18M8 3v4M16 3v4" /></>)],
 ];
+
+/** 서포터즈와 상관없는 참고 메뉴 */
+const REFERENCE: [string, string, ReactNode][] = [
+  ["/trends", "합격 경향", I(<><path d="M4 19h16" /><path d="M7 16v-5M12 16V7M17 16v-8" /></>)],
+];
+
+export interface SideAct {
+  id: string;
+  name: string;
+  stage: string;
+  dday: string;
+  hot: boolean;
+  href: string;
+}
 
 /** 관리자만 */
 const ADMIN: [string, string][] = [
@@ -42,13 +56,14 @@ const ADMIN: [string, string][] = [
 ];
 
 /** roles: 서버에서 정한 권한. 메뉴만 숨기는 것이고, 실제 막는 건 각 페이지·액션의 requireRole.
- *  children: 더보기 아래에 붙는 내 서포터즈 목록 · 새 서포터즈 추가 */
-export function Nav({ hasActivity, roles = [], children }: { hasActivity: boolean; roles?: ("admin" | "team")[]; children?: ReactNode }) {
+ *  children: 내 서포터즈 목록 아래에 붙는 '새 서포터즈 추가' */
+export function Nav({ acts, currentId, roles = [], children }: { acts: SideAct[]; currentId?: string; roles?: ("admin" | "team")[]; children?: ReactNode }) {
   const path = usePathname();
-  const all = [...ACTIVITY.map(([h]) => h), ...SNS.map(([h]) => h), ...MORE.map(([h]) => h), ...ADMIN.map(([h]) => h)];
+  const home = path === "/";
+  const all = [...ACTIVITY.map(([h]) => h), ...SNS.map(([h]) => h), ...MORE.map(([h]) => h), ...REFERENCE.map(([h]) => h), ...ADMIN.map(([h]) => h)];
   // 더 긴 메뉴 주소가 맞으면 그쪽만 켠다 (/admin 과 /admin/sheet)
-  const isOn = (href: string) => (href === "/" ? path === "/" : path.startsWith(href) && !all.some((h) => h.length > href.length && h.startsWith(href) && path.startsWith(h)));
-  const big = ([href, label, icon]: [string, string, ReactNode, ...unknown[]]) => (
+  const isOn = (href: string) => (href === "/" ? home : path.startsWith(href) && !all.some((h) => h.length > href.length && h.startsWith(href) && path.startsWith(h)));
+  const big = ([href, label, icon]: [string, string, ReactNode]) => (
     <Link key={href} href={href} className={isOn(href) ? "nav on" : "nav"} aria-current={isOn(href) ? "page" : undefined}>
       <span className="row" style={{ gap: 10, flexWrap: "nowrap" }}>{icon}{label}</span>
     </Link>
@@ -63,28 +78,48 @@ export function Nav({ hasActivity, roles = [], children }: { hasActivity: boolea
   const shown = open || snsOn;
   return (
     <>
-      <nav className="navgroup mainnav" aria-label="주요 메뉴">
-        {big(HOME)}
-        {hasActivity && ACTIVITY.map(big)}
-        {hasActivity && (
-          <>
-            <button type="button" className={snsOn ? "nav parent on-parent" : "nav parent"} aria-expanded={shown} aria-controls="nav-sns" onClick={() => setOpen((o) => !o)}>
-              <span className="row" style={{ gap: 10, flexWrap: "nowrap" }}>{SNS_ICON}{SNS_LABEL}</span>
-              <span className="caret" aria-hidden="true">{shown ? "▾" : "▸"}</span>
-            </button>
-            {shown && (
-              <div id="nav-sns" className="navsub">
-                {SNS.map(([href, label]) => small(href, label))}
-              </div>
-            )}
-          </>
-        )}
+      <nav className="navgroup homenav" aria-label="홈">{big(HOME)}</nav>
+
+      <nav className="navgroup" id="more" aria-label="내 서포터즈">
+        <span className="navlabel">내 서포터즈</span>
+        {acts.map((a) => {
+          const cur = a.id === currentId;
+          // 서포터즈 안 화면에 있을 때 카드가 켜진다 (홈에서는 꺼짐)
+          const on = cur && !home;
+          return (
+            <div key={a.id} className={cur ? "actblock open" : "actblock"}>
+              {/* 서포터즈를 고르는 주소(/go)는 미리 불러오면 선택이 바뀌므로 Link가 아닌 a (클릭할 때만 이동) */}
+              <a href={a.href} className={on ? "nav act on" : "nav act"} aria-current={on ? "true" : undefined} aria-expanded={cur}>
+                <span className="actname" style={{ display: "flex", flexDirection: "column" }}>
+                  <span>{a.name}</span>
+                  <small className="stage">{a.stage}</small>
+                </span>
+                <span className={a.hot ? "dd hot" : "dd"}>{a.dday}</span>
+              </a>
+              {cur && (
+                <div className="actsub" aria-label={`${a.name} 메뉴`}>
+                  <div className="actsub-main">
+                    {ACTIVITY.map(big)}
+                    <button type="button" className={snsOn ? "nav parent on-parent" : "nav parent"} aria-expanded={shown} aria-controls="nav-sns" onClick={() => setOpen((o) => !o)}>
+                      <span className="row" style={{ gap: 10, flexWrap: "nowrap" }}>{SNS_ICON}{SNS_LABEL}</span>
+                      <span className="caret" aria-hidden="true">{shown ? "▾" : "▸"}</span>
+                    </button>
+                    {shown && <div id="nav-sns" className="navsub">{SNS.map(([href, label]) => small(href, label))}</div>}
+                  </div>
+                  <span className="navlabel sub">더보기</span>
+                  {MORE.map(big)}
+                </div>
+              )}
+            </div>
+          );
+        })}
+        {children}
       </nav>
-      <nav className="navgroup more" id="more" aria-label="더보기">
-        <span className="navlabel">더보기</span>
-        {MORE.filter(([, , , needsAct]) => hasActivity || !needsAct).map(big)}
+
+      <nav className="navgroup tools" aria-label="참고">
+        <span className="navlabel">참고</span>
+        {REFERENCE.map(big)}
       </nav>
-      {children}
       {roles.includes("admin") && (
         <nav className="navgroup tools" aria-label="관리자">
           <span className="navlabel">관리자</span>
@@ -104,17 +139,18 @@ const TABS: [string, string, ReactNode, string[]?][] = [
   HOME,
   ...ACTIVITY,
   ["/account", SNS_LABEL, SNS_ICON, SNS.map(([h]) => h)],
-  ["#more", "더보기", I(<><circle cx="5" cy="12" r="1.3" fill="currentColor" /><circle cx="12" cy="12" r="1.3" fill="currentColor" /><circle cx="19" cy="12" r="1.3" fill="currentColor" /></>)],
+  ["#more", "더보기", I(<><circle cx="5" cy="12" r="1.3" fill="currentColor" /><circle cx="12" cy="12" r="1.3" fill="currentColor" /><circle cx="19" cy="12" r="1.3" fill="currentColor" /></>), [...MORE, ...REFERENCE].map(([h]) => h)],
 ];
 
 export function MobileTabs() {
   const path = usePathname();
-  const isOn = (href: string, also?: string[]) => (href === "/" ? path === "/" : !href.startsWith("#") && (also ?? [href]).some((h) => path.startsWith(h)));
+  // 더보기(#more)는 그 안의 화면(공고 요약·업로드 일정·합격 경향)에 있을 때 켜진다
+  const isOn = (href: string, also?: string[]) => (href === "/" ? path === "/" : (also ?? [href]).some((h) => !h.startsWith("#") && path.startsWith(h)));
   return (
     <nav className="tabs" aria-label="빠른 메뉴">
       {TABS.map(([href, label, icon, also]) =>
         href.startsWith("#") ? (
-          <a key={href} href={href}>{icon}<span>{label}</span></a>
+          <a key={href} href={href} className={isOn(href, also) ? "on" : undefined}>{icon}<span>{label}</span></a>
         ) : (
           <Link key={href} href={href} className={isOn(href, also) ? "on" : undefined} aria-current={isOn(href, also) ? "page" : undefined}>{icon}<span>{label}</span></Link>
         ),
