@@ -181,7 +181,11 @@ export interface TrendReport {
   /** 이 리포트 전체를 얼마나 믿어도 되는지 */
   confidence: Confidence;
   /** n: 그 요인 점수가 있는 후기 수 */
-  elementAverages: { code: RubricCode; avg: number; strongShare: number; n: number }[];
+  /**
+   * 요인별: n = 그 요인을 언급한 후기 수(점수가 있는 후기), rate = n ÷ 전체 후기, avg·strongShare = 언급한 후기 안에서의 평균·2점 비율.
+   * 언급 없음(빈칸)은 평균에서 뺀다. 0점은 '언급은 있지만 내용이 없음'이다.
+   */
+  elementAverages: { code: RubricCode; avg: number; strongShare: number; n: number; rate: number }[];
   keywordFrequency: { keyword: string; count: number; share: number }[];
   processFrequency: { keyword: string; count: number; share: number }[];
   byField: Record<string, number>;
@@ -189,8 +193,10 @@ export interface TrendReport {
   citations: string[];
   /** 결과 단계별 건수 (최종 합격 · 서류 합격 · 확인 필요) */
   byResult: Record<string, number>;
-  /** 16점 만점 평균 총점 (점수가 있는 후기만) */
-  avgTotal: number;
+  /** 언급된 요인 점수의 평균 (0~2점, 언급 없음은 뺀다) */
+  avgMark: number;
+  /** 후기 한 건이 언급한 요인 수의 평균 (8개 중) */
+  avgMentioned: number;
   /** 콘텐츠 포맷 언급 (숏폼·카드뉴스·블로그 …, 언급한 후기 수 기준) */
   formatMentions: { format: string; count: number }[];
   formatMentionedIn: number;
@@ -241,6 +247,7 @@ export function buildTrendReport(all: CuratedReview[], filter: TrendFilter = {})
       avg: vals.length ? Math.round((vals.reduce((a, b) => a + b, 0) / vals.length) * 100) / 100 : 0,
       strongShare: vals.length ? vals.filter((v) => v === 2).length / vals.length : 0,
       n: vals.length,
+      rate: n ? vals.length / n : 0,
     };
   });
   const byField: Record<string, number> = {};
@@ -260,7 +267,7 @@ export function buildTrendReport(all: CuratedReview[], filter: TrendFilter = {})
     byField,
     citations: rows.map((r) => r.sourceCitation || r.url),
     byResult: countBy(rows.map((r) => r.result || "확인 필요")),
-    avgTotal: avgTotal(rows),
+    ...markStats(rows),
     ...formatStats(rows),
     preMission: yn(rows.map((r) => r.preMission)),
     interview: yn(rows.map((r) => r.interview)),
@@ -278,12 +285,26 @@ function countBy(xs: string[]): Record<string, number> {
   return m;
 }
 
-function avgTotal(rows: CuratedReview[]): number {
-  const totals = rows
-    .map((r) => Object.values(r.scores))
-    .filter((v) => v.length === SCORE_COLS.length)
-    .map((v) => v.reduce((a, b) => a + (b ?? 0), 0));
-  return totals.length ? Math.round((totals.reduce((a, b) => a + b, 0) / totals.length) * 10) / 10 : 0;
+function markStats(rows: CuratedReview[]): { avgMark: number; avgMentioned: number } {
+  const marks = rows.flatMap((r) => Object.values(r.scores).filter((v): v is number => typeof v === "number"));
+  const per = rows.map((r) => Object.values(r.scores).filter((v) => typeof v === "number").length);
+  return {
+    avgMark: marks.length ? Math.round((marks.reduce((a, b) => a + b, 0) / marks.length) * 100) / 100 : 0,
+    avgMentioned: per.length ? Math.round((per.reduce((a, b) => a + b, 0) / per.length) * 10) / 10 : 0,
+  };
+}
+
+/**
+ * 코드북 1판으로 채운 시트(0점 = 언급 없음)를 2판(빈칸 = 언급 없음, 0점 = 언급만 하고 내용 없음)으로 바꾼다.
+ * 점수 칸의 0만 빈칸으로 바꾸고 총점은 다시 계산하지 않는다(0은 더해도 0이라 같다).
+ */
+export function blankLegacyZeros(csv: string): string {
+  const rows = parseCsv(csv);
+  const [header] = rows;
+  if (!header) return csv;
+  const cols = SCORE_COLS.map(([, name]) => header.findIndex((h) => h.trim() === name)).filter((i) => i >= 0);
+  for (const r of rows.slice(1)) for (const i of cols) if ((r[i] ?? "").trim() === "0") r[i] = "";
+  return rows.map((r) => r.map((c) => (/[",\n\r]/.test(c) ? `"${c.replace(/"/g, '""')}"` : c)).join(",")).join("\n");
 }
 
 function yn(vals: (string | undefined)[]): { yes: number; mentioned: number } {
@@ -332,28 +353,33 @@ const LABEL: Record<RubricCode, string> = {
   E5: "브랜드 이해", E6: "기획안 구체성", E7: "협업 경험", E8: "진정성·스토리",
 };
 
+type El = TrendReport["elementAverages"][number];
+/** 가장 강한 요인: 많이 언급되고(비율) 언급될 때 뚜렷한(평균) 순. 비율 × 평균 = 전체 후기 기준 기대 점수 */
+export const strongest = (els: El[]) => els.filter((e) => e.n > 0 && e.avg > 0).sort((a, b) => b.rate * b.avg - a.rate * a.avg || b.n - a.n);
+/** 차별화할 틈: 합격 후기에서 드물게 언급되는 요인 (30% 미만) */
+export const rarest = (els: El[]) => els.filter((e) => e.rate < 0.3).sort((a, b) => a.rate - b.rate);
+
 export function trendInsights(r: TrendReport): TrendInsight[] {
   if (!r.sampleSize) return [];
   const out: TrendInsight[] = [];
   if (r.confidence.level === "low") {
     out.push({ kind: "caution", title: `후기가 ${r.sampleSize}건뿐이에요`, body: `${r.confidence.hint} 분야를 '전체'로 넓혀 보거나, 비슷한 분야를 함께 보세요.` });
   }
-  const sorted = [...r.elementAverages].sort((a, b) => b.avg - a.avg);
-  const top = sorted.slice(0, 2).filter((e) => e.avg > 0);
+  const top = strongest(r.elementAverages).slice(0, 2);
   if (top.length) {
     out.push({
       kind: "strong",
       title: `합격 후기에서 가장 강한 요인: ${top.map((e) => LABEL[e.code]).join(" · ")}`,
-      body: top.map((e) => `${LABEL[e.code]}은 평균 ${e.avg.toFixed(2)}점, ${Math.round(e.strongShare * 100)}%가 2점(뚜렷하게 드러남)이에요`).join(". ") + `. 지원서 첫 문항에서 이 둘을 먼저 보여 주세요. (후기 ${r.sampleSize}건 기준)`,
+      body: top.map((e) => `${LABEL[e.code]}은 ${r.sampleSize}건 중 ${e.n}건이 언급했고, 언급한 후기 평균 ${e.avg.toFixed(2)}점 · ${Math.round(e.strongShare * 100)}%가 2점(뚜렷하게 드러남)이에요`).join(". ") + `. 지원서 첫 문항에서 이 둘을 먼저 보여 주세요. (후기 ${r.sampleSize}건 기준)`,
     });
   }
-  const gaps = [...r.elementAverages].sort((a, b) => a.avg - b.avg).filter((e) => e.avg < 0.5).slice(0, 2);
+  const gaps = rarest(r.elementAverages).slice(0, 2);
   // '드물다'는 결론은 표본이 적으면 내지 않는다 (1건에서 0점은 아무 뜻이 없다)
   if (gaps.length && r.confidence.level !== "low") {
     out.push({
       kind: "gap",
       title: `차별화할 틈: ${gaps.map((e) => LABEL[e.code]).join(" · ")}`,
-      body: `합격 후기에도 드물게 나와요 (평균 ${gaps.map((e) => `${e.code} ${e.avg.toFixed(2)}`).join(", ")}). 한 줄이라도 구체적으로 쓰면 다른 지원자와 달라 보여요.`,
+      body: `합격 후기에도 드물게 나와요 (${gaps.map((e) => `${e.code} ${r.sampleSize}건 중 ${e.n}건`).join(", ")}). 한 줄이라도 구체적으로 쓰면 다른 지원자와 달라 보여요.`,
     });
   }
   if (r.interview.mentioned) {
@@ -395,6 +421,8 @@ export interface NoticeEmphasis {
   /** 공고에서 이 요인을 떠올리게 한 문장 */
   from: string;
   avg: number;
+  /** 합격 후기 중 이 요인을 언급한 비율 */
+  rate: number;
   advice: string;
 }
 
@@ -405,17 +433,20 @@ export function noticeEmphasis(notice: { preferred: string[]; activities: string
   for (const [code, re] of NOTICE_SIGNALS) {
     const from = lines.find((l) => re.test(l));
     if (!from) continue;
-    const avg = r.elementAverages.find((e) => e.code === code)?.avg ?? 0;
+    const el = r.elementAverages.find((e) => e.code === code);
+    const avg = el?.avg ?? 0;
+    const rate = el?.rate ?? 0;
     out.push({
       code,
       label: LABEL[code],
       from,
       avg,
+      rate,
       advice:
-        avg >= 1
-          ? "합격자 대부분이 갖춘 요인이에요. 빠지면 눈에 띄니 반드시 근거와 함께 쓰세요."
-          : avg >= 0.5
-            ? "절반쯤이 보여 준 요인이에요. 숫자나 결과물 하나로 구체적으로 쓰면 앞서요."
+        rate >= 0.6
+          ? "합격자 대부분이 언급한 요인이에요. 빠지면 눈에 띄니 반드시 근거와 함께 쓰세요."
+          : rate >= 0.3
+            ? "합격자 일부가 언급한 요인이에요. 숫자나 결과물 하나로 구체적으로 쓰면 앞서요."
             : "공고는 보는데 합격 후기에는 드물어요. 한 줄만 있어도 차별화돼요.",
     });
   }

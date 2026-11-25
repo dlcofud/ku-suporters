@@ -59,7 +59,8 @@ export function tableToCsv(t: SheetTable): string {
 
 /**
  * 올린 시트를 검사하고 다듬는다.
- *  - 오류(저장 안 함): 꼭 필요한 열이 없음, ID·URL이 비었음, 같은 URL·ID가 두 번, 점수가 0·1·2가 아님
+ *  - 오류(저장 안 함): 꼭 필요한 열이 없음, ID·URL이 비었음, 같은 URL·ID가 두 번, 점수가 0·1·2·빈칸이 아님
+ *    점수 빈칸(또는 '-', '—', '언급 없음') = 언급 없음 → 평균에서 뺀다. 0 = 언급은 있지만 내용 없음
  *  - 경고(저장은 함): 검수 상태가 목록에 없음, 원문 같은 긴 글
  *  - 비어 있는 자동 칸(출처 표기·중복 체크·총점)은 채운다. 엑셀이 다시 계산하지 않고 저장한 파일도 있어서.
  */
@@ -88,8 +89,10 @@ export function checkSheet(input: SheetTable): SheetCheck {
     if (seenId.has(id)) errors.push(`${line}행: ID ${id}가 ${seenId.get(id)}행과 같아요.`);
     else seenId.set(id, line);
     for (const h of SCORE_HEADERS) {
+      const i = header.indexOf(h);
+      if (/^(-|—|언급\s*없음)$/.test(r[i] ?? "")) r[i] = ""; // 언급 없음은 빈칸으로
       const v = cell(t, r, h);
-      if (v !== "" && !["0", "1", "2"].includes(v)) errors.push(`${line}행 (${id}): '${h}' 점수는 0·1·2만 돼요 (지금 '${v}').`);
+      if (v !== "" && !["0", "1", "2"].includes(v)) errors.push(`${line}행 (${id}): '${h}' 점수는 0·1·2 또는 빈칸(언급 없음)만 돼요 (지금 '${v}').`);
     }
     const st = cell(t, r, "검수 상태");
     if (st && !REVIEW_STATES.includes(st)) warnings.push(`${line}행 (${id}): 검수 상태 '${st}'는 목록에 없어요. '원문 재확인 필요'나 '검수 완료'로 써 주세요.`);

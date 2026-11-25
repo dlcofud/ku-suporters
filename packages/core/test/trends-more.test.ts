@@ -4,7 +4,7 @@ import { buildTrendReport, trendInsights, noticeEmphasis, parseCuratedCsv, type 
 
 const base = (o: Partial<CuratedReview>): CuratedReview => ({
   id: "x", sourceType: "후기", url: "https://e.x/" + Math.random(), sourceCitation: "", org: "A", activity: "1기", field: "IT", result: "최종 합격",
-  scores: { E1: 0, E2: 0, E3: 0, E4: 2, E5: 1, E6: 1, E7: 0, E8: 2 }, formats: "", keywords: [], processKeywords: [], tip: "", reliability: "", reviewStatus: "AI 초안", ...o,
+  /* E1·E2·E3·E7 = 언급 없음(빈칸) */ scores: { E4: 2, E5: 1, E6: 1, E8: 2 }, formats: "", keywords: [], processKeywords: [], tip: "", reliability: "", reviewStatus: "AI 초안", ...o,
 });
 
 describe("경향 리포트 확장", () => {
@@ -25,7 +25,8 @@ describe("경향 리포트 확장", () => {
     expect(r.preMission).toEqual({ yes: 1, mentioned: 2 });
     expect(r.interview).toEqual({ yes: 2, mentioned: 2 });
     expect(r.byResult).toEqual({ "최종 합격": 1, "서류 합격": 1, "확인 필요": 1 }); // 결과가 빈 칸이면 확인 필요
-    expect(r.avgTotal).toBe(6);
+    expect(r.avgMark).toBe(1.5); // 언급된 4개 요인(2·1·1·2)의 평균. 언급 없음은 빠진다
+    expect(r.avgMentioned).toBe(4);
     expect(r.tips).toHaveLength(1);
     expect(r.interviewQuestions[0]!.text).toContain("제품");
   });
@@ -36,7 +37,7 @@ describe("경향 리포트 확장", () => {
     // 3건은 표본이 적어 '틈' 결론을 내지 않는다 → 5건으로 늘려서 본다
     expect(ins.find((i) => i.kind === "gap")).toBeUndefined();
     const more = trendInsights(buildTrendReport([...rows, base({}), base({})]));
-    expect(more.find((i) => i.kind === "gap")!.body).toMatch(/E1 0\.00/);
+    expect(more.find((i) => i.kind === "gap")!.body).toMatch(/E1 5건 중 0건/);
     expect(ins.find((i) => i.kind === "format")!.title).toContain("숏폼");
     expect(trendInsights(buildTrendReport([]))).toEqual([]);
   });
@@ -55,6 +56,8 @@ describe("경향 리포트 확장", () => {
     expect(rep.sampleSize).toBe(all.length);
     expect(rep.interview.mentioned).toBeGreaterThan(0);
     expect(rep.formatMentionedIn).toBeGreaterThan(0);
-    expect(rep.avgTotal).toBeGreaterThan(0);
+    expect(rep.avgMark).toBeGreaterThan(0);
+    // 저장소 시트는 코드북 2판: 언급 없음은 빈칸이라 요인마다 언급 수가 전체보다 적을 수 있다
+    expect(rep.elementAverages.every((e) => e.n <= rep.sampleSize)).toBe(true);
   });
 });

@@ -20,6 +20,8 @@ export interface SheetVersion {
   by: string;
   rows: number;
   note: string;
+  /** 코드북 판. 없으면 1판(점수 0 = 언급 없음)으로 올린 시트라 읽을 때 0을 빈칸으로 바꾼다 */
+  codebook?: number;
 }
 interface SheetMeta {
   active: string | null;
@@ -49,12 +51,20 @@ export async function repoCsv(): Promise<string> {
   return path ? readFile(path, "utf8") : "";
 }
 
+/** 코드북 1판으로 올린 시트(0점 = 언급 없음)는 0을 빈칸(언급 없음)으로 읽는다. 저장된 파일은 그대로 둔다 */
+function upgradeCsv(csv: string, v: SheetVersion | undefined): string {
+  return (v?.codebook ?? 1) >= trends.CODEBOOK_VERSION ? csv : trends.blankLegacyZeros(csv);
+}
+
 /** 지금 앱이 쓰는 시트 CSV: 올린 버전이 있으면 그것, 없으면 저장소 기본 */
 export async function activeCsv(): Promise<{ csv: string; source: "upload" | "repo"; version?: SheetVersion }> {
   const m = await sheetMeta();
   if (m.active) {
     const b = await files.read(m.active).catch(() => undefined);
-    if (b) return { csv: b.toString("utf8"), source: "upload", version: m.history.find((h) => h.key === m.active) };
+    if (b) {
+      const version = m.history.find((h) => h.key === m.active);
+      return { csv: upgradeCsv(b.toString("utf8"), version), source: "upload", version };
+    }
   }
   return { csv: await repoCsv(), source: "repo" };
 }
@@ -72,7 +82,7 @@ export async function publishSheet(csv: string, by: string, note: string): Promi
   const key = `sheet/v/${at.replace(/[:.]/g, "-")}.csv`;
   await files.put(key, Buffer.from(csv, "utf8"), "text/csv");
   const m = await sheetMeta();
-  const v: SheetVersion = { key, at, by, rows: trends.csvToTable(csv).rows.length, note };
+  const v: SheetVersion = { key, at, by, rows: trends.csvToTable(csv).rows.length, note, codebook: trends.CODEBOOK_VERSION };
   await saveMeta({ active: key, history: [v, ...m.history].slice(0, MAX_HISTORY) });
   return v;
 }
@@ -87,8 +97,10 @@ export async function activate(key: string | null) {
 /** 버전 하나의 CSV */
 export async function versionCsv(key: string): Promise<string | undefined> {
   const m = await sheetMeta();
-  if (!m.history.some((h) => h.key === key)) return undefined;
-  return (await files.read(key).catch(() => undefined))?.toString("utf8");
+  const v = m.history.find((h) => h.key === key);
+  if (!v) return undefined;
+  const b = await files.read(key).catch(() => undefined);
+  return b && upgradeCsv(b.toString("utf8"), v);
 }
 
 /**

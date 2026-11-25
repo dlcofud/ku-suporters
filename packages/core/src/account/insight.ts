@@ -155,7 +155,8 @@ export function analyzeAccount(input: { media: MediaLike[]; blog?: BlogPost[]; b
 /** 합격 후기 코딩에서 필요한 것만 (trends.TrendReport와 같은 모양) */
 export interface TrendLike {
   sampleSize: number;
-  elementAverages: { code: string; avg: number; strongShare: number; n: number }[];
+  /** n = 그 요인을 언급한 후기 수 (언급 없음은 빠진다) */
+  elementAverages: { code: string; avg: number; strongShare: number; n: number; rate?: number }[];
   formatMentions: { format: string; count: number }[];
   formatMentionedIn: number;
   newAccount: { yes: number; mentioned: number };
@@ -219,13 +220,13 @@ export function compareWithTrends(input: {
   const e2 = el("E2");
   if (e2) {
     const posts = a.insta.count + (a.blog?.count ?? 0);
-    rows.push({ id: "premade", title: "지원 전에 올린 콘텐츠", trend: `후기 ${e2.n}건 중 ${pct(e2.strongShare)}가 지원 전 콘텐츠를 강하게 보여 줌`, mine: `기록된 콘텐츠 ${posts}개`, status: posts >= 3 ? "ok" : "gap", fix: "perf", todo: "지원 전에 활동 주제로 콘텐츠 3개를 먼저 올려 두세요" });
+    rows.push({ id: "premade", title: "지원 전에 올린 콘텐츠", trend: `이 요인을 언급한 후기 ${e2.n}건 중 ${pct(e2.strongShare)}가 지원 전 콘텐츠를 강하게 보여 줌`, mine: `기록된 콘텐츠 ${posts}개`, status: posts >= 3 ? "ok" : "gap", fix: "perf", todo: "지원 전에 활동 주제로 콘텐츠 3개를 먼저 올려 두세요" });
   }
   // 3. 운영 성과 숫자
   const e1 = el("E1");
   if (e1) {
     const has = a.insta.avgViews > 0;
-    rows.push({ id: "result", title: "운영 성과 숫자", trend: `후기 ${e1.n}건 중 ${pct(e1.strongShare)}가 조회수·팔로워 같은 숫자로 성과를 보여 줌`, mine: has ? `평균 조회수 ${a.insta.avgViews.toLocaleString("ko-KR")}${a.insta.engagement !== undefined ? ` · 반응률 ${(a.insta.engagement * 100).toFixed(1)}%` : ""}` : "성과 숫자 없음", status: has ? "ok" : "gap", fix: "perf", todo: "올린 게시물의 조회수·저장 수를 넣으면 지원서에 쓸 성과 문장이 생겨요" });
+    rows.push({ id: "result", title: "운영 성과 숫자", trend: `이 요인을 언급한 후기 ${e1.n}건 중 ${pct(e1.strongShare)}가 조회수·팔로워 같은 숫자로 성과를 보여 줌`, mine: has ? `평균 조회수 ${a.insta.avgViews.toLocaleString("ko-KR")}${a.insta.engagement !== undefined ? ` · 반응률 ${(a.insta.engagement * 100).toFixed(1)}%` : ""}` : "성과 숫자 없음", status: has ? "ok" : "gap", fix: "perf", todo: "올린 게시물의 조회수·저장 수를 넣으면 지원서에 쓸 성과 문장이 생겨요" });
   }
   // 4. 브랜드 이해
   const e5 = el("E5");
@@ -233,13 +234,13 @@ export function compareWithTrends(input: {
     const words = input.brandWords.filter((w) => w.length >= 2);
     const inBio = words.some((w) => bio.includes(w));
     const inBlog = (a.blog?.brandPosts.length ?? 0) > 0;
-    rows.push({ id: "brand", title: "브랜드와 이어짐", trend: `후기 ${e5.n}건 중 ${pct(e5.strongShare)}가 브랜드 이해를 강하게 보여 줌`, mine: [inBio ? "소개글에 브랜드 있음" : "소개글에 브랜드 없음", input.blogConnected ? `브랜드 글 ${a.blog?.brandPosts.length ?? 0}개` : ""].filter(Boolean).join(" · "), status: inBio || inBlog ? "ok" : "gap", fix: "profile", todo: "소개글에 브랜드나 관심 분야를 한 줄 넣어 보세요" });
+    rows.push({ id: "brand", title: "브랜드와 이어짐", trend: `이 요인을 언급한 후기 ${e5.n}건 중 ${pct(e5.strongShare)}가 브랜드 이해를 강하게 보여 줌`, mine: [inBio ? "소개글에 브랜드 있음" : "소개글에 브랜드 없음", input.blogConnected ? `브랜드 글 ${a.blog?.brandPosts.length ?? 0}개` : ""].filter(Boolean).join(" · "), status: inBio || inBlog ? "ok" : "gap", fix: "profile", todo: "소개글에 브랜드나 관심 분야를 한 줄 넣어 보세요" });
   }
   // 5. 진정성·스토리
   const e8 = el("E8");
   if (e8) {
     const who = /대학생|학생|\d{2}학번|대학교|학과|전공/.test(bio);
-    rows.push({ id: "story", title: "누구인지 보이는 계정", trend: `후기 ${e8.n}건 중 ${pct(e8.strongShare)}가 자기 이야기를 강하게 보여 줌`, mine: who ? "소개글에 누구인지 보임" : bio ? "소개글에 누구인지 안 보임" : "소개글 없음", status: who ? "ok" : "gap", fix: "profile", todo: "‘대학생’, 학과처럼 누구인지 보이는 말을 소개글에 넣어 보세요" });
+    rows.push({ id: "story", title: "누구인지 보이는 계정", trend: `이 요인을 언급한 후기 ${e8.n}건 중 ${pct(e8.strongShare)}가 자기 이야기를 강하게 보여 줌`, mine: who ? "소개글에 누구인지 보임" : bio ? "소개글에 누구인지 안 보임" : "소개글 없음", status: who ? "ok" : "gap", fix: "profile", todo: "‘대학생’, 학과처럼 누구인지 보이는 말을 소개글에 넣어 보세요" });
   }
   // 6. 새 계정
   if (t.newAccount.mentioned >= 3) {

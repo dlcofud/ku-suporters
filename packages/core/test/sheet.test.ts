@@ -30,7 +30,7 @@ describe("수집 시트 검사", () => {
     r3[i("ID")] = "";
     const c = checkSheet({ header: h, rows: [r1, r2, r3] });
     expect(c.errors.some((e) => e.includes("3행") && e.includes("URL이 2행과 같아요"))).toBe(true);
-    expect(c.errors.some((e) => e.includes("0·1·2만"))).toBe(true);
+    expect(c.errors.some((e) => e.includes("0·1·2 또는 빈칸"))).toBe(true);
     expect(c.errors.some((e) => e.includes("4행: ID가 비었어요"))).toBe(true);
   });
 
