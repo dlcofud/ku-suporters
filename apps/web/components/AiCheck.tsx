@@ -20,12 +20,12 @@ export function AiCheck() {
     }
   }
   return (
-    <div className="grid" style={{ gap: 8, justifyItems: "end" }}>
-      <button className="btn" type="button" onClick={run} disabled={busy} aria-live="polite">
-        {busy ? "확인 중… (로컬 모델은 처음에 1분쯤 걸려요)" : "AI 연결 확인"}
+    <div style={{ position: "relative" }}>
+      <button className="btn small-btn" type="button" onClick={run} disabled={busy} aria-live="polite">
+        {busy ? "확인 중…" : "연결 확인"}
       </button>
       {r && (
-        <p className={r.ok ? "note ok small" : "note warn small"} role="status" style={{ margin: 0, maxWidth: 420 }}>
+        <p className={r.ok ? "note ok small" : "note warn small"} role="status" style={{ margin: 0, width: 320, position: "absolute", right: 0, top: "calc(100% + 6px)", zIndex: 5 }}>
           {r.ok ? `연결됐어요 · ${r.model} · ${((r.ms ?? 0) / 1000).toFixed(1)}초 · "${r.reply}"` : r.error}
         </p>
       )}
