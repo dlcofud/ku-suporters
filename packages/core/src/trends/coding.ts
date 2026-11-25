@@ -127,8 +127,16 @@ export interface CodedReview {
   id: string;
   meta: ReviewMeta;
   ai: CodingResult & { codedAt: string };
-  /** via "bulk": 'AI 교차 확인'을 보고 사람이 여러 건을 한꺼번에 검수 완료한 경우 (점수는 기존 점수를 그대로 받아들임) */
-  human?: { scores: Record<RubricCode, Mark>; reviewer: string; reviewedAt: string; via?: "bulk" };
+  /**
+   * 최종 점수를 확정한 기록.
+   *  - via 없음: 사람이 원문과 대조해 저장
+   *  - "auto": 기존 점수와 AI 교차 검수가 모두 같아 자동으로 확정
+   *  - "ai-judge": 둘이 다른 코드만 AI 판정이 원문을 다시 읽고 정함
+   *  - "bulk": (예전) 사람이 목록에서 한꺼번에 확정
+   */
+  human?: { scores: Record<RubricCode, Mark>; reviewer: string; reviewedAt: string; via?: "bulk" | "auto" | "ai-judge" };
+  /** AI 판정: 교차 검수와 다른 코드만 원문을 다시 읽고 최종 점수를 정한 결과 */
+  judge?: Judgement;
   /** 코드북 판 (없으면 1판: 0점이 '언급 없음'이었다 → upgradeCoded가 null로 바꾼다) */
   codebook?: number;
   /** AI 교차 검수: 원문을 다시 읽고 다른 AI가 매긴 점수와 비교한 결과 (사람 검수를 대신하지 않는다) */
@@ -151,6 +159,10 @@ export interface CodedReview {
     interviewSummary?: string;
   };
 }
+
+export type Judgement =
+  | { ok: true; codes: RubricCode[]; scores: Partial<Record<RubricCode, Mark>>; reasons: Partial<Record<RubricCode, string>>; model: string; at: string }
+  | { ok: false; error: string; at: string };
 
 export type CrossVerdict = "match" | "near" | "differ";
 export type CrossCheck =
@@ -491,8 +503,8 @@ export interface AgreementRow {
 
 /** 검수 완료된 후기들로 코드별 사람-AI 일치도를 계산한다 (규칙 기반 초안은 제외) */
 export function agreementByCode(reviews: CodedReview[]): AgreementRow[] {
-  // 한꺼번에 검수한 행은 기존 점수를 그대로 받아들인 것이라 일치도 계산에서 뺀다
-  const done = reviews.filter((r) => r.status === "검수 완료" && r.human && r.human.via !== "bulk" && r.ai.model !== "rules");
+  // 사람이 직접 저장한 것만 센다 (한꺼번에·자동으로 확정한 행은 기존 점수를 받아들인 것이라 뺀다)
+  const done = reviews.filter((r) => r.status === "검수 완료" && r.human && !r.human.via && r.ai.model !== "rules");
   return CODES.map((code) => {
     const ai = done.map((r) => r.ai.scores[code]);
     const hu = done.map((r) => r.human!.scores[code]);

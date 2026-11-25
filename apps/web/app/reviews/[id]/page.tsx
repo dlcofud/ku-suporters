@@ -1,6 +1,6 @@
 import Link from "next/link";
 import { notFound } from "next/navigation";
-import { trends } from "@supportlab/core";
+import { trends, skeleton } from "@supportlab/core";
 import { requireRole } from "@/lib/session";
 import { repo } from "@/lib/repo";
 import { verifyReviewAction, verifyAndNextAction } from "@/lib/actions";
@@ -23,7 +23,9 @@ export default async function ReviewDetail({ params, searchParams }: { params: P
   const all = await repo.listCodedReviews();
   const contrib = r.contributionId ? await repo.getContribution(r.contributionId) : undefined;
   const web = r.meta.url.startsWith("http");
-  const left = all.filter((x) => x.status !== "검수 완료" && x.id !== r.id && trends.canVerify(x, me.id)).length;
+  const left = all.filter((x) => trends.autoState(x) === "needs-human" && x.id !== r.id && trends.canVerify(x, me.id)).length;
+  const st = trends.autoState(r);
+  const judged = trends.judgeRows(r);
   return (
     <>
       <header className="grid" style={{ gap: 4 }}>
@@ -38,14 +40,30 @@ export default async function ReviewDetail({ params, searchParams }: { params: P
 
       {q.dup && <p className="note">이미 분석한 후기라 기존 결과를 열었어요.</p>}
       {q.saved && <p className="note ok">검수 완료로 저장했어요. 경향 분석에 바로 반영돼요.{r.status !== "검수 완료" ? " 이어서 이 후기를 검수해 주세요." : ""}</p>}
-      {(q.own || mine) && <p className="note warn">내가 코딩한 후기라 다른 팀원이 원문과 대조해 검수해야 해요. 같은 사람이 코딩과 검수를 하면 실수를 잡기 어려워요.</p>}
+      {st === "todo" && <p className="note" role="status">자동 검수를 기다리고 있어요. 다른 AI가 원문을 다시 채점하고, 다르면 AI가 판정해요. 잠시 뒤 새로고침하면 결과가 보여요.</p>}
+      {st === "needs-human" && <p className="note warn">AI가 이 후기를 처리하지 못했어요: {trends.autoProblem(r)}. 원문을 열어 점수를 확인하고 저장해 주세요.</p>}
+      {r.human?.via === "auto" && <p className="note ok">두 AI의 점수가 8개 코드 모두 같아서 자동으로 검수 완료했어요. 고칠 점이 있으면 점수를 바꿔 저장하면 사람 검수로 덮어써요.</p>}
+      {r.human?.via === "ai-judge" && (
+        <div className="note ok">
+          <p style={{ margin: 0 }}>두 AI 점수가 다른 코드를 AI가 원문을 다시 읽고 판정해서 검수 완료했어요{r.judge?.ok ? ` (${r.judge.model})` : ""}. 나머지 코드는 기존 점수를 그대로 썼어요.</p>
+          <table className="small" style={{ marginTop: 6 }}>
+            <thead><tr><th>코드</th><th>기존</th><th>교차</th><th>최종</th><th>이유</th></tr></thead>
+            <tbody>
+              {judged.map((x) => (
+                <tr key={x.code}><td>{x.code} {skeleton.RUBRIC[x.code]}</td><td>{trends.markText(x.a)}</td><td>{trends.markText(x.b)}</td><td><b>{trends.markText(x.final)}</b></td><td>{x.reason}</td></tr>
+              ))}
+            </tbody>
+          </table>
+        </div>
+      )}
+      {st === "needs-human" && (q.own || mine) && <p className="note warn">내가 코딩한 후기라 다른 팀원이 원문과 대조해 검수해야 해요. 같은 사람이 코딩과 검수를 하면 실수를 잡기 어려워요.</p>}
       {contrib?.story && (
         <details className="card" open={r.status !== "검수 완료"}>
           <summary><b>사용자가 쓴 후기 원문</b> <span className="small muted">관리자가 승인·반려하면 지워져요</span></summary>
           <p style={{ whiteSpace: "pre-wrap", margin: "8px 0 0" }}>{contrib.story}</p>
         </details>
       )}
-      {fromSheet && r.status !== "검수 완료" && <p className="note">수집 시트에서 가져온 <b>시드 점수</b>예요. 근거 문장이 없으니 <a href={r.meta.url} target="_blank" rel="noreferrer">원문을 열어</a> 점수와 결과 단계를 대조해 주세요.</p>}
+      {fromSheet && st === "needs-human" && <p className="note">수집 시트에서 가져온 <b>시드 점수</b>예요. 근거 문장이 없으니 <a href={r.meta.url} target="_blank" rel="noreferrer">원문을 열어</a> 점수와 결과 단계를 대조해 주세요.</p>}
       {q.aierror && <p className="note warn">AI 호출이 실패해서 규칙 기반 초안으로 저장했어요. 점수를 꼭 직접 확인해 주세요.</p>}
       {rules && !q.aierror && <p className="note warn">AI 키가 없어서 단서 단어로 매긴 <b>규칙 기반 초안</b>이에요. 정확도가 낮으니 점수를 하나씩 확인해 주세요.</p>}
 
@@ -115,18 +133,18 @@ export default async function ReviewDetail({ params, searchParams }: { params: P
               </label>
             </div>
             <p className="small muted" style={{ margin: 0 }}>
-              {r.human ? `${r.human.reviewer}님이 ${r.human.reviewedAt.slice(0, 10)}에 검수했어요.` : "아직 검수 전이에요."} · 분석: {rules ? "규칙 기반" : fromSheet ? "수집 시트 (시드)" : `${r.ai.model} (입력 ${r.ai.inputTokens} · 출력 ${r.ai.outputTokens} 토큰)`}
+              {r.human ? (r.human.via === "auto" || r.human.via === "ai-judge" ? `${r.human.reviewedAt.slice(0, 10)}에 ${r.human.via === "auto" ? "두 AI 일치" : "AI 판정"}로 자동 검수했어요.` : `${r.human.reviewer}님이 ${r.human.reviewedAt.slice(0, 10)}에 검수했어요.`) : "아직 검수 전이에요."} · 분석: {rules ? "규칙 기반" : fromSheet ? "수집 시트 (시드)" : `${r.ai.model} (입력 ${r.ai.inputTokens} · 출력 ${r.ai.outputTokens} 토큰)`}
             </p>
           </div>
         </section>
 
         <div className="row">
           {mine ? (
-            <span className="small muted">다른 팀원의 검수를 기다리고 있어요.</span>
+            <span className="small muted">{st === "needs-human" ? "다른 팀원의 검수를 기다리고 있어요." : "내가 코딩한 후기라 점수 수정은 다른 팀원이 해요."}</span>
           ) : (
             <>
-              {left > 0 && <button className="btn pri" formAction={verifyAndNextAction}>검수 완료 · 다음 후기 → <span className="small">(남은 {left}건)</span></button>}
-              <SubmitButton pendingText="저장하는 중…">{r.human ? "검수 점수 다시 저장" : "검수 완료로 저장"}</SubmitButton>
+              {left > 0 && st === "needs-human" && <button className="btn pri" formAction={verifyAndNextAction}>저장 · 다음 확인할 후기 → <span className="small">(남은 {left}건)</span></button>}
+              <SubmitButton pendingText="저장하는 중…">{r.human?.via && r.human.via !== "bulk" ? "사람 검수로 고쳐 저장" : r.human ? "검수 점수 다시 저장" : "검수 완료로 저장"}</SubmitButton>
             </>
           )}
           <Link className="btn" href="/reviews">목록으로</Link>

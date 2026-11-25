@@ -6,6 +6,8 @@ import * as sheet from "./sheet";
 import { cookies } from "next/headers";
 import { redirect } from "next/navigation";
 import { revalidatePath } from "next/cache";
+import { after } from "next/server";
+import { autoReview } from "./autoreview";
 import { mkdir, readFile, writeFile } from "node:fs/promises";
 import { join } from "node:path";
 import { tmpdir } from "node:os";
@@ -720,6 +722,8 @@ async function codeStory(c: contribution.Contribution, userId: string): Promise<
     pendingApproval: true,
   };
   await repo.saveCodedReview(r);
+  // 공유 글은 바로 자동 검수한다 (응답을 보낸 뒤 돌아서 사용자를 기다리게 하지 않는다)
+  after(() => autoReview(r.id, c.story).then(() => undefined, (e) => console.error("[auto] 공유 후기 자동 검수 실패", e)));
   return r.id;
 }
 
@@ -847,6 +851,8 @@ export async function codeReviewAction(formData: FormData) {
   const now = new Date().toISOString();
   const r: trends.CodedReview = { id: newId("rv"), meta, ai: { ...coded, codedAt: now }, codebook: trends.CODEBOOK_VERSION, status: "AI 초안", createdBy: user.id, createdAt: now };
   await repo.saveCodedReview(r);
+  // 붙여넣은 본문으로 바로 자동 검수 (다른 AI가 다시 채점 → 같으면 완료, 다르면 AI 판정). 본문은 저장하지 않는다
+  if (!failed) after(() => autoReview(r.id, text).then(() => undefined, (e) => console.error("[auto] 새 후기 자동 검수 실패", e)));
   revalidatePath("/reviews");
   revalidatePath("/trends");
   redirect(`/reviews/${r.id}${failed ? "?aierror=1" : ""}`);
@@ -901,7 +907,7 @@ export async function verifyReviewAction(formData: FormData) {
   revalidatePath("/reviews");
   revalidatePath("/trends");
   if (formData.get("next")) {
-    const next = trends.nextToVerify(await repo.listCodedReviews(), user.id, r.id);
+    const next = trends.nextToVerify((await repo.listCodedReviews()).filter((x) => trends.autoState(x) === "needs-human"), user.id, r.id);
     redirect(next ? `/reviews/${next.id}?saved=1` : "/reviews?alldone=1");
   }
   redirect(`/reviews/${r.id}?saved=1`);
@@ -1076,30 +1082,3 @@ export async function activateSheetAction(formData: FormData) {
   redirect("/admin/sheet?restored=1");
 }
 
-/**
- * 고른 후기를 한꺼번에 검수 완료 (관리자).
- * 사람이 목록에서 AI 교차 검수 결과를 보고 고른 것만 처리한다. 점수는 지금 점수를 그대로 받아들인다(via: "bulk").
- * 직접 코딩한 후기는 두 사람 원칙에 따라 건너뛴다.
- */
-export async function bulkVerifyAction(formData: FormData) {
-  const user = await requireRole("admin");
-  const ids = formData.getAll("ids").map(String);
-  const now = new Date().toISOString();
-  let n = 0;
-  let skipped = 0;
-  for (const id of ids) {
-    const r = await repo.getCodedReview(id);
-    if (!r || r.status === "검수 완료") continue;
-    if (!trends.canVerify(r, user.id)) {
-      skipped++;
-      continue;
-    }
-    r.human = { scores: { ...r.ai.scores }, reviewer: user.nickname, reviewedAt: now, via: "bulk" };
-    r.status = "검수 완료";
-    await repo.saveCodedReview(r);
-    n++;
-  }
-  revalidatePath("/reviews");
-  revalidatePath("/trends");
-  redirect(`/reviews?bulk=${n}${skipped ? `&skipped=${skipped}` : ""}`);
-}
