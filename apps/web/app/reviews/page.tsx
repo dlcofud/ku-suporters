@@ -12,6 +12,9 @@ import { SubmitButton, PendingNote } from "@/components/Pending";
 const STATUS: Record<string, string> = { done: "검수 완료", todo: "자동 검수 대기", "needs-human": "관리자 확인 필요" };
 const VIA: Record<string, string> = { "": "사람", auto: "두 AI 일치", "ai-judge": "AI 판정", bulk: "일괄" };
 
+/** 8개 코드의 '정확히 같은 점수' 비율 평균 */
+const pct = (rows: trends.AgreementRow[]) => `${Math.round((rows.reduce((s, r) => s + r.exact, 0) / Math.max(rows.length, 1)) * 100)}%`;
+
 const ERR: Record<string, string> = {
   url: "후기 주소(https://…)를 넣어 주세요. 출처 표기에 꼭 필요해요.",
   short: "본문이 너무 짧아요. 후기 본문을 80자 이상 붙여넣어 주세요.",
@@ -31,21 +34,22 @@ export default async function ReviewsPage({ searchParams }: { searchParams: Prom
   const next = trends.nextToVerify(needs, me.id);
   const byVia = (v: string | undefined) => done.filter((r) => (r.human?.via ?? "") === (v ?? "")).length;
   const crossAg = trends.agreementCross(list);
+  const crossN = crossAg[0]?.n ?? 0;
   const ag = trends.agreementByCode(list);
   const n = ag[0]?.n ?? 0;
   const ai = llmStatus();
   return (
     <>
-      <header className="row between" style={{ alignItems: "flex-end" }}>
-        <div className="grid" style={{ gap: 4 }}>
+      <header className="grid" style={{ gap: 4 }}>
+        <div className="row between" style={{ alignItems: "center", gap: 8 }}>
           <span className="eyebrow">팀 도구 · 경향 분석에 들어갈 데이터 만들기</span>
-          <h1>합격 후기 분석</h1>
-          <p className="lede" style={{ margin: 0 }}>후기를 붙여넣으면 AI가 코드북(E1~E8)으로 점수를 매기고, 다른 AI가 다시 채점해 맞춰 봐요. 같으면 바로 검수 완료, 다르면 AI가 원문을 다시 읽고 판정해요. 관리자는 AI가 처리하지 못한 후기만 보면 돼요.</p>
+          <div className="row" style={{ gap: 6, alignItems: "center", marginLeft: "auto" }}>
+            <span className={ai.mode === "demo" ? "tag" : "tag k-post"} title="apps/web/.env.local 의 GEMINI_API_KEY (또는 ANTHROPIC_API_KEY · OLLAMA_URL)">{ai.label}</span>
+            <AiCheck />
+          </div>
         </div>
-        <div className="grid" style={{ gap: 8, justifyItems: "end" }}>
-          <span className={ai.mode === "demo" ? "tag pill" : "tag pill k-post"} title="apps/web/.env.local 의 GEMINI_API_KEY (또는 ANTHROPIC_API_KEY · OLLAMA_URL)">{ai.label}</span>
-          <AiCheck />
-        </div>
+        <h1>합격 후기 분석</h1>
+        <p className="lede" style={{ margin: 0 }}>후기를 붙여넣으면 AI가 코드북(E1~E8)으로 점수를 매기고, 다른 AI가 다시 채점해 맞춰 봐요. 같으면 바로 검수 완료, 다르면 AI가 원문을 다시 읽고 판정해요. 관리자는 AI가 처리하지 못한 후기만 보면 돼요.</p>
       </header>
 
       {imported && <p className="note ok" role="status">시트에서 {imported}건을 검수 대기로 가져왔어요.</p>}
@@ -91,7 +95,11 @@ export default async function ReviewsPage({ searchParams }: { searchParams: Prom
         <div className="card stat"><span className="small muted">분석한 후기</span><span className="num big">{list.length}건</span></div>
         <div className="card stat"><span className="small muted">검수 완료</span><span className="num big">{done.length}건</span></div>
         <div className="card stat"><span className="small muted">관리자 확인 필요</span><span className="num big">{needs.length}건</span></div>
-        <div className="card stat"><span className="small muted">사람-AI 일치 (사람이 고친 후기 기준)</span><span className="num big">{n ? `${Math.round((ag.reduce((s, r) => s + r.exact, 0) / ag.length) * 100)}%` : "-"}</span></div>
+        {n ? (
+          <div className="card stat"><span className="small muted">사람-AI 같은 점수 (사람이 고친 {n}건)</span><span className="num big">{pct(ag)}</span></div>
+        ) : (
+          <div className="card stat"><span className="small muted">두 AI 같은 점수 (교차 검수 {crossN}건)</span><span className="num big">{crossN ? pct(crossAg) : "-"}</span></div>
+        )}
       </section>
 
       <section className="grid g2" style={{ alignItems: "start" }}>
@@ -123,44 +131,36 @@ export default async function ReviewsPage({ searchParams }: { searchParams: Prom
 
         <div className="card">
           <div className="row between">
-            <h2>코드별 사람-AI 일치도</h2>
-            <span className="small muted">검수 완료 {n}건 기준</span>
+            <h2>코드별 일치도</h2>
+            <span className="small muted">{n ? `사람이 고친 ${n}건 · ` : ""}교차 검수 {crossN}건</span>
           </div>
+          <p className="small muted" style={{ margin: 0 }}>
+            같은 후기를 둘이 따로 채점했을 때 코드마다 얼마나 같은 점수가 나왔는지예요. κ(카파)는 우연히 맞을 확률을 뺀 값이라, 0.6 이상이면 믿을 만하고 0.4 이하면 그 코드는 기준이 흔들린다는 뜻이에요.
+          </p>
           <table>
-            <thead><tr><th>코드</th><th style={{ textAlign: "right" }}>같은 점수</th><th style={{ textAlign: "right" }}>Cohen&apos;s κ</th><th>해석</th></tr></thead>
+            <thead>
+              <tr><th>코드</th><th style={{ textAlign: "right" }}>두 AI</th>{n > 0 && <th style={{ textAlign: "right" }}>사람-AI</th>}<th>해석</th></tr>
+            </thead>
             <tbody>
-              {ag.map((r) => (
-                <tr key={r.code}>
-                  <td>{r.code} {skeleton.RUBRIC[r.code]}</td>
-                  <td className="num" style={{ textAlign: "right" }}>{n ? `${Math.round(r.exact * 100)}%` : "-"}</td>
-                  <td className="num" style={{ textAlign: "right" }}>{r.kappa === undefined ? "-" : r.kappa.toFixed(2)}</td>
-                  <td className={r.kappa !== undefined && r.kappa <= 0.4 ? "red" : undefined} style={{ fontWeight: 700 }}>{r.label}</td>
-                </tr>
-              ))}
+              {crossAg.map((x, i) => {
+                const h = ag[i]!;
+                const main = n ? h : x;
+                return (
+                  <tr key={x.code}>
+                    <td>{x.code} {skeleton.RUBRIC[x.code]}</td>
+                    <td className="num" style={{ textAlign: "right" }} title={x.kappa === undefined ? undefined : `κ ${x.kappa.toFixed(2)}`}>{crossN ? `${Math.round(x.exact * 100)}%` : "-"}</td>
+                    {n > 0 && <td className="num" style={{ textAlign: "right" }} title={h.kappa === undefined ? undefined : `κ ${h.kappa.toFixed(2)}`}>{Math.round(h.exact * 100)}%</td>}
+                    <td className={main.kappa !== undefined && main.kappa <= 0.4 ? "red" : undefined} style={{ fontWeight: 700 }}>{main.label}{main.kappa !== undefined ? ` (κ ${main.kappa.toFixed(2)})` : ""}</td>
+                  </tr>
+                );
+              })}
             </tbody>
           </table>
-          <p className="small muted" style={{ margin: 0 }}>κ가 0.4 이하인 코드는 AI와 사람이 기준을 다르게 읽고 있다는 뜻이에요. 코드북 설명을 고치거나 그 코드는 사람이 직접 매겨 주세요. 규칙 기반 초안과 AI가 자동으로 확정한 후기는 계산에서 빼요. 사람이 직접 고친 후기만 세요.</p>
-          {crossAg[0]!.n > 0 && (
-            <>
-              <div className="row between" style={{ marginTop: 8 }}>
-                <h3 style={{ margin: 0 }}>기존 점수 ↔ AI 교차 검수</h3>
-                <span className="small muted">{crossAg[0]!.n}건 기준</span>
-              </div>
-              <table>
-                <tbody>
-                  {crossAg.map((r) => (
-                    <tr key={r.code}>
-                      <td>{r.code} {skeleton.RUBRIC[r.code]}</td>
-                      <td className="num" style={{ textAlign: "right" }}>{Math.round(r.exact * 100)}%</td>
-                      <td className="num" style={{ textAlign: "right" }}>{r.kappa === undefined ? "-" : r.kappa.toFixed(2)}</td>
-                      <td className={r.kappa !== undefined && r.kappa <= 0.4 ? "red" : undefined} style={{ fontWeight: 700 }}>{r.label}</td>
-                    </tr>
-                  ))}
-                </tbody>
-              </table>
-              <p className="small muted" style={{ margin: 0 }}>두 AI(시트 시드와 교차 검수)가 같은 코드를 얼마나 같게 읽는지예요. 다른 코드는 AI 판정이 정해요. 이 값이 낮은 코드는 코드북 설명을 다듬을 후보예요.</p>
-            </>
-          )}
+          <p className="small muted" style={{ margin: 0 }}>
+            <b>두 AI</b>: 기존 점수(시트·AI 초안)와 교차 검수 AI가 같은 점수를 준 비율. 다른 코드는 AI 판정이 정해요.
+            {n > 0 ? " " : " "}<b>사람-AI</b>: 관리자가 결과를 열어 직접 고쳐 저장한 후기에서, AI 점수가 사람 점수와 같았던 비율. {n ? "해석은 사람-AI 기준이에요." : "아직 사람이 고친 후기가 없어서 비어 있어요. 몇 건을 열어 확인·저장하면 AI를 얼마나 믿어도 되는지 보여요."}
+            {" "}낮은 코드는 코드북 설명을 다듬을 후보예요.
+          </p>
         </div>
       </section>
 
