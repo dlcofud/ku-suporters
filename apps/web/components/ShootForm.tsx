@@ -152,9 +152,9 @@ export function ShootForm(props: {
             <code className="ex-link">instagram.com/reel/Cx…</code>
             <span className="small muted">이 릴스를 보며 장면이 바뀔 때마다 캡처 →</span>
             <div className="ex-phones">
-              <figure><div className="ex-phone p1"><i>손 클로즈업</i></div><figcaption>1 첫 장면<br />손이 이어폰을 집음</figcaption></figure>
-              <figure><div className="ex-phone p2"><i className="cap">집중 모드 ON</i></div><figcaption>2 자막 화면<br />가운데 큰 글씨</figcaption></figure>
-              <figure><div className="ex-phone p3"><i>책상 전체</i></div><figcaption>3 마지막<br />넓게 보여 줌</figcaption></figure>
+              <figure><div className="ex-phone p1" role="img" aria-label="손이 이어폰을 집는 클로즈업 예시"><i>손 클로즈업</i></div><figcaption>1 첫 장면<br />손이 이어폰을 집음</figcaption></figure>
+              <figure><div className="ex-phone p2" role="img" aria-label="이어폰을 낀 뒷모습 위에 큰 자막 예시"><i className="cap">집중 모드 ON</i></div><figcaption>2 자막 화면<br />가운데 큰 글씨</figcaption></figure>
+              <figure><div className="ex-phone p3" role="img" aria-label="책상 전체를 넓게 보여 주는 예시"><i>책상 전체</i></div><figcaption>3 마지막<br />넓게 보여 줌</figcaption></figure>
             </div>
             <span className="small muted">→ &ldquo;1~2초마다 컷, 손 클로즈업으로 시작, 가운데 큰 자막&rdquo;을 읽어요</span>
           </aside>
@@ -182,9 +182,9 @@ export function ShootForm(props: {
             <b className="ex-h">예시</b>
             <span className="small">핀터레스트에서 <b>&ldquo;study desk aesthetic&rdquo;</b>, <b>&ldquo;베이지 책상&rdquo;</b>으로 찾은 사진 2~3장</span>
             <div className="ex-moods">
-              <span className="ex-mood m1">창가 햇빛</span>
-              <span className="ex-mood m2">베이지 책상</span>
-              <span className="ex-mood m3">어두운 밤 스탠드</span>
+              <span className="ex-mood m1" role="img" aria-label="창가 햇빛 분위기 예시"><span>창가 햇빛</span></span>
+              <span className="ex-mood m2" role="img" aria-label="베이지 책상 분위기 예시"><span>베이지 책상</span></span>
+              <span className="ex-mood m3" role="img" aria-label="어두운 밤 스탠드 조명 분위기 예시"><span>밤 스탠드</span></span>
             </div>
             <span className="small muted">→ 색감 칩 <i className="swatch" style={{ background: "#efe6d8" }} /> <i className="swatch" style={{ background: "#b9a48c" }} /> <i className="swatch" style={{ background: "#2f3a45" }} />과 &ldquo;창가 자연광, 따뜻한 톤&rdquo;으로 장면마다 빛을 알려 줘요</span>
           </aside>
@@ -220,7 +220,12 @@ export function ShootForm(props: {
             <dl className="ex-dl">
               <dt>제품·주제</dt><dd>무선 이어폰</dd>
               <dt>설명</dt><dd>{SUBJECT_EX}</dd>
-              <dt>사진</dt><dd>내 책상 위 이어폰 케이스, 도서관 창가 자리</dd>
+              <dt>사진</dt><dd>내 책상 위 이어폰 케이스, 도서관 창가 자리
+                <div className="ex-shots">
+                  <figure><img src="/examples/subject-1.webp" alt="책상 위 이어폰 케이스 예시" loading="lazy" /><figcaption>이어폰 케이스</figcaption></figure>
+                  <figure><img src="/examples/subject-2.webp" alt="도서관 창가 자리 예시" loading="lazy" /><figcaption>도서관 창가</figcaption></figure>
+                </div>
+              </dd>
               <dt>내 경험</dt><dd>{IDEA_EX}</dd>
             </dl>
             <span className="small muted">→ &ldquo;휴대폰을 책상 위 45도에 고정하고, 손이 오른쪽에서 들어와 케이스를 열어요&rdquo;처럼 찍는 법을 알려 줘요</span>

@@ -1,7 +1,14 @@
 /** 릴리즈 노트. 새 기능을 합칠 때 맨 위에 한 줄씩 추가해 주세요. */
-export const APP_VERSION = "0.25.1";
+export const APP_VERSION = "0.25.2";
 
 export const RELEASES: { version: string; date: string; items: string[] }[] = [
+  {
+    version: "0.25.2",
+    date: "2026-11-25",
+    items: [
+      "콘텐츠 만들기 예시에 장면 그림을 넣었어요: 참고 릴스 3컷(손 클로즈업 · 자막 화면 · 책상 전체), 분위기 사진 3장, 찍을 대상 사진 2장",
+    ],
+  },
   {
     version: "0.25.1",
     date: "2026-11-25",
