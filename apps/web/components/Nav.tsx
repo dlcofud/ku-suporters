@@ -33,9 +33,8 @@ const MORE_PATHS = ["/credits", "/settings", "/releases", "/contribute", "/notic
 
 /** 관리자만 */
 const ADMIN: [string, string][] = [
-  ["/reviews", "후기 검수"],
-  ["/admin", "공유 승인"],
-  ["/admin/sheet", "후기 시트 (엑셀)"],
+  ["/reviews", "검수"],
+  ["/upload", "업로드"],
 ];
 
 /** roles: 서버에서 정한 권한. 메뉴만 숨기는 것이고, 실제 막는 건 각 페이지·액션의 requireRole.
@@ -43,7 +42,7 @@ const ADMIN: [string, string][] = [
 export function Nav({ roles = [], children }: { roles?: ("admin" | "team")[]; children?: ReactNode }) {
   const path = usePathname();
   const all = [...SNS.map(([h]) => h), TRENDS[0], ...ADMIN.map(([h]) => h)];
-  // 더 긴 메뉴 주소가 맞으면 그쪽만 켠다 (/admin 과 /admin/sheet)
+  // 더 긴 메뉴 주소가 맞으면 그쪽만 켠다 (/reviews 와 /reviews/…)
   const isOn = (href: string) => (href === "/" ? path === "/" : path.startsWith(href) && !all.some((h) => h.length > href.length && h.startsWith(href) && path.startsWith(h)));
   const big = ([href, label, icon]: [string, string, ReactNode]) => (
     <Link key={href} href={href} className={isOn(href) ? "nav on" : "nav"} aria-current={isOn(href) ? "page" : undefined}>

@@ -29,7 +29,7 @@ export default async function ReviewDetail({ params, searchParams }: { params: P
   return (
     <>
       <header className="grid" style={{ gap: 4 }}>
-        <span className="eyebrow"><Link href="/reviews">합격 후기 분석</Link> · {r.status}</span>
+        <span className="eyebrow"><Link href="/reviews">검수</Link> · {r.status}</span>
         <h1>{c.org !== "확인 필요" ? `${c.org} ${c.activity !== "확인 필요" ? c.activity : ""}` : r.meta.title || "활동 정보 확인 필요"}</h1>
         {web ? (
           <p className="small muted" style={{ margin: 0 }}>출처: <a href={r.meta.url} target="_blank" rel="noreferrer">{r.meta.sourceName}{r.meta.title ? ` 「${r.meta.title}」` : ""}</a> · <a className="btn small-btn" href={r.meta.url} target="_blank" rel="noreferrer">원문 열기 ↗</a></p>
