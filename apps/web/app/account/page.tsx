@@ -14,7 +14,7 @@ export default async function AccountPage({ searchParams }: { searchParams: Prom
   return (
     <>
       <header className="grid" style={{ gap: 4 }}>
-        <span className="eyebrow">{act.name} · SNS 관리</span>
+        <span className="eyebrow">{act.name} · SNS</span>
         <h1>계정 관리</h1>
       </header>
       <SnsTabs on="account" />

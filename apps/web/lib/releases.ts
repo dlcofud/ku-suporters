@@ -1,7 +1,16 @@
 /** 릴리즈 노트. 새 기능을 합칠 때 맨 위에 한 줄씩 추가해 주세요. */
-export const APP_VERSION = "0.23.0";
+export const APP_VERSION = "0.23.1";
 
 export const RELEASES: { version: string; date: string; items: string[] }[] = [
+  {
+    version: "0.23.1",
+    date: "2026-11-25",
+    items: [
+      "메뉴를 주요 4개(홈 · 지원서 · 콘텐츠 · SNS)와 더보기로 나눴어요. 휴대폰 아래 탭도 같은 5칸이에요",
+      "더보기에는 공고 요약 · 업로드 일정 · 합격 경향 · 내 서포터즈 · 크레딧 · 계정이 있어요",
+      "지원서 화면 위에 '공고 다시 보기' 링크를 넣었어요",
+    ],
+  },
   {
     version: "0.23.0",
     date: "2026-11-24",

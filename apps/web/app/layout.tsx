@@ -51,14 +51,13 @@ export default async function RootLayout({ children }: { children: ReactNode }) 
             </Link>
 
             {user && (
-              <Link href="/notice" className="btn newact">
-                <span aria-hidden="true" style={{ fontSize: 18, lineHeight: 1 }}>+</span> 새 서포터즈 추가
-              </Link>
+              <Nav hasActivity={!!cur} roles={rolesOf(user)}>
+                <SideActs acts={sideActs} currentId={cur?.id} />
+                <Link href="/notice" className="btn newact">
+                  <span aria-hidden="true" style={{ fontSize: 18, lineHeight: 1 }}>+</span> 새 서포터즈 추가
+                </Link>
+              </Nav>
             )}
-
-            {user && <SideActs acts={sideActs} currentId={cur?.id} />}
-
-            {user && <Nav hasActivity={!!cur} roles={rolesOf(user)} />}
 
             {user && bal && (
               <div className="sidefoot">
