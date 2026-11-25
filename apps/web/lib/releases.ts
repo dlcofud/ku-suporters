@@ -1,7 +1,16 @@
 /** 릴리즈 노트. 새 기능을 합칠 때 맨 위에 한 줄씩 추가해 주세요. */
-export const APP_VERSION = "0.25.0";
+export const APP_VERSION = "0.25.1";
 
 export const RELEASES: { version: string; date: string; items: string[] }[] = [
+  {
+    version: "0.25.1",
+    date: "2026-11-25",
+    items: [
+      "관리자 메뉴를 '검수'와 '업로드' 두 개로 줄였어요",
+      "검수: AI가 처리하지 못한 후기와 사용자가 공유한 합격 경험 승인을 한 화면에서 봐요",
+      "업로드: 후기 하나 붙여넣기와 엑셀 시트 올리기·받기·버전 되돌리기를 한 화면에 모았어요",
+    ],
+  },
   {
     version: "0.25.0",
     date: "2026-11-25",

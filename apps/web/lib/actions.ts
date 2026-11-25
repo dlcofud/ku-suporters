@@ -742,9 +742,9 @@ export async function withdrawAction(formData: FormData) {
 async function review(formData: FormData, decision: "approve" | "reject") {
   const reviewer = await requireRole("admin");
   let c = await repo.getContribution(String(formData.get("id") || ""));
-  if (!c) redirect("/admin");
+  if (!c) redirect("/reviews#shared");
   // 자기 공유는 자기가 검수하지 않는다 (크레딧을 스스로 주지 못하게)
-  if (c.userId === reviewer.id) redirect("/admin?error=" + encodeURIComponent("내가 올린 공유는 다른 관리자가 검수해야 해요."));
+  if (c.userId === reviewer.id) redirect("/reviews?shareError=" + encodeURIComponent("내가 올린 공유는 다른 관리자가 승인해야 해요.") + "#shared");
   const at = new Date().toISOString();
   if (c.status === "submitted") c = contribution.startReview(c, reviewer.id, at);
   const checks = Object.fromEntries(Object.keys(contribution.REVIEW_CHECKS).map((k) => [k, formData.get(`chk_${k}`) === "on"]));
@@ -756,7 +756,7 @@ async function review(formData: FormData, decision: "approve" | "reject") {
     error = (e as Error).message;
   }
   await repo.saveContribution(c);
-  if (error) redirect("/admin?error=" + encodeURIComponent(error));
+  if (error) redirect("/reviews?shareError=" + encodeURIComponent(error) + "#shared");
   if (proofRef) await files.remove(proofRef); // 검수가 끝나면 증빙 이미지는 삭제
   // 후기 코딩 결과: 승인하면 경향에 넣고(증빙을 확인했으면 결과도 확정), 반려하면 지운다
   if (c.storyReviewId) {
@@ -773,7 +773,7 @@ async function review(formData: FormData, decision: "approve" | "reject") {
     revalidatePath("/reviews");
   }
   revalidatePath("/", "layout");
-  redirect("/admin");
+  redirect("/reviews#shared");
 }
 
 /** 승인·반려 버튼을 각각의 액션으로 연결 (폼 제출 버튼 값은 서버 액션에 전달되지 않는다) */
@@ -824,8 +824,8 @@ export async function codeReviewAction(formData: FormData) {
   const user = await requireRole("admin");
   const url = String(formData.get("url") || "").trim();
   const text = String(formData.get("text") || "");
-  if (!/^https?:\/\//.test(url)) redirect("/reviews?error=url");
-  if (text.trim().length < 80) redirect("/reviews?error=short");
+  if (!/^https?:\/\//.test(url)) redirect("/upload?reviewError=url");
+  if (text.trim().length < 80) redirect("/upload?reviewError=short");
   const dup = (await repo.listCodedReviews()).find((r) => r.meta.url === url);
   if (dup) redirect(`/reviews/${dup.id}?dup=1`);
   const result = String(formData.get("result") || "");
@@ -1032,44 +1032,44 @@ export async function removeMediaAction(formData: FormData) {
 export async function uploadSheetAction(formData: FormData) {
   const user = await requireRole("admin");
   const f = formData.get("sheet");
-  if (!(f instanceof File) || f.size === 0) redirect("/admin/sheet?error=" + encodeURIComponent("파일을 골라 주세요"));
-  if (f.size > 10 * 1024 * 1024) redirect("/admin/sheet?error=" + encodeURIComponent("파일이 너무 커요 (10MB까지)"));
+  if (!(f instanceof File) || f.size === 0) redirect("/upload?error=" + encodeURIComponent("파일을 골라 주세요"));
+  if (f.size > 10 * 1024 * 1024) redirect("/upload?error=" + encodeURIComponent("파일이 너무 커요 (10MB까지)"));
   const buf = Buffer.from(await f.arrayBuffer());
   let table: trends.SheetTable;
   try {
     table = /\.csv$/i.test(f.name) ? trends.csvToTable(buf.toString("utf8")) : await sheet.xlsxToTable(buf);
   } catch (e) {
     console.error("[sheet] 읽기 실패", e);
-    redirect("/admin/sheet?error=" + encodeURIComponent("파일을 열지 못했어요. 엑셀(.xlsx)이나 CSV UTF-8로 저장한 파일인지 확인해 주세요."));
+    redirect("/upload?error=" + encodeURIComponent("파일을 열지 못했어요. 엑셀(.xlsx)이나 CSV UTF-8로 저장한 파일인지 확인해 주세요."));
   }
   await sheet.savePending(user.id, trends.tableToCsv(table));
-  redirect("/admin/sheet?preview=1&name=" + encodeURIComponent(f.name));
+  redirect("/upload?preview=1&name=" + encodeURIComponent(f.name));
 }
 
 /** 미리보기한 시트를 새 버전으로 적용 */
 export async function applySheetAction(formData: FormData) {
   const user = await requireRole("admin");
   const pending = await sheet.readPending(user.id);
-  if (!pending) redirect("/admin/sheet?error=" + encodeURIComponent("미리보기할 파일이 없어요. 다시 올려 주세요."));
+  if (!pending) redirect("/upload?error=" + encodeURIComponent("미리보기할 파일이 없어요. 다시 올려 주세요."));
   const check = trends.checkSheet(trends.csvToTable(pending));
-  if (check.errors.length) redirect("/admin/sheet?preview=1");
+  if (check.errors.length) redirect("/upload?preview=1");
   const diff = trends.diffSheets(trends.csvToTable((await sheet.activeCsv()).csv), check);
   const before = diff.removed.length + diff.changed.length + diff.unchanged;
   if (before && diff.removed.length / before > trends.BIG_REMOVAL && !formData.get("confirmRemoval")) {
-    redirect("/admin/sheet?preview=1&needConfirm=1");
+    redirect("/upload?preview=1&needConfirm=1");
   }
   const note = String(formData.get("note") || "").trim().slice(0, 100) || `추가 ${diff.added.length} · 변경 ${diff.changed.length} · 삭제 ${diff.removed.length}`;
   await sheet.publishSheet(trends.tableToCsv(check), user.nickname, note);
   await sheet.savePending(user.id, "");
   revalidatePath("/trends");
   revalidatePath("/reviews");
-  redirect("/admin/sheet?applied=1");
+  redirect("/upload?applied=1");
 }
 
 export async function discardSheetAction() {
   const user = await requireRole("admin");
   await sheet.savePending(user.id, "");
-  redirect("/admin/sheet");
+  redirect("/upload");
 }
 
 /** 예전 버전 또는 저장소 기본(data/curated.csv)으로 되돌리기 */
@@ -1079,6 +1079,6 @@ export async function activateSheetAction(formData: FormData) {
   await sheet.activate(key === "repo" ? null : key);
   revalidatePath("/trends");
   revalidatePath("/reviews");
-  redirect("/admin/sheet?restored=1");
+  redirect("/upload?restored=1");
 }
 

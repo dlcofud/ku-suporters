@@ -49,7 +49,7 @@ export default async function TrendsPage({ searchParams }: { searchParams: Promi
         <div className="grid" style={{ gap: 4 }}>
           <span className="eyebrow">합격 후기 {report.sampleSize}건 기준{field ? ` · ${field}` : ""}</span>
           <h1>합격 경향</h1>
-          <p className="lede" style={{ margin: 0 }}>{insights[0]?.title ?? "아직 후기가 없어요. 후기 분석에서 후기를 더해 주세요."}</p>
+          <p className="lede" style={{ margin: 0 }}>{insights[0]?.title ?? "아직 후기가 없어요. 관리자 업로드에서 후기를 더해 주세요."}</p>
         </div>
         <form className="row filterbar" method="get" aria-label="후기 거르기">
           <label className="inline">분야
@@ -215,7 +215,7 @@ export default async function TrendsPage({ searchParams }: { searchParams: Promi
         </section>
       )}
 
-      <div className="note small">원문은 저장하지 않고 출처·요약·점수만 써요. 팀원은 <Link href="/reviews">후기 분석</Link>에서 새 후기를 AI로 코딩하고 검수할 수 있어요.</div>
+      <div className="note small">원문은 저장하지 않고 출처·요약·점수만 써요. 관리자는 <Link href="/upload">업로드</Link>에서 후기를 넣고, AI가 자동 검수해요.</div>
       <details className="card">
         <summary><b>출처 {report.citations.length}건 보기</b></summary>
         <ul className="clean small">{report.citations.map((c, i) => <li key={i}>{c}</li>)}</ul>
