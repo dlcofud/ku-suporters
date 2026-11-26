@@ -22,8 +22,7 @@
     "./notice/html": "./src/notice/html.ts",
     "./auth": "./src/auth/index.ts",
     "./auth/node": "./src/auth/node.ts",
-    "./apply/node": "./src/apply/node.ts",
-    "./account/variant": "./src/account/variant.ts"
+    "./apply/node": "./src/apply/node.ts"
   },
   "scripts": {
     "test": "vitest run",

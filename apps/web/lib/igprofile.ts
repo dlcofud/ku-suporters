@@ -23,7 +23,12 @@ export async function fetchIgProfile(user: User): Promise<(account.AccountProfil
   for (const fields of [FULL, BASE]) {
     try {
       const r = await fetch(`${graphHost(accessToken)}/${node}?fields=${fields}&access_token=${encodeURIComponent(accessToken)}`, { cache: "no-store", signal: AbortSignal.timeout(6000) });
-      if (!r.ok) continue;
+      if (!r.ok) {
+        // 왜 못 읽었는지 Vercel 로그에 남긴다 (토큰은 남기지 않는다)
+        const err = (await r.json().catch(() => ({}))) as { error?: { message?: string; code?: number; error_subcode?: number } };
+        console.error("[ig] 프로필 읽기 실패", { status: r.status, fields: fields === FULL ? "full" : "base", login: loginOf(accessToken), code: err.error?.code, subcode: err.error?.error_subcode, message: err.error?.message });
+        continue;
+      }
       const j = (await r.json()) as { username?: string; name?: string; biography?: string; website?: string; profile_picture_url?: string; followers_count?: number; media_count?: number };
       return {
         username: j.username ?? user.ig.username,
@@ -37,8 +42,8 @@ export async function fetchIgProfile(user: User): Promise<(account.AccountProfil
         source: "instagram",
         at: todayISO(),
       };
-    } catch {
-      /* 다음 필드 묶음으로 */
+    } catch (e) {
+      console.error("[ig] 프로필 읽기 오류", e instanceof Error ? e.message : e);
     }
   }
   return undefined;

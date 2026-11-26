@@ -1,9 +1,8 @@
 /**
  * 계정 실험실 — 대화하며 계정 방향을 끓여 내는 곳.
  *
- * 사용자가 재료(방향 · 보여 줄 한 사람 · 전하고 싶은 것 · 특기 · 독창성 · 참고)를 하나씩 솥에 넣으면
- * 생명체(나무 정령)가 한 단계씩 자라고, '끓이기'를 하면 AI가 계정 정체성 · 이름 칸 · 소개글 · 콘텐츠 기둥 ·
- * 2주 성장 방향을 만든다. 그 뒤에는 대화로 계속 고친다.
+ * 질문에 하나씩 답하면 답에서 중요한 단어만 뽑아 모으고(extractKeywords),
+ * 마지막에 그 단어들을 계정 정체성을 대표하는 '한 단어'로 모은다. 그 단어로 소개글 · 이름 칸 · 콘텐츠 방향을 만든다.
  *
  * 만드는 원칙 (2026년 계정 성장 글들에서 공통으로 나온 것):
  *  - 위치부터: 주제 하나, 보여 줄 '딱 한 사람'을 정하면 프로필과 글이 같이 선명해진다.
@@ -99,6 +98,8 @@ export const LAB_QUESTIONS: LabQuestion[] = [
 export interface LabIngredient {
   slot: LabSlot;
   text: string;
+  /** 답에서 뽑은 중요한 단어 (최대 4개) */
+  words?: string[];
   /** 참고 이미지를 AI가 읽고 적은 메모 (이미지는 저장하지 않는다) */
   imageNote?: string;
   at: string;
@@ -125,8 +126,10 @@ export interface LabPillar {
 }
 
 export interface LabBrew {
-  /** 생명체 이름 (계정 컨셉을 담은 짧은 이름) */
-  creature: string;
+  /** 계정 정체성을 대표하는 한 단어 */
+  word: string;
+  /** (예전 결과) 생명체 이름 */
+  creature?: string;
   /** 계정 정체성 한 줄 */
   identity: string;
   names: string[];
@@ -143,8 +146,6 @@ export interface LabBrew {
 }
 
 export interface LabState {
-  /** 이번 회차의 생명체를 정하는 수 (종류 · 색). 처음부터 다시 · 다시 실험하면 바뀐다 */
-  seed?: number;
   ingredients: LabIngredient[];
   chat: LabChat[];
   brew?: LabBrew;
@@ -163,9 +164,42 @@ export interface LabContext {
   blogConnected?: boolean;
 }
 
-export const emptyLab = (seed?: number): LabState => ({ seed, ingredients: [], chat: [] });
+export const emptyLab = (): LabState => ({ ingredients: [], chat: [] });
 
-export { LAB_SPECIES, LAB_HUES, variantOf, stageName, type LabSpecies } from "./variant.js";
+// ---- 답에서 중요한 단어 뽑기 (AI 없이, 바로) ----
+const JOSA = ["으로부터", "에게서", "이라고", "이라는", "으로", "에서", "에게", "까지", "부터", "처럼", "보다", "이랑", "라고", "라는", "이나", "인데", "이고", "이며", "이에요", "예요", "입니다", "이요", "을", "를", "은", "는", "이", "가", "의", "에", "와", "과", "로", "도", "만", "랑", "요"];
+const STOP = new Set(["그리고", "정말", "너무", "아직", "그냥", "저는", "제가", "나는", "내가", "저의", "나의", "이런", "그런", "어떤", "모든", "계정", "인스타", "같은", "많이", "진짜", "조금", "그것", "이것", "우리", "사람", "생각", "느낌", "때문", "정도", "하나", "모르겠어요", "없어요", "있어요", "싶어요", "좋아요", "해요", "합니다", "있는", "없는", "하는", "고르", "만들", "만드", "알려", "보여", "들어", "나누", "올리"]);
+/** 동사 · 형용사로 끝나는 말 (명사만 남기려고 뺀다) */
+const VERB_END = /(다|요|고|서|며|게|지|면|니다|는|던|할|한|된|될|해|했|하|운|은|인|할게|싶|었|았|겠|려|러|도록|을|싼|끼|르는|없이|같이|겠어|어요|해서)$/;
+/** '찍어' · '해봐'처럼 두 글자 활용형 */
+const SHORT_VERB = /^.(어|아|워|봐|줘)$/;
+
+/** 답에서 중요한 단어를 최대 4개 뽑는다: 조사를 떼고, 동사 · 흔한 말을 빼고, 2글자 이상 명사만 */
+export function extractKeywords(text: string, max = 4): string[] {
+  const out: string[] = [];
+  for (const raw of text.split(/[\s,.!?·|/()\[\]{}"'“”‘’~…:;+\-–—→>]+/)) {
+    let w = raw.trim();
+    if (!w) continue;
+    if (w.startsWith("@")) {
+      if (w.length > 1) out.push(w);
+      continue;
+    }
+    if (/^[a-zA-Z0-9_]+$/.test(w)) {
+      if (w.length >= 2 && !/^\d+$/.test(w)) out.push(w);
+      continue;
+    }
+    for (const j of JOSA) {
+      if (w.length > j.length + 1 && w.endsWith(j)) {
+        w = w.slice(0, -j.length);
+        break;
+      }
+    }
+    if (w.length < 2 || STOP.has(w) || VERB_END.test(w) || SHORT_VERB.test(w)) continue;
+    out.push(w);
+  }
+  return [...new Set(out)].slice(0, max);
+}
+
 
 export const questionFor = (slot: LabSlot) => LAB_QUESTIONS.find((q) => q.slot === slot)!;
 
@@ -182,12 +216,6 @@ export function canBrew(lab: LabState): boolean {
 }
 
 
-/** 생명체가 자란 단계 0~6: 재료 하나에 한 단계(최대 5), 끓이면 6 */
-export function stageOf(lab: LabState): number {
-  const n = new Set(lab.ingredients.map((i) => i.slot)).size;
-  return lab.brew ? 6 : Math.min(n, 5);
-}
-
 /** 재료를 넣는다. 같은 칸이면 바꾼다 */
 export function addIngredient(lab: LabState, ing: Omit<LabIngredient, "at">, at: string): LabState {
   const text = ing.text.trim().slice(0, 300);
@@ -195,7 +223,7 @@ export function addIngredient(lab: LabState, ing: Omit<LabIngredient, "at">, at:
   const q = questionFor(ing.slot);
   return {
     ...lab,
-    ingredients: [...rest, { ...ing, text, at }],
+    ingredients: [...rest, { ...ing, text, words: ing.words ?? extractKeywords(text), at }],
     chat: [...lab.chat, { role: "lab" as const, text: q.ask, at }, { role: "me" as const, text: text + (ing.imageNote ? " (참고 이미지 1장)" : ""), at }].slice(-60),
   };
 }
@@ -215,7 +243,7 @@ const SLOT_LABEL: Record<LabSlot, string> = {
 
 function ingredientsText(lab: LabState): string {
   return lab.ingredients
-    .map((i) => `- ${SLOT_LABEL[i.slot]}: ${i.text}${i.imageNote ? ` / 참고 이미지 메모: ${i.imageNote}` : ""}`)
+    .map((i) => `- ${SLOT_LABEL[i.slot]}: ${i.text}${i.words?.length ? ` (중요 단어: ${i.words.join(", ")})` : ""}${i.imageNote ? ` / 참고 이미지 메모: ${i.imageNote}` : ""}`)
     .join("\n");
 }
 
@@ -258,7 +286,7 @@ const pillarItem = {
   additionalProperties: false,
 };
 const BREW_PROPS = {
-  creature: { type: "string" },
+  word: { type: "string" },
   identity: { type: "string" },
   names: { type: "array", items: { type: "string" } },
   bios: { type: "array", items: bioItem },
@@ -276,7 +304,7 @@ const CHAT_SCHEMA = {
 };
 
 const OUTPUT_RULES = `출력 칸
-- creature: 계정 컨셉을 담은 생명체 이름 (한글 2~5자, 귀엽게. 예: 자취몬, 리뷰새싹)
+- word: 계정 정체성을 대표하는 '한 단어' (한글 2~6자, 띄어쓰기 없이). 사용자가 낸 단어들에서 고르거나 둘을 합친 말. 기억에 남고 검색될 만한 말 (예: 자취요리, 새내기꿀팁, 손글씨기록)
 - identity: 계정 정체성 한 문장 (명사형으로 끝, "OO에게 OO 알려 주는 계정" 꼴, 40자 안팎)
 - names: 인스타 '이름 칸' 후보 3개 (각 30자 이하, 이름 + 검색 키워드. 예: "채령 | 자취 요리 기록")
 - bios: 소개글 3개, 서로 다른 컨셉 (각 ${BIO_MAX}자 이하, 줄바꿈 \\n 으로 2~4줄, 마지막 줄은 다음 행동 안내). why는 이 문구가 왜 통하는지 한 줄
@@ -297,7 +325,7 @@ function sanitizeBrew(raw: Partial<LabBrew>, model: string, at: string, fallback
     .filter((p) => p.name)
     .slice(0, 3);
   return {
-    creature: s(raw.creature, 12) || fallback.creature,
+    word: s(raw.word, 12).replace(/\s+/g, "") || fallback.word,
     identity: s(raw.identity, 80) || fallback.identity,
     names: (() => {
       const n = arr<string>(raw.names).map((x) => s(x, 30)).filter(Boolean).slice(0, 3);
@@ -316,6 +344,15 @@ function sanitizeBrew(raw: Partial<LabBrew>, model: string, at: string, fallback
   };
 }
 
+/** 규칙으로 고르는 대표 단어: 여러 답에 겹친 단어 → 방향 · 전할 것의 첫 단어 */
+function pickWord(lab: LabState): string {
+  const count = new Map<string, number>();
+  for (const i of lab.ingredients) for (const w of i.words ?? extractKeywords(i.text)) count.set(w, (count.get(w) ?? 0) + 1);
+  const repeated = [...count].filter(([, n]) => n > 1).sort((a, b) => b[1] - a[1])[0]?.[0];
+  const first = (slot: LabSlot) => lab.ingredients.find((i) => i.slot === slot)?.words?.[0];
+  return repeated ?? first("message") ?? first("direction") ?? first("strength") ?? "";
+}
+
 const pick = (lab: LabState, slot: LabSlot) => lab.ingredients.find((i) => i.slot === slot)?.text ?? "";
 const short = (t: string, n: number) => (t.length > n ? t.slice(0, n - 1) + "…" : t);
 
@@ -330,7 +367,7 @@ export function brewByRules(lab: LabState, ctx: LabContext, at: string): LabBrew
   const first = ((ctx.profile?.name ?? ctx.profile?.username ?? "").split(/[\s|·_.]/)[0] || "이름").slice(0, 8);
   const kind = /리뷰/.test(dir) ? "리뷰" : /공감|기록|일상/.test(dir) ? "기록" : "꿀팁";
   return {
-    creature: `${topic.slice(0, 3)}몬`,
+    word: pickWord(lab) || topic.replace(/\s+/g, "").slice(0, 6),
     identity: short(`${who}에게 ${msg} 전하는 ${topic} ${kind} 계정`, 60),
     names: [`${first} | ${topic} ${kind}`, `${first} · ${short(who, 10)}의 ${topic}`, `${topic} ${kind} | ${first}`].map((x) => short(x, 30)),
     bios: [
