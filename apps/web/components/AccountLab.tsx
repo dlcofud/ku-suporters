@@ -2,6 +2,7 @@
 
 import { useEffect, useMemo, useRef, useState } from "react";
 import type { account } from "@supportlab/core";
+import { stageName as nameOfStage, variantOf } from "@supportlab/core/account/variant";
 import { LabCreature } from "./LabCreature";
 import { CopyButton } from "./CopyButton";
 
@@ -20,7 +21,7 @@ const TWEAKS = ["더 유쾌한 말투로", "더 전문가처럼", "블로그 중
  * 계정 실험실: 질문에 답하면 재료가 쌓이고 새싹이 자란다 → 실험하면 계정 방향이 나온다 → 대화로 다듬는다.
  * 서버: /api/account/lab
  */
-export function AccountLab({ initial, aiOn, questions, stages, bioMax }: { initial: Lab; aiOn: boolean; questions: account.LabQuestion[]; stages: readonly string[]; bioMax: number }) {
+export function AccountLab({ initial, aiOn, questions, bioMax, toDraft }: { initial: Lab; aiOn: boolean; questions: account.LabQuestion[]; bioMax: number; toDraft?: (fd: FormData) => Promise<void> }) {
   const questionFor = (slot: Slot) => questions.find((x) => x.slot === slot)!;
   const [lab, setLab] = useState<Lab>(initial);
   const [skipped, setSkipped] = useState<Slot[]>([]);
@@ -109,7 +110,9 @@ export function AccountLab({ initial, aiOn, questions, stages, bioMax }: { initi
     setBusy("");
   }
 
-  const stageName = stages[stage];
+  // 회차마다 다른 생명체 (종류 · 색)
+  const { species, hue } = variantOf(lab.seed);
+  const stageName = nameOfStage(stage, species);
   const placeholder = brewed ? "결과를 어떻게 바꿀까요? 예: 소개글을 더 짧게" : (q?.placeholder ?? "끓이기 전에 더 하고 싶은 말이 있으면 적어 주세요");
 
   return (
@@ -118,7 +121,7 @@ export function AccountLab({ initial, aiOn, questions, stages, bioMax }: { initi
         <div className="lab-vat">
           {drop && <span key={drop.key} className="lab-drop" style={{ background: drop.color }} aria-hidden="true" />}
           <div className={busy === "brew" ? "lab-shake" : undefined} key={stage}>
-            <LabCreature stage={stage} colors={colors} title={`${lab.brew?.creature ?? "계정 새싹"} · ${stageName}`} />
+            <LabCreature stage={stage} colors={colors} species={species} hue={hue} title={`${lab.brew?.creature ?? "계정 생명체"} · ${stageName}`} />
           </div>
         </div>
         <div className="lab-meter">
@@ -164,7 +167,7 @@ export function AccountLab({ initial, aiOn, questions, stages, bioMax }: { initi
           {lab.chat.length === 0 && (
             <div className="lab-msg from-lab">
               <p>
-                계정 실험실이에요. 질문 6개에 답하면 이 계정이 갈 방향을 같이 만들어요. 답할 때마다 플라스크 속 새싹이 한 단계씩 자라요.
+                계정 실험실이에요. 질문 6개에 답하면 이 계정이 갈 방향을 같이 만들어요. 답할 때마다 플라스크 속 생명체가 한 단계씩 자라요. 무엇이 자랄지는 회차마다 달라요!
               </p>
             </div>
           )}
@@ -239,12 +242,23 @@ export function AccountLab({ initial, aiOn, questions, stages, bioMax }: { initi
         {!aiOn && <p className="small muted" style={{ margin: 0 }}>지금은 AI가 연결되지 않아 넣은 말로 기본 결과를 만들어요.</p>}
       </div>
 
-      {lab.brew && <LabResult brew={lab.brew} bioMax={bioMax} />}
+      {lab.brew && <LabResult brew={lab.brew} bioMax={bioMax} toDraft={toDraft} />}
     </div>
   );
 }
 
-function LabResult({ brew, bioMax }: { brew: account.LabBrew; bioMax: number }) {
+/** 인스타 프로필 초안에 넣기 (공식 연결된 계정만) */
+function ToDraft({ action, field, value }: { action: (fd: FormData) => Promise<void>; field: "bio" | "name"; value: string }) {
+  return (
+    <form action={action}>
+      <input type="hidden" name="field" value={field} />
+      <input type="hidden" name="value" value={value} />
+      <button type="submit" className="btn small-btn">초안에 넣기</button>
+    </form>
+  );
+}
+
+function LabResult({ brew, bioMax, toDraft }: { brew: account.LabBrew; bioMax: number; toDraft?: (fd: FormData) => Promise<void> }) {
   return (
     <section className="lab-result" aria-label="실험 결과">
       <div className="lab-id">
@@ -263,7 +277,10 @@ function LabResult({ brew, bioMax }: { brew: account.LabBrew; bioMax: number }) 
               <span className="small muted">{b.why}</span>
               <div className="row between">
                 <span className="small muted">{b.text.length}/{bioMax}자</span>
-                <CopyButton text={b.text} />
+                <span className="row" style={{ gap: 6 }}>
+                  {toDraft && <ToDraft action={toDraft} field="bio" value={b.text} />}
+                  <CopyButton text={b.text} />
+                </span>
               </div>
             </div>
           ))}
@@ -275,7 +292,10 @@ function LabResult({ brew, bioMax }: { brew: account.LabBrew; bioMax: number }) 
             {brew.names.map((x) => (
               <div key={x} className="row between acct-line">
                 <span>{x}</span>
-                <CopyButton text={x} />
+                <span className="row" style={{ gap: 6 }}>
+                  {toDraft && <ToDraft action={toDraft} field="name" value={x} />}
+                  <CopyButton text={x} />
+                </span>
               </div>
             ))}
           </div>

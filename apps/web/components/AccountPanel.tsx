@@ -2,13 +2,14 @@ import Link from "next/link";
 import { account, feedback, trends } from "@supportlab/core";
 import type { Activity, User } from "@/lib/repo";
 import { todayISO } from "@/lib/repo";
-import { saveProfileAction, disconnectIgAction, connectInstaHandleAction, connectBlogAction, removeBlogAction, removeInstaAction } from "@/lib/actions";
+import { saveDraftAction, labToDraftAction, saveProfileAction, disconnectIgAction, connectInstaHandleAction, connectBlogAction, removeBlogAction, removeInstaAction } from "@/lib/actions";
 import { fetchIgProfile, igLoginReady } from "@/lib/igprofile";
 import { myMedia } from "@/lib/media";
 import { blogPosts } from "@/lib/blog";
 import { loadAllReviews } from "@/lib/trends";
 import { CopyButton } from "./CopyButton";
 import { AccountLab } from "./AccountLab";
+import { InstaProfileSync, LiveStamp } from "./InstaProfileSync";
 import { llmStatus } from "@/lib/llm";
 import { SubmitButton } from "./Pending";
 
@@ -21,6 +22,7 @@ const MSG: Record<string, [boolean, string]> = {
   blogremoved: [true, "블로그 연결을 뺐어요."],
   disconnected: [true, "공식 연결을 끊었어요. 아이디와 옮겨 적은 프로필은 남아 있어요."],
   ok: [true, "인스타 계정을 공식으로 연결했어요. 성과 숫자를 자동으로 가져와요."],
+  drafted: [true, "초안을 저장했어요. '인스타와 달라요' 칸을 복사해 인스타 프로필 편집에 붙여넣어 주세요."],
   error: [false, "인스타 연결을 마치지 못했어요. 프로페셔널 계정인지 확인하고 다시 시도해 주세요."],
   cancel: [false, "인스타 연결을 취소했어요."],
   noaccount: [false, "로그인은 됐지만 허락한 인스타 계정을 찾지 못했어요. 로그인 중 '공유할 비즈니스 자산'에서 인스타 계정을 골랐는지, 그 계정이 앱의 Instagram 테스터인지 확인해 주세요."],
@@ -54,6 +56,7 @@ export async function AccountPanel({ user, act, others, msg, fix }: { user: User
   }
 
   const today = todayISO();
+  const fetchedAt = new Date().toISOString();
   const [live, mediaRes, blogRes, report] = await Promise.all([
     fetchIgProfile(user),
     myMedia(user),
@@ -83,7 +86,6 @@ export async function AccountPanel({ user, act, others, msg, fix }: { user: User
   const profTodo = checks.filter((c) => !c.ok).length;
   const perfTodo = perfGaps.length + perfSug.filter((s) => s.kind !== "keep_format").length + (blogQuiet ? 1 : 0);
   const tab: Fix = fix === "perf" || fix === "profile" ? fix : profTodo >= perfTodo ? "profile" : "perf";
-  const best = analysis.insta.best;
 
   return (
     <>
@@ -93,7 +95,7 @@ export async function AccountPanel({ user, act, others, msg, fix }: { user: User
       <section className="card acct">
         <div className="row between">
           <h2 className="acct-h2">1 · 연결된 계정</h2>
-          <span className="small muted">합격 경향과 비교 → 개선하기 → 분석하기 순서로 봐요</span>
+          {user.ig && live ? <LiveStamp at={fetchedAt} /> : <span className="small muted">합격 경향과 비교 → 개선하기 순서로 봐요 · 게시물 분석은 <Link href="/feedback">분석하기</Link>에서</span>}
         </div>
         <div className="acct-linked">
           {instaOn && (
@@ -176,37 +178,49 @@ export async function AccountPanel({ user, act, others, msg, fix }: { user: User
         {tab === "profile" ? (
           <>
             <div className="grid" style={{ gap: 2 }}>
-              <h3 className="acct-h">🧪 계정 실험실 <span className="small muted">질문에 답하면 재료가 쌓이고 계정 새싹이 자라요</span></h3>
+              <h3 className="acct-h">🧪 계정 실험실 <span className="small muted">질문에 답하면 재료가 쌓이고 생명체가 자라요 · 회차마다 다른 생명체</span></h3>
             </div>
             <AccountLab
               initial={act.accountKit?.lab ?? account.emptyLab()}
               aiOn={llmStatus().mode !== "demo"}
               questions={account.LAB_QUESTIONS}
-              stages={account.STAGES}
               bioMax={account.BIO_MAX}
+              toDraft={user.ig && live ? labToDraftAction : undefined}
             />
-            <details className="acct-now" open={profTodo > 0 && !act.accountKit?.lab?.brew}>
+            <details className="acct-now" open={msg === "drafted" || (profTodo > 0 && !act.accountKit?.lab?.brew)}>
               <summary>
-                <b>지금 프로필과 점검</b> <span className="small muted">{profTodo ? `할 일 ${profTodo}개` : "모두 괜찮아요"}</span>
+                <b>{user.ig && live ? "인스타 프로필 바꾸기와 점검" : "지금 프로필과 점검"}</b> <span className="small muted">{profTodo ? `할 일 ${profTodo}개` : "모두 괜찮아요"}</span>
               </summary>
               <div className="acct-grid two">
-                <form action={saveProfileAction} className="grid" style={{ gap: 10, alignContent: "start" }}>
-                  <h3 className="acct-h">지금 프로필</h3>
-                  {user.ig && live ? (
-                    <p className="small muted" style={{ margin: 0 }}>인스타에서 읽어 왔어요. 인스타는 다른 앱이 프로필을 바꾸지 못하게 해서, 고칠 땐 앱에서 직접 바꿔요.</p>
-                  ) : (
-                    <p className="small muted" style={{ margin: 0 }}>인스타 앱의 <b>프로필 편집</b> 화면에 있는 그대로 옮겨 적어 주세요. 점검과 추천에만 써요.</p>
-                  )}
-                  <label>아이디<input type="text" name="username" defaultValue={handle ?? ""} readOnly={!!user.ig} maxLength={60} autoCapitalize="none" /></label>
-                  <label>이름 칸<input type="text" name="name" defaultValue={profile.name ?? ""} readOnly={!!live} placeholder="예: 채령 | 대학생 테크 리뷰" maxLength={30} /></label>
-                  <label>소개글 <span className="small muted">({(profile.bio ?? "").length}/{account.BIO_MAX}자)</span>
-                    <textarea name="bio" defaultValue={profile.bio ?? ""} readOnly={!!live?.bio} rows={4} maxLength={300} placeholder={"예:\n테크 좋아하는 컴퓨터학과 대학생\n신제품을 대학생 시선으로 리뷰해요"} />
-                  </label>
-                  <label>프로필 링크<input type="text" name="website" defaultValue={profile.website ?? ""} readOnly={!!live?.website} placeholder="예: notion.so/chae-portfolio" maxLength={300} /></label>
-                  <label>내 관심 분야 <span className="small muted">(추천 문구에만 써요)</span><input type="text" name="interest" defaultValue={profile.interest ?? ""} placeholder="예: 테크, 카페, 자취 요리" maxLength={20} /></label>
-                  <SubmitButton className="btn pri" pendingText="저장 중…">저장</SubmitButton>
-                  {user.ig && <a className="btn" href="https://www.instagram.com/accounts/edit/" target="_blank" rel="noreferrer">인스타에서 프로필 편집 열기</a>}
-                </form>
+                {user.ig && live ? (
+                  <InstaProfileSync
+                    key={act.accountKit?.draft?.at ?? "live"}
+                    live={{ username: live.username, name: live.name, bio: live.bio, website: live.website }}
+                    draft={act.accountKit?.draft}
+                    interest={profile.interest}
+                    fetchedAt={fetchedAt}
+                    bioMax={account.BIO_MAX}
+                    saveDraft={saveDraftAction}
+                  />
+                ) : (
+                  <form action={saveProfileAction} className="grid" style={{ gap: 10, alignContent: "start" }}>
+                    <h3 className="acct-h">지금 프로필</h3>
+                    {user.ig && live ? (
+                      <p className="small muted" style={{ margin: 0 }}>인스타에서 읽어 왔어요. 인스타는 다른 앱이 프로필을 바꾸지 못하게 해서, 고칠 땐 앱에서 직접 바꿔요.</p>
+                    ) : (
+                      <p className="small muted" style={{ margin: 0 }}>인스타 앱의 <b>프로필 편집</b> 화면에 있는 그대로 옮겨 적어 주세요. 점검과 추천에만 써요.</p>
+                    )}
+                    <label>아이디<input type="text" name="username" defaultValue={handle ?? ""} readOnly={!!user.ig} maxLength={60} autoCapitalize="none" /></label>
+                    <label>이름 칸<input type="text" name="name" defaultValue={profile.name ?? ""} readOnly={!!live} placeholder="예: 채령 | 대학생 테크 리뷰" maxLength={30} /></label>
+                    <label>소개글 <span className="small muted">({(profile.bio ?? "").length}/{account.BIO_MAX}자)</span>
+                      <textarea name="bio" defaultValue={profile.bio ?? ""} readOnly={!!live?.bio} rows={4} maxLength={300} placeholder={"예:\n테크 좋아하는 컴퓨터학과 대학생\n신제품을 대학생 시선으로 리뷰해요"} />
+                    </label>
+                    <label>프로필 링크<input type="text" name="website" defaultValue={profile.website ?? ""} readOnly={!!live?.website} placeholder="예: notion.so/chae-portfolio" maxLength={300} /></label>
+                    <label>내 관심 분야 <span className="small muted">(추천 문구에만 써요)</span><input type="text" name="interest" defaultValue={profile.interest ?? ""} placeholder="예: 테크, 카페, 자취 요리" maxLength={20} /></label>
+                    <SubmitButton className="btn pri" pendingText="저장 중…">저장</SubmitButton>
+                    {user.ig && <a className="btn" href="https://www.instagram.com/accounts/edit/" target="_blank" rel="noreferrer">인스타에서 프로필 편집 열기</a>}
+                  </form>
+                )}
                 <div className="grid" style={{ gap: 10, alignContent: "start" }}>
                   <h3 className="acct-h">점검 <span className="small muted">할 일 {profTodo}개</span></h3>
                   <ul className="acct-checks">
@@ -237,13 +251,13 @@ export async function AccountPanel({ user, act, others, msg, fix }: { user: User
               )}
               <div className="row">
                 <Link className="btn" href="/calendar">업로드 일정 보기</Link>
-                <Link className="btn" href="/feedback">업로드 성과 · 숫자 넣기</Link>
+                <Link className="btn" href="/feedback">분석하기 · 숫자 넣기</Link>
               </div>
             </div>
             <div className="grid" style={{ gap: 10, alignContent: "start" }}>
               <h3 className="acct-h">내 게시물 성과로 본 다음 할 일</h3>
               {!media.length ? (
-                <p className="small muted" style={{ margin: 0 }}>올린 게시물 기록이 없어요. {user.ig ? "인스타에 게시물을 올리면 자동으로 들어와요." : <>업로드 성과에서 <Link href="/feedback">숫자를 넣어 주세요</Link>.</>}</p>
+                <p className="small muted" style={{ margin: 0 }}>올린 게시물 기록이 없어요. {user.ig ? "인스타에 게시물을 올리면 자동으로 들어와요." : <><Link href="/feedback">분석하기</Link>에서 숫자를 넣어 주세요.</>}</p>
               ) : perfSug.length ? (
                 <ul className="acct-checks">
                   {perfSug.map((s, i) => (
@@ -265,99 +279,10 @@ export async function AccountPanel({ user, act, others, msg, fix }: { user: User
         )}
       </section>
 
-      {/* 4. 분석하기 */}
-      <section className="card acct" id="analyze">
-        <div className="row between" style={{ alignItems: "flex-end" }}>
-          <h2 className="acct-h2">4 · 분석하기</h2>
-          <span className="small muted">{instaOn ? (mediaRes.source === "instagram" ? "인스타 공식 데이터" : "직접 넣은 성과") : ""}{instaOn && blogId ? " · " : ""}{blogId ? "블로그 최근 글 목록" : ""} 기준</span>
-        </div>
-        {instaOn && (
-          <div className="grid" style={{ gap: 12 }}>
-            <h3 className="acct-h">인스타그램</h3>
-            <div className="an-tiles">
-              <Tile label="기록된 게시물" value={`${analysis.insta.count}개`} />
-              <Tile label="최근 30일" value={`${analysis.insta.last30}개`} />
-              <Tile label="주당 업로드 (8주)" value={`${analysis.insta.perWeek}개`} />
-              <Tile label="마지막 업로드" value={analysis.insta.sinceLast === undefined ? "-" : analysis.insta.sinceLast === 0 ? "오늘" : `${analysis.insta.sinceLast}일 전`} />
-              <Tile label="평균 조회수" value={n(analysis.insta.avgViews)} />
-              <Tile label="반응률" value={analysis.insta.engagement === undefined ? "-" : `${(analysis.insta.engagement * 100).toFixed(1)}%`} hint="(좋아요+댓글+저장)÷조회수" />
-            </div>
-            {analysis.insta.count > 0 ? (
-              <div className="an-grid">
-                <div className="grid" style={{ gap: 8 }}>
-                  <b className="small">포맷 비율</b>
-                  {analysis.insta.mix.map((x) => (
-                    <div key={x.format} className="an-mix">
-                      <span className={`tag k-${x.format}`}>{x.label}</span>
-                      <div className="bar thin" role="img" aria-label={`${x.label} ${Math.round(x.share * 100)}%`}><i style={{ width: `${Math.round(x.share * 100)}%` }} /></div>
-                      <span className="small">{x.count}개 · 평균 조회수 {n(x.avgViews)}</span>
-                    </div>
-                  ))}
-                </div>
-                <div className="grid" style={{ gap: 10, alignContent: "start" }}>
-                  {best && (
-                    <div className="small"><b>가장 많이 본 게시물</b><br />{best.date} · {analysis.insta.mix.find((x) => x.format === best.format)?.label} · 조회수 {n(best.views)}{best.permalink && <> · <a href={best.permalink} target="_blank" rel="noreferrer">원본</a></>}</div>
-                  )}
-                  {analysis.insta.bestWeekday ? (
-                    <div className="small"><b>반응 좋은 요일</b><br />{analysis.insta.bestWeekday.day}요일 (게시물 {analysis.insta.bestWeekday.n}개 평균 조회수 {n(analysis.insta.bestWeekday.avgViews)})</div>
-                  ) : (
-                    <div className="small muted">같은 요일에 올린 게시물이 2개 이상 쌓이면 반응 좋은 요일을 알려 줘요.</div>
-                  )}
-                </div>
-              </div>
-            ) : (
-              <p className="small muted" style={{ margin: 0 }}>게시물 기록이 쌓이면 포맷 비율·가장 많이 본 게시물·반응 좋은 요일을 보여 줘요.</p>
-            )}
-          </div>
-        )}
-        {blogId && analysis.blog && (
-          <div className="grid" style={{ gap: 12 }}>
-            <h3 className="acct-h">네이버 블로그</h3>
-            {blogRes?.error ? (
-              <p className="small muted" style={{ margin: 0 }}>블로그 글 목록을 읽지 못했어요. 블로그가 공개인지, 아이디가 맞는지 확인해 주세요.</p>
-            ) : (
-              <>
-                <div className="an-tiles">
-                  <Tile label="읽은 최근 글" value={`${analysis.blog.count}개`} />
-                  <Tile label="최근 30일" value={`${analysis.blog.last30}개`} />
-                  <Tile label="주당 글 (8주)" value={`${analysis.blog.perWeek}개`} />
-                  <Tile label="마지막 글" value={analysis.blog.sinceLast === undefined ? "-" : analysis.blog.sinceLast === 0 ? "오늘" : `${analysis.blog.sinceLast}일 전`} />
-                  <Tile label="브랜드·관심 분야 글" value={`${analysis.blog.brandPosts.length}개`} />
-                </div>
-                <div className="an-grid">
-                  <div className="grid" style={{ gap: 6 }}>
-                    <b className="small">브랜드·관심 분야 글</b>
-                    {analysis.blog.brandPosts.length ? (
-                      <ul className="clean small" style={{ margin: 0 }}>{analysis.blog.brandPosts.slice(0, 5).map((p) => <li key={p.link}>{p.date} · <a href={p.link} target="_blank" rel="noreferrer">{p.title}</a></li>)}</ul>
-                    ) : (
-                      <span className="small muted">제목에 ‘{brand}’{profile.interest ? `나 ‘${profile.interest}’` : ""}가 들어간 글이 아직 없어요.</span>
-                    )}
-                  </div>
-                  <div className="grid" style={{ gap: 6, alignContent: "start" }}>
-                    <b className="small">많이 쓴 카테고리</b>
-                    {analysis.blog.categories.length ? <div className="row">{analysis.blog.categories.map((c) => <span key={c.name} className="tag">{c.name} {c.count}</span>)}</div> : <span className="small muted">-</span>}
-                  </div>
-                </div>
-              </>
-            )}
-            <span className="small muted">네이버는 블로그 조회수를 다른 서비스에 공개하지 않아서, 글 목록(제목·날짜)으로만 분석해요.</span>
-          </div>
-        )}
-      </section>
     </>
   );
 }
 
-function Tile({ label, value, hint }: { label: string; value: string; hint?: string }) {
-  return (
-    <div className="an-tile" title={hint}>
-      <span className="small muted">{label}</span>
-      <b>{value}</b>
-    </div>
-  );
-}
-
-/** 계정 연결 버튼들. 연결 전에는 이것만 보인다 */
 function ConnectOptions({ insta, instaHandle, blog }: { insta?: boolean; instaHandle?: boolean; blog?: boolean }) {
   const ready = igLoginReady();
   return (

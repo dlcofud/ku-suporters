@@ -143,6 +143,8 @@ export interface LabBrew {
 }
 
 export interface LabState {
+  /** 이번 회차의 생명체를 정하는 수 (종류 · 색). 처음부터 다시 · 다시 실험하면 바뀐다 */
+  seed?: number;
   ingredients: LabIngredient[];
   chat: LabChat[];
   brew?: LabBrew;
@@ -161,7 +163,9 @@ export interface LabContext {
   blogConnected?: boolean;
 }
 
-export const emptyLab = (): LabState => ({ ingredients: [], chat: [] });
+export const emptyLab = (seed?: number): LabState => ({ seed, ingredients: [], chat: [] });
+
+export { LAB_SPECIES, LAB_HUES, variantOf, stageName, type LabSpecies } from "./variant.js";
 
 export const questionFor = (slot: LabSlot) => LAB_QUESTIONS.find((q) => q.slot === slot)!;
 
@@ -177,7 +181,6 @@ export function canBrew(lab: LabState): boolean {
   return slots.size >= 3;
 }
 
-export const STAGES = ["빈 플라스크", "씨앗", "새싹", "떡잎", "어린 나무", "꽃 핀 나무", "열매 맺은 나무"] as const;
 
 /** 생명체가 자란 단계 0~6: 재료 하나에 한 단계(최대 5), 끓이면 6 */
 export function stageOf(lab: LabState): number {

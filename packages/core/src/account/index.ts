@@ -182,12 +182,31 @@ export interface AccountProfile {
 }
 
 /** 활동에 저장하는 계정 관리 상태. 예전 '계정 만들기' 결과(AccountKit)가 남아 있을 수 있다 */
+export interface ProfileDraft {
+  name?: string;
+  bio?: string;
+  website?: string;
+  at: string;
+}
+
+/** 초안 칸이 인스타 지금 값과 같은지 (앞뒤 공백 · 줄바꿈 차이는 무시) */
+export function sameField(a: string | undefined, b: string | undefined): boolean {
+  const n = (v?: string) => (v ?? "").replace(/\r/g, "").replace(/[ \t]+\n/g, "\n").trim();
+  return n(a) === n(b);
+}
+
 export type AccountState = Partial<AccountKit> & {
   profile?: AccountProfile;
   /** 연결한 네이버 블로그 아이디 (공식 API가 없어 공개 RSS로 글 목록만 읽는다) */
   blog?: { id: string; at: string };
   /** 계정 실험실: 넣은 재료 · 대화 · 끓인 결과 (lab.ts) */
   lab?: LabState;
+  /**
+   * 인스타에 옮길 프로필 초안 (공식 연결된 계정).
+   * 인스타 API는 소개글 · 이름 · 링크를 바꾸는 기능이 없어서, 초안을 만들어 두고 사용자가 인스타 앱에서 붙여넣는다.
+   * 화면은 인스타에서 읽어 온 지금 값과 비교해 '반영됐어요'를 보여 준다.
+   */
+  draft?: ProfileDraft;
 };
 
 export interface ProfileCheck {
