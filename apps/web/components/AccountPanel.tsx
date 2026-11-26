@@ -105,7 +105,7 @@ export async function AccountPanel({ user, act, others, msg, fix }: { user: User
               <div className="grid" style={{ gap: 1, minWidth: 0 }}>
                 <b>@{handle}</b>
                 <span className="small muted">
-                  {user.ig ? (live ? `공식 연결 · 팔로워 ${n(live.followers ?? 0)} · 게시물 ${n(live.mediaCount ?? 0)}` : "공식 연결 · 프로필을 읽지 못했어요") : "아이디로 연결 · 성과는 직접 넣기"}
+                  {user.ig ? (live ? `공식 연결 · 팔로워 ${n(live.followers ?? 0)} · 게시물 ${n(live.mediaCount ?? 0)}` : <>공식 연결 · 지금 인스타 프로필을 읽지 못했어요 · <a href="/api/instagram/login">다시 연결</a></>) : "아이디로 연결 · 성과는 직접 넣기"}
                 </span>
               </div>
               <div className="row acct-chip-act">
@@ -178,7 +178,7 @@ export async function AccountPanel({ user, act, others, msg, fix }: { user: User
         {tab === "profile" ? (
           <>
             <div className="grid" style={{ gap: 2 }}>
-              <h3 className="acct-h">🧪 계정 실험실 <span className="small muted">질문에 답하면 재료가 쌓이고 생명체가 자라요 · 회차마다 다른 생명체</span></h3>
+              <h3 className="acct-h">계정 정체성 찾기 <span className="small muted">질문에 답하면 중요한 단어만 모아 한 단어로 정리해요</span></h3>
             </div>
             <AccountLab
               initial={act.accountKit?.lab ?? account.emptyLab()}
