@@ -290,7 +290,14 @@ label>.lbl{display:block}
   .main{padding:20px 16px calc(var(--tabh) + 28px + env(safe-area-inset-bottom,0px));order:1;flex-basis:100%}
   .side{order:2;flex:1 1 100%;width:auto;padding-bottom:calc(var(--tabh) + 24px + env(safe-area-inset-bottom,0px));
     position:static;height:auto;margin:0;border-radius:0;box-shadow:none;overflow:visible}
-  .side.guest{padding-bottom:24px}
+  /* 로그인 전: 아래에 있던 로고·로그인을 화면 위에 고정한 바로 ('처음이라면 회원가입'은 모바일에서 뺀다) */
+  .side.guest{order:0;position:sticky;top:0;z-index:30;flex-direction:row;align-items:center;justify-content:space-between;gap:12px;
+    padding:10px 16px;padding-top:calc(10px + env(safe-area-inset-top,0px))}
+  .side.guest .logo{padding:0;flex:none}
+  .side.guest .logo img{width:118px}
+  .side.guest .sidefoot{margin-top:0;flex-direction:row-reverse;align-items:center;gap:12px}
+  .side.guest .sidefoot .btn{min-height:40px;padding:0 16px}
+  .side.guest .sidefoot>a.small{display:none}
   h1{font-size:27px}
   .card.stat{padding:12px 14px}
   .g4{grid-template-columns:repeat(2,minmax(0,1fr))}
@@ -603,4 +610,41 @@ button.nav.parent.on-parent{color:#fff;font-weight:800}
   .lab-vat{min-height:180px}
   .lab-svg{max-width:190px}
   .lab-log{max-height:360px}
+}
+/* ---- 로그인 전 첫 화면 ---- */
+.lp{display:grid;grid-template-columns:minmax(0,1.3fr) minmax(340px,1fr);grid-template-areas:"hero form" "preview form" "steps steps";gap:24px 28px;align-items:start}
+.lp-hero{grid-area:hero;display:flex;flex-direction:column;gap:16px;padding-top:8px}
+.lp-badge{align-self:flex-start;font-size:13px;font-weight:800;padding:6px 12px;border-radius:999px;background:var(--surface);border:1.5px solid var(--ink);color:var(--ink)}
+.lp-hero h1{font-size:48px;line-height:1.15}
+.lp-mark{background:linear-gradient(transparent 56%,var(--hl) 56%,var(--hl) 92%,transparent 92%);padding:0 4px}
+.lp-lede{margin:0;font-size:17px;line-height:1.65;color:var(--ink-2);max-width:34em}
+/* 웹: 회원가입 카드를 왼쪽 캘린더 예시의 아래 끝까지 늘리고, 늘어난 만큼은 칸 사이에 고르게 나눈다 */
+.lp-form{grid-area:form;align-self:stretch;justify-content:space-between}
+.lp-preview{grid-area:preview;gap:14px;padding:20px}
+.lp-preview-head{display:flex;flex-direction:column;gap:4px}
+.lp-preview-title{font-size:22px;line-height:1.25;font-weight:400}
+.lp-preview .cell{min-height:96px;font-size:11px}
+.lp-preview .cell:hover{border-color:var(--rule)}
+.lp-preview .chip{display:flex;flex-direction:column;align-items:flex-start;gap:2px}
+.lp-preview .chip .who{margin-left:0;max-width:100%;overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
+.lp-preview .chip .ct{overflow-wrap:anywhere}
+.lp-steps{grid-area:steps;display:flex;flex-direction:column;gap:14px;margin-top:8px}
+.lp-steps h2{font-family:var(--display);font-weight:400;font-size:24px}
+.lp-steplist{list-style:none;margin:0;padding:0;display:grid;grid-template-columns:repeat(4,minmax(0,1fr));gap:12px}
+.lp-step{gap:10px}
+.lp-num{width:28px;height:28px;border-radius:50%;background:var(--hl);border:1.5px solid var(--ink);display:inline-flex;align-items:center;justify-content:center;font-weight:800;font-size:14px}
+@media (max-width:1180px){
+  .lp{grid-template-columns:minmax(0,1fr);grid-template-areas:"hero" "form" "preview" "steps"}
+  .lp-form{justify-content:flex-start}
+  .lp-steplist{grid-template-columns:repeat(2,minmax(0,1fr))}
+}
+@media (max-width:760px){
+  .lp-hero h1{font-size:32px}
+  .lp-lede{font-size:16px}
+  .lp-steplist{grid-template-columns:minmax(0,1fr)}
+  .lp-preview{padding:16px}
+  .lp-preview .cell{min-height:58px}
+  .lp-preview .chip{display:block}
+  .lp-preview .chip .who{display:none}
+  .lp-preview .clash{display:none}
 }
