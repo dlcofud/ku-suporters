@@ -14,6 +14,8 @@
 
 import type { ContentFormat } from "../shared.js";
 import { FORMAT_LABEL } from "../shared.js";
+import type { LabState } from "./lab.js";
+export * from "./lab.js";
 
 export interface AccountInput {
   /** 활동 이름. 예: "달콤제과 서포터즈 13기" */
@@ -184,6 +186,8 @@ export type AccountState = Partial<AccountKit> & {
   profile?: AccountProfile;
   /** 연결한 네이버 블로그 아이디 (공식 API가 없어 공개 RSS로 글 목록만 읽는다) */
   blog?: { id: string; at: string };
+  /** 계정 실험실: 넣은 재료 · 대화 · 끓인 결과 (lab.ts) */
+  lab?: LabState;
 };
 
 export interface ProfileCheck {
