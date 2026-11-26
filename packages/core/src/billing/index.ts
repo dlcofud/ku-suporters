@@ -167,6 +167,7 @@ export function ledgerLabel(reason: string, memo?: string): string {
     content_draft: "콘텐츠 초안",
     reels_plan: "릴스 기획",
     feedback_report: "성과 리포트",
+    account_lab: "계정 실험실",
   };
   const t = memo ? Object.entries(task).find(([k]) => memo.includes(k))?.[1] : undefined;
   if ((reason === "task_settle" || reason === "task_hold") && t) return `${base[reason]} · ${t}`;

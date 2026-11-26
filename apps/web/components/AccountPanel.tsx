@@ -8,6 +8,8 @@ import { myMedia } from "@/lib/media";
 import { blogPosts } from "@/lib/blog";
 import { loadAllReviews } from "@/lib/trends";
 import { CopyButton } from "./CopyButton";
+import { AccountLab } from "./AccountLab";
+import { llmStatus } from "@/lib/llm";
 import { SubmitButton } from "./Pending";
 
 const n = (v: number) => Math.round(v).toLocaleString("ko-KR");
@@ -72,7 +74,6 @@ export async function AccountPanel({ user, act, others, msg, fix }: { user: User
   const analysis = account.analyzeAccount({ media, blog: blogRes?.posts, brandWords, today });
   const rows = report ? account.compareWithTrends({ trend: report, profile, analysis, brandWords, blogConnected: !!blogId }) : [];
   const checks = account.checkProfile(profile, ctx);
-  const sug = account.suggestProfile(profile, ctx);
   const summary = feedback.summarize(media);
   const perfSug = act.plan ? feedback.suggest(summary, act.plan) : [];
   const start = media.map((x) => x.date).sort()[0] ?? today;
@@ -174,66 +175,51 @@ export async function AccountPanel({ user, act, others, msg, fix }: { user: User
 
         {tab === "profile" ? (
           <>
-            <div className="acct-grid two">
-              <form action={saveProfileAction} className="grid" style={{ gap: 10, alignContent: "start" }}>
-                <h3 className="acct-h">지금 프로필</h3>
-                {user.ig && live ? (
-                  <p className="small muted" style={{ margin: 0 }}>인스타에서 읽어 왔어요. 인스타는 다른 앱이 프로필을 바꾸지 못하게 해서, 고칠 땐 앱에서 직접 바꿔요.</p>
-                ) : (
-                  <p className="small muted" style={{ margin: 0 }}>인스타 앱의 <b>프로필 편집</b> 화면에 있는 그대로 옮겨 적어 주세요. 점검과 추천에만 써요.</p>
-                )}
-                <label>아이디<input type="text" name="username" defaultValue={handle ?? ""} readOnly={!!user.ig} maxLength={60} autoCapitalize="none" /></label>
-                <label>이름 칸<input type="text" name="name" defaultValue={profile.name ?? ""} readOnly={!!live} placeholder="예: 채령 | 대학생 테크 리뷰" maxLength={30} /></label>
-                <label>소개글 <span className="small muted">({(profile.bio ?? "").length}/{account.BIO_MAX}자)</span>
-                  <textarea name="bio" defaultValue={profile.bio ?? ""} readOnly={!!live?.bio} rows={4} maxLength={300} placeholder={"예:\n테크 좋아하는 컴퓨터학과 대학생\n신제품을 대학생 시선으로 리뷰해요"} />
-                </label>
-                <label>프로필 링크<input type="text" name="website" defaultValue={profile.website ?? ""} readOnly={!!live?.website} placeholder="예: notion.so/chae-portfolio" maxLength={300} /></label>
-                <label>내 관심 분야 <span className="small muted">(추천 문구에만 써요)</span><input type="text" name="interest" defaultValue={profile.interest ?? ""} placeholder="예: 테크, 카페, 자취 요리" maxLength={20} /></label>
-                <SubmitButton className="btn pri" pendingText="저장 중…">저장</SubmitButton>
-                {user.ig && <a className="btn" href="https://www.instagram.com/accounts/edit/" target="_blank" rel="noreferrer">인스타에서 프로필 편집 열기</a>}
-              </form>
-              <div className="grid" style={{ gap: 10, alignContent: "start" }}>
-                <h3 className="acct-h">점검 <span className="small muted">할 일 {profTodo}개</span></h3>
-                <ul className="acct-checks">
-                  {checks.map((c) => (
-                    <li key={c.id} className={c.ok ? "ok" : "todo"}>
-                      <span aria-hidden="true">{c.ok ? "✓" : "!"}</span>
-                      <div><b>{c.label}</b>{!c.ok && c.tip && <><br /><span className="small">{c.tip}</span></>}</div>
-                    </li>
-                  ))}
-                </ul>
-              </div>
+            <div className="grid" style={{ gap: 2 }}>
+              <h3 className="acct-h">🧪 계정 실험실 <span className="small muted">질문에 답하면 재료가 쌓이고 계정 새싹이 자라요</span></h3>
             </div>
-            <div className="acct-sug">
-              <b>바꿀 만한 추천</b> <span className="small muted">복사해서 인스타 앱에 붙여넣어요</span>
-              <div className="acct-sug-grid">
-                <div className="grid" style={{ gap: 8 }}>
-                  <b className="small">소개글</b>
-                  {sug.bios.map((b) => (
-                    <div key={b.concept} className="acct-bio">
-                      <span className="tag">{b.concept}</span>
-                      <pre>{b.text}</pre>
-                      <div className="row between"><span className="small muted">{b.text.length}/{account.BIO_MAX}자</span><CopyButton text={b.text} /></div>
-                    </div>
-                  ))}
-                  <span className="small muted">내 말투로 한 줄은 꼭 고쳐 주세요. 없는 경력이나 숫자는 넣지 않았어요.</span>
-                </div>
-                <div className="grid" style={{ gap: 12, alignContent: "start" }}>
-                  <div className="grid" style={{ gap: 6 }}>
-                    <b className="small">이름 칸 <span className="muted">(검색에 걸려요)</span></b>
-                    {sug.names.map((x) => <div key={x} className="row between acct-line"><span>{x}</span><CopyButton text={x} /></div>)}
-                  </div>
-                  <div className="grid" style={{ gap: 6 }}>
-                    <b className="small">프로필 링크로 걸 것</b>
-                    <ul className="clean small" style={{ margin: 0 }}>{sug.links.map((x) => <li key={x}>{x}</li>)}</ul>
-                  </div>
-                  <div className="grid" style={{ gap: 6 }}>
-                    <b className="small">하이라이트</b>
-                    <div className="row">{sug.highlights.map((h) => <span key={h} className="tag">{h}</span>)}</div>
-                  </div>
+            <AccountLab
+              initial={act.accountKit?.lab ?? account.emptyLab()}
+              aiOn={llmStatus().mode !== "demo"}
+              questions={account.LAB_QUESTIONS}
+              stages={account.STAGES}
+              bioMax={account.BIO_MAX}
+            />
+            <details className="acct-now" open={profTodo > 0 && !act.accountKit?.lab?.brew}>
+              <summary>
+                <b>지금 프로필과 점검</b> <span className="small muted">{profTodo ? `할 일 ${profTodo}개` : "모두 괜찮아요"}</span>
+              </summary>
+              <div className="acct-grid two">
+                <form action={saveProfileAction} className="grid" style={{ gap: 10, alignContent: "start" }}>
+                  <h3 className="acct-h">지금 프로필</h3>
+                  {user.ig && live ? (
+                    <p className="small muted" style={{ margin: 0 }}>인스타에서 읽어 왔어요. 인스타는 다른 앱이 프로필을 바꾸지 못하게 해서, 고칠 땐 앱에서 직접 바꿔요.</p>
+                  ) : (
+                    <p className="small muted" style={{ margin: 0 }}>인스타 앱의 <b>프로필 편집</b> 화면에 있는 그대로 옮겨 적어 주세요. 점검과 추천에만 써요.</p>
+                  )}
+                  <label>아이디<input type="text" name="username" defaultValue={handle ?? ""} readOnly={!!user.ig} maxLength={60} autoCapitalize="none" /></label>
+                  <label>이름 칸<input type="text" name="name" defaultValue={profile.name ?? ""} readOnly={!!live} placeholder="예: 채령 | 대학생 테크 리뷰" maxLength={30} /></label>
+                  <label>소개글 <span className="small muted">({(profile.bio ?? "").length}/{account.BIO_MAX}자)</span>
+                    <textarea name="bio" defaultValue={profile.bio ?? ""} readOnly={!!live?.bio} rows={4} maxLength={300} placeholder={"예:\n테크 좋아하는 컴퓨터학과 대학생\n신제품을 대학생 시선으로 리뷰해요"} />
+                  </label>
+                  <label>프로필 링크<input type="text" name="website" defaultValue={profile.website ?? ""} readOnly={!!live?.website} placeholder="예: notion.so/chae-portfolio" maxLength={300} /></label>
+                  <label>내 관심 분야 <span className="small muted">(추천 문구에만 써요)</span><input type="text" name="interest" defaultValue={profile.interest ?? ""} placeholder="예: 테크, 카페, 자취 요리" maxLength={20} /></label>
+                  <SubmitButton className="btn pri" pendingText="저장 중…">저장</SubmitButton>
+                  {user.ig && <a className="btn" href="https://www.instagram.com/accounts/edit/" target="_blank" rel="noreferrer">인스타에서 프로필 편집 열기</a>}
+                </form>
+                <div className="grid" style={{ gap: 10, alignContent: "start" }}>
+                  <h3 className="acct-h">점검 <span className="small muted">할 일 {profTodo}개</span></h3>
+                  <ul className="acct-checks">
+                    {checks.map((c) => (
+                      <li key={c.id} className={c.ok ? "ok" : "todo"}>
+                        <span aria-hidden="true">{c.ok ? "✓" : "!"}</span>
+                        <div><b>{c.label}</b>{!c.ok && c.tip && <><br /><span className="small">{c.tip}</span></>}</div>
+                      </li>
+                    ))}
+                  </ul>
                 </div>
               </div>
-            </div>
+            </details>
           </>
         ) : (
           <div className="acct-grid two">
