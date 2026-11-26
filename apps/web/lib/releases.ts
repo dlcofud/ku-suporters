@@ -1,7 +1,15 @@
 /** 릴리즈 노트. 새 기능을 합칠 때 맨 위에 한 줄씩 추가해 주세요. */
-export const APP_VERSION = "0.25.2";
+export const APP_VERSION = "0.26.0";
 
 export const RELEASES: { version: string; date: string; items: string[] }[] = [
+  {
+    version: "0.26.0",
+    date: "2026-11-26",
+    items: [
+      "인스타 공식 연결을 Meta의 새 방식(통합 로그인)으로 바꿨어요. 한 번 연결하면 토큰이 만료되지 않아 다시 로그인할 필요가 없어요",
+      "연결을 취소했거나 인스타 계정을 고르지 않았을 때 무엇을 확인할지 알려 줘요",
+    ],
+  },
   {
     version: "0.25.2",
     date: "2026-11-25",

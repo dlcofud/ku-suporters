@@ -7,20 +7,29 @@
 1. 인스타 앱에서 설정 > 계정 유형 및 도구 > **프로페셔널 계정으로 전환** (크리에이터 추천)
 2. 공개 계정으로 유지
 
-## 2. Meta 앱 만들기
-1. Meta for Developers에서 앱 생성 → 사용 사례로 **Instagram API (Instagram 로그인)** 선택
-2. 권한 추가: `instagram_business_basic`, `instagram_business_content_publish`, `instagram_business_manage_insights`
-3. 앱 역할 > **Instagram 테스터**에 팀원 인스타 계정 추가 → 인스타 앱(웹) 설정에서 테스터 초대 수락
-4. 리디렉션 URI 등록: `http://localhost:3000/api/instagram/callback` (배포 후 Vercel 주소 추가)
+## 2. Meta 앱 만들기 (통합 로그인, 2026-11 기준)
+2026년 10월 말부터 새로 만든 Meta 앱은 'API setup with Instagram login'을 쓸 수 없고 **'API setup with Unified login'(통합 로그인)**만 쓴다.
+토큰은 비즈니스 시스템 사용자 토큰(EAA…)이고 만료되지 않으며 `graph.facebook.com`에서 인스타 계정 ID로 부른다. 예전 방식으로 연결된 계정(IG… 토큰)도 코드가 그대로 지원한다 (`apps/web/lib/meta.ts`).
 
-## 3. 환경 변수 (.env.local, 저장소에 올리지 않기)
+1. Meta for Developers → 앱 만들기 → 사용 사례 **Instagram에서 메시지 및 콘텐츠 관리**
+2. 사용 사례 → 맞춤 설정 → **API setup with Unified login**
+   - 비즈니스 포트폴리오를 연결하라고 하면 새로 만든다 (무료, 비즈니스 인증 필요 없음)
+3. **1. 앱 구성 → 새로운 구성 만들기** → 기본값(시스템 사용자 토큰, 만료 없음)으로 템플릿에서 만들기
+   - '권한 수정'에서 `instagram_manage_insights` 추가 (성과 화면). 가능하면 `business_management`도 추가 (없으면 토큰 정보로 계정을 찾는다)
+   - 구성에 **선택됨** 배지가 있는지 확인. 구성 ID를 적어 둔다
+4. 같은 화면 **리디렉션 URL**에 `https://ku-suporters.vercel.app/api/instagram/callback` 저장 (로컬은 `http://localhost:3000/api/instagram/callback`)
+5. **2. 액세스 토큰 생성 → 계정 추가** → 역할 **Instagram 테스터**에 팀원 인스타 아이디 추가 → 브라우저에서 instagram.com → 설정 → 웹사이트 권한 → 앱 및 웹사이트 → 테스터 초대 수락
+   - 계정 목록이 비거나 'Instagram Pro account required'면 business.facebook.com → 설정 → 계정 → Instagram 계정에서 포트폴리오에 먼저 추가
+   - '토큰 생성' 버튼은 누르지 않아도 된다 (앱에서 로그인할 때 토큰을 받는다)
+
+## 3. 환경 변수 (Vercel 또는 .env.local, 저장소에 올리지 않기)
 ```
-INSTAGRAM_APP_ID=
-INSTAGRAM_APP_SECRET=
-INSTAGRAM_REDIRECT_URI=http://localhost:3000/api/instagram/callback
-SUPABASE_URL=
-SUPABASE_SERVICE_ROLE_KEY=
+META_APP_ID=            # 앱 설정 > 기본 설정의 앱 ID
+META_APP_SECRET=        # 같은 화면의 앱 시크릿 코드
+META_LOGIN_CONFIG_ID=   # 3번에서 만든 구성 ID
+META_REDIRECT_URI=      # (선택) 비우면 지금 주소 + /api/instagram/callback
 ```
+로그인 흐름: `/api/instagram/login` → `facebook.com/v26.0/dialog/oauth?client_id&config_id&response_type=code&override_default_response_type=true&state` → `/api/instagram/callback` → `graph.facebook.com/v26.0/oauth/access_token` → `me/assigned_instagram_accounts` (안 되면 `debug_token`의 granular_scopes) 로 인스타 계정 ID를 찾는다.
 
 ## 4. 예약 게시가 동작하는 방식 (`packages/core/src/publish`)
 - 예약은 우리 DB(`scheduled_posts`)에 저장한다. 인스타 컨테이너는 24시간 안에 게시하지 않으면 만료되기 때문에 미리 만들어 두지 않는다.
