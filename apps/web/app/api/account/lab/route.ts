@@ -72,7 +72,7 @@ export async function POST(req: Request) {
     if (!account.canBrew(lab)) return Response.json({ error: "재료를 3개 이상 넣어야 끓일 수 있어요" }, { status: 400 });
     const ctx = await labContextFor(user, act);
     const brew = (await withAi((c) => account.brewWithLLM(lab, ctx, c, at))) ?? account.brewByRules(lab, ctx, at);
-    lab = { ...lab, brew, chat: [...lab.chat, { role: "lab" as const, text: `보글보글… '${brew.creature}'이(가) 태어났어요! ${brew.identity}`, at }].slice(-60) };
+    lab = { ...lab, brew, chat: [...lab.chat, { role: "lab" as const, text: `실험 완료! 이 계정의 이름은 '${brew.creature}' · ${brew.identity}`, at }].slice(-60) };
   } else if (action === "chat") {
     const message = String(fd.get("message") ?? "").trim().slice(0, 600);
     if (!message) return Response.json({ error: "메시지가 비어 있어요" }, { status: 400 });

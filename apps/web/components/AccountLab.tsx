@@ -14,10 +14,10 @@ const KIND: Record<account.LabPillar["kind"], [string, string]> = {
   show: ["보여 주기", "🎬"],
 };
 
-const TWEAKS = ["더 유쾌한 말투로", "더 전문가처럼", "블로그 중심으로", "스레드도 같이 키우고 싶어요", "다시 끓여 줘"];
+const TWEAKS = ["더 유쾌한 말투로", "더 전문가처럼", "블로그 중심으로", "스레드도 같이 키우고 싶어요", "다시 만들어 줘"];
 
 /**
- * 계정 실험실: 질문에 답하면 재료가 솥에 들어가고 정령이 자란다 → 끓이면 계정 방향이 나온다 → 대화로 다듬는다.
+ * 계정 실험실: 질문에 답하면 재료가 쌓이고 새싹이 자란다 → 실험하면 계정 방향이 나온다 → 대화로 다듬는다.
  * 서버: /api/account/lab
  */
 export function AccountLab({ initial, aiOn, questions, stages, bioMax }: { initial: Lab; aiOn: boolean; questions: account.LabQuestion[]; stages: readonly string[]; bioMax: number }) {
@@ -89,7 +89,7 @@ export function AccountLab({ initial, aiOn, questions, stages, bioMax }: { initi
     setBusy("chat");
     setLab((l) => ({ ...l, chat: [...l.chat, { role: "me", text: message, at: "" }] }));
     setText("");
-    const r = message.includes("다시 끓여") ? await send({ action: "brew" }) : await send({ action: "chat", message });
+    const r = message.includes("다시 만들어") ? await send({ action: "brew" }) : await send({ action: "chat", message });
     if (!r) setLab((l) => ({ ...l, chat: l.chat.slice(0, -1) }));
     setBusy("");
   }
@@ -118,11 +118,11 @@ export function AccountLab({ initial, aiOn, questions, stages, bioMax }: { initi
         <div className="lab-vat">
           {drop && <span key={drop.key} className="lab-drop" style={{ background: drop.color }} aria-hidden="true" />}
           <div className={busy === "brew" ? "lab-shake" : undefined} key={stage}>
-            <LabCreature stage={stage} colors={colors} title={`${lab.brew?.creature ?? "계정 정령"} · ${stageName}`} />
+            <LabCreature stage={stage} colors={colors} title={`${lab.brew?.creature ?? "계정 새싹"} · ${stageName}`} />
           </div>
         </div>
         <div className="lab-meter">
-          <b>{lab.brew?.creature ?? "이름 없는 정령"}</b>
+          <b>{lab.brew?.creature ?? "아직 이름 없음"}</b>
           <span className="small muted">
             {stageName} · {stage}/6단계
           </span>
@@ -150,7 +150,7 @@ export function AccountLab({ initial, aiOn, questions, stages, bioMax }: { initi
           })}
         </ul>
         <button type="button" className="btn pri lab-brew" onClick={brew} disabled={!canBrew || !!busy}>
-          {busy === "brew" ? "보글보글 끓이는 중…" : brewed ? "재료 그대로 다시 끓이기" : canBrew ? "🔥 솥 끓이기" : `재료 ${has.size}/3 · 3개부터 끓일 수 있어요`}
+          {busy === "brew" ? "실험하는 중…" : brewed ? "같은 재료로 다시 실험" : canBrew ? "실험하기 · 방향 만들기" : `재료 ${has.size}/3 · 3개부터 실험할 수 있어요`}
         </button>
         {(lab.ingredients.length > 0 || brewed) && (
           <button type="button" className="lab-reset small" onClick={reset} disabled={!!busy}>
@@ -164,7 +164,7 @@ export function AccountLab({ initial, aiOn, questions, stages, bioMax }: { initi
           {lab.chat.length === 0 && (
             <div className="lab-msg from-lab">
               <p>
-                어서 와요, 실험실이에요 🧪 이 계정이 어떤 생명체로 자랄지 같이 정해 봐요. 질문에 답할 때마다 재료가 솥에 들어가고, 정령이 한 뼘씩 자라요.
+                계정 실험실이에요. 질문 6개에 답하면 이 계정이 갈 방향을 같이 만들어요. 답할 때마다 플라스크 속 새싹이 한 단계씩 자라요.
               </p>
             </div>
           )}
@@ -194,12 +194,12 @@ export function AccountLab({ initial, aiOn, questions, stages, bioMax }: { initi
           )}
           {!brewed && !q && canBrew && busy !== "brew" && (
             <div className="lab-msg from-lab ask">
-              <p>재료가 다 모였어요! 왼쪽의 <b>솥 끓이기</b>를 누르면 이 계정의 방향이 나와요.</p>
+              <p>재료가 다 모였어요. <b>실험하기</b>를 누르면 이 계정의 방향이 나와요.</p>
             </div>
           )}
           {busy && (
             <div className="lab-msg from-lab">
-              <p className="lab-dots">{busy === "brew" ? "솥을 젓는 중" : busy === "chat" ? "물약을 섞는 중" : "재료를 넣는 중"}</p>
+              <p className="lab-dots">{busy === "brew" ? "방향을 만드는 중" : busy === "chat" ? "고치는 중" : "재료를 넣는 중"}</p>
             </div>
           )}
           <div ref={chatEnd} />

@@ -176,7 +176,7 @@ export async function AccountPanel({ user, act, others, msg, fix }: { user: User
         {tab === "profile" ? (
           <>
             <div className="grid" style={{ gap: 2 }}>
-              <h3 className="acct-h">🧪 계정 실험실 <span className="small muted">질문에 답하면 재료가 솥에 들어가고, 계정 정령이 자라요</span></h3>
+              <h3 className="acct-h">🧪 계정 실험실 <span className="small muted">질문에 답하면 재료가 쌓이고 계정 새싹이 자라요</span></h3>
             </div>
             <AccountLab
               initial={act.accountKit?.lab ?? account.emptyLab()}

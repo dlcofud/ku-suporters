@@ -531,31 +531,26 @@ button.nav.parent.on-parent{color:#fff;font-weight:800}
 
 /* ---- 계정 실험실 (components/AccountLab.tsx · LabCreature.tsx) ---- */
 .lab{display:grid;grid-template-columns:minmax(220px,300px) minmax(0,1fr);gap:18px;align-items:start}
-.lab-stage{display:grid;gap:10px;padding:14px;border:2px solid var(--ink);border-radius:16px;background:linear-gradient(180deg,#f3f0ff 0%,#eef8ff 60%,#fff 100%);box-shadow:var(--lift);position:relative}
+.lab-stage{display:grid;gap:10px;padding:14px;border:1.5px solid var(--ink);border-radius:12px;background:#fff;box-shadow:var(--lift);position:relative}
 .lab-vat{position:relative;display:flex;justify-content:center;min-height:220px}
 .lab-svg{width:100%;max-width:240px;height:auto;display:block;overflow:visible}
 .lab-creature{transform-origin:120px 250px;animation:lab-sway 3.2s ease-in-out infinite}
-.lab-liquid{transition:transform .9s cubic-bezier(.3,1.4,.5,1)}
-.lab-liquid path{transition:fill .9s}
+.lab-band{animation:lab-fill .7s ease-out}
+@keyframes lab-fill{from{opacity:0}to{opacity:1}}
 .lab-wave{animation:lab-wave 2.6s ease-in-out infinite}
 .lab-bub{animation:lab-bub 2.4s ease-in infinite}
 .lab-bub.b2{animation-delay:.8s}.lab-bub.b3{animation-delay:1.5s}
-.lab-pulse{animation:lab-pulse 2.4s ease-in-out infinite;transform-origin:120px 70px}
-.lab-spark{animation:lab-twinkle 1.8s ease-in-out infinite}
-.lab-spark.s1{animation-delay:.4s}.lab-spark.s2{animation-delay:.9s}.lab-spark.s3{animation-delay:1.3s}
 .lab-drop{position:absolute;left:50%;top:-6px;width:16px;height:22px;margin-left:-8px;border-radius:50% 50% 50% 50%/60% 60% 40% 40%;border:2px solid var(--ink);z-index:2;animation:lab-drop .9s cubic-bezier(.5,0,.8,.6) forwards;pointer-events:none}
 .lab-shake{animation:lab-shake .35s ease-in-out infinite}
-@keyframes lab-sway{0%,100%{transform:rotate(-2deg)}50%{transform:rotate(2deg)}}
+@keyframes lab-sway{0%,100%{transform:rotate(-1deg)}50%{transform:rotate(1deg)}}
 @keyframes lab-wave{0%,100%{transform:translateX(0)}50%{transform:translateX(-14px)}}
 @keyframes lab-bub{0%{transform:translateY(0);opacity:0}15%{opacity:.8}100%{transform:translateY(-120px);opacity:0}}
-@keyframes lab-pulse{0%,100%{transform:scale(.92);opacity:.7}50%{transform:scale(1.06);opacity:1}}
-@keyframes lab-twinkle{0%,100%{transform:scale(.6);opacity:.3}50%{transform:scale(1.1);opacity:1}}
 @keyframes lab-drop{0%{transform:translateY(0) scale(1);opacity:1}80%{transform:translateY(150px) scale(1);opacity:1}100%{transform:translateY(170px) scale(1.6,.3);opacity:0}}
-@keyframes lab-shake{0%,100%{transform:translateX(0)}25%{transform:translateX(-3px) rotate(-1deg)}75%{transform:translateX(3px) rotate(1deg)}}
-@media (prefers-reduced-motion:reduce){.lab-creature,.lab-wave,.lab-bub,.lab-pulse,.lab-spark,.lab-shake{animation:none}.lab-drop{display:none}}
+@keyframes lab-shake{0%,100%{transform:translateY(0)}50%{transform:translateY(-3px)}}
+@media (prefers-reduced-motion:reduce){.lab-creature,.lab-wave,.lab-bub,.lab-shake{animation:none}.lab-drop{display:none}}
 .lab-meter{display:grid;gap:4px;text-align:center}
 .lab-bar{height:8px;border:1.5px solid var(--ink);border-radius:99px;background:#fff;overflow:hidden}
-.lab-bar i{display:block;height:100%;background:linear-gradient(90deg,#7edd9a,#ffe45c);transition:width .8s}
+.lab-bar i{display:block;height:100%;background:var(--hl);transition:width .8s}
 .lab-shelf{list-style:none;margin:0;padding:0;display:grid;gap:6px}
 .lab-shelf li{display:flex;gap:8px;align-items:center;padding:5px 8px;border:1.5px dashed var(--line);border-radius:10px;background:#fff;min-width:0}
 .lab-shelf li.on{border-style:solid;border-color:var(--ink)}
@@ -568,11 +563,11 @@ button.nav.parent.on-parent{color:#fff;font-weight:800}
 .lab-brew{width:100%;justify-content:center}
 .lab-reset{border:0;background:none;color:var(--mute);text-decoration:underline;cursor:pointer;justify-self:center}
 .lab-talk{display:grid;gap:8px;min-width:0}
-.lab-log{display:grid;gap:8px;max-height:420px;overflow:auto;padding:12px;border:1.5px solid var(--ink);border-radius:14px;background:#fff;align-content:start;min-height:220px}
+.lab-log{display:grid;gap:8px;max-height:420px;overflow:auto;padding:12px;border:1.5px solid var(--ink);border-radius:12px;background:var(--paper);align-content:start;min-height:220px}
 .lab-msg{display:flex;gap:8px;align-items:flex-start;max-width:88%}
 .lab-msg p{margin:0;padding:8px 12px;border-radius:14px;border:1.5px solid var(--ink);white-space:pre-wrap}
-.lab-msg.from-lab::before{content:"🌱";flex:none;width:28px;height:28px;display:flex;align-items:center;justify-content:center;border:1.5px solid var(--ink);border-radius:99px;background:#e9fbe9;font-size:15px}
-.lab-msg.from-lab p{background:#f6f3ff;border-top-left-radius:4px}
+.lab-msg.from-lab::before{content:"🌱";flex:none;width:28px;height:28px;display:flex;align-items:center;justify-content:center;border:1.5px solid var(--ink);border-radius:99px;background:#fff;font-size:14px}
+.lab-msg.from-lab p{background:#fff;border-top-left-radius:4px}
 .lab-msg.from-lab.ask p{background:var(--hlbg)}
 .lab-msg.from-me{justify-self:end}
 .lab-msg.from-me p{background:var(--ink);color:#fff;border-top-right-radius:4px}
@@ -588,8 +583,8 @@ button.nav.parent.on-parent{color:#fff;font-weight:800}
 .lab-input{display:flex;gap:6px;align-items:center}
 .lab-input input[type=text]{flex:1;min-width:0}
 .lab-attach{flex:none;width:38px;height:38px;display:flex;align-items:center;justify-content:center;border:1.5px solid var(--ink);border-radius:10px;cursor:pointer;background:#fff}
-.lab-result{grid-column:1/-1;display:grid;gap:16px;padding:16px;border:2px solid var(--ink);border-radius:16px;background:#fff;box-shadow:var(--lift)}
-.lab-id{display:grid;gap:6px;justify-items:start;padding:12px 14px;border-radius:12px;background:linear-gradient(90deg,#fff4b8,#e9fbe9)}
+.lab-result{grid-column:1/-1;display:grid;gap:16px;padding:16px;border:1.5px solid var(--ink);border-radius:12px;background:#fff;box-shadow:var(--lift)}
+.lab-id{display:grid;gap:6px;justify-items:start;padding:12px 14px;border-radius:10px;background:var(--hlbg);border:1.5px solid var(--ink)}
 .lab-id p{margin:0;font-family:var(--display);font-size:20px;line-height:1.35}
 .lab-res-grid{display:grid;grid-template-columns:minmax(0,1.1fr) minmax(0,1fr);gap:18px;align-items:start}
 .lab-pillars{display:grid;gap:8px}

@@ -33,9 +33,9 @@ export interface LabQuestion {
   /** 눌러서 바로 넣는 답 */
   chips: string[];
   placeholder: string;
-  /** 재료 이름 (솥에 들어갈 때 보이는 말) */
+  /** 재료 이름 (선반에 보이는 말) */
   potion: string;
-  /** 물약 색 */
+  /** 재료 색 (사이트 팔레트) */
   color: string;
 }
 
@@ -46,8 +46,8 @@ export const LAB_QUESTIONS: LabQuestion[] = [
     why: "방향이 정해져야 이름 · 소개글 · 게시물이 한 줄로 이어져요.",
     chips: ["정보를 알려 주는 전문가형", "일상 · 성장을 기록하는 공감형", "제품을 써 보는 리뷰형", "아직 잘 모르겠어요"],
     placeholder: "예: 자취 요리를 쉽게 알려 주는 계정",
-    potion: "방향의 물약",
-    color: "#6c8cff",
+    potion: "방향",
+    color: "#8EC2FF",
   },
   {
     slot: "audience",
@@ -55,8 +55,8 @@ export const LAB_QUESTIONS: LabQuestion[] = [
     why: "보는 사람을 좁힐수록 글이 선명해지고, 그런 사람을 찾아 보여 줘요.",
     chips: ["자취 시작한 새내기", "시험 기간 대학생", "취업 준비하는 친구", "같은 취미를 가진 사람"],
     placeholder: "예: 첫 노트북을 고르는 문과 새내기",
-    potion: "눈길의 물약",
-    color: "#ff9f6b",
+    potion: "보여 줄 사람",
+    color: "#FF8DB9",
   },
   {
     slot: "message",
@@ -64,8 +64,8 @@ export const LAB_QUESTIONS: LabQuestion[] = [
     why: "한 문장으로 말할 수 있으면 소개글 첫 줄이 돼요.",
     chips: ["돈 · 시간을 아끼는 방법", "솔직한 후기", "작은 성장의 기록", "몰랐던 재미"],
     placeholder: "예: 비싼 장비 없이도 예쁘게 찍을 수 있다",
-    potion: "진심의 물약",
-    color: "#ff6b9a",
+    potion: "전할 것",
+    color: "#FFE45C",
   },
   {
     slot: "strength",
@@ -73,8 +73,8 @@ export const LAB_QUESTIONS: LabQuestion[] = [
     why: "잘하는 걸 계정에 이으면 오래 꾸준히 할 수 있어요.",
     chips: ["사진 · 영상을 잘 찍어요", "정리를 잘해요", "말을 재밌게 해요", "꾸준히 기록해요"],
     placeholder: "예: 한 장으로 요약하는 걸 잘해요",
-    potion: "재능의 물약",
-    color: "#ffd25a",
+    potion: "특기 · 장점",
+    color: "#7EDDAA",
   },
   {
     slot: "unique",
@@ -82,8 +82,8 @@ export const LAB_QUESTIONS: LabQuestion[] = [
     why: "전공 · 경험 · 취미의 조합이 다른 계정과 구분되는 이유가 돼요.",
     chips: ["전공과 취미의 조합", "특이한 경험", "남다른 시선 · 말투", "꾸준한 기록 자체"],
     placeholder: "예: 컴퓨터학과인데 손글씨 다꾸를 해요",
-    potion: "반짝이 가루",
-    color: "#b07cff",
+    potion: "독창성",
+    color: "#C5B8FF",
   },
   {
     slot: "reference",
@@ -91,8 +91,8 @@ export const LAB_QUESTIONS: LabQuestion[] = [
     why: "분위기 · 말투 · 구성을 참고해서 내 것으로 바꿔요. 그대로 따라 하지는 않아요.",
     chips: ["아직 없어요"],
     placeholder: "예: @계정이름 또는 링크, '사진은 밝고 글씨는 손글씨 느낌'",
-    potion: "영감의 물약",
-    color: "#46c4a6",
+    potion: "참고",
+    color: "#9ED9E8",
   },
 ];
 
@@ -177,7 +177,7 @@ export function canBrew(lab: LabState): boolean {
   return slots.size >= 3;
 }
 
-export const STAGES = ["빈 플라스크", "씨앗", "새싹", "떡잎 정령", "어린 나무 정령", "꽃 핀 나무 정령", "열매 맺은 나무 정령"] as const;
+export const STAGES = ["빈 플라스크", "씨앗", "새싹", "떡잎", "어린 나무", "꽃 핀 나무", "열매 맺은 나무"] as const;
 
 /** 생명체가 자란 단계 0~6: 재료 하나에 한 단계(최대 5), 끓이면 6 */
 export function stageOf(lab: LabState): number {
@@ -240,7 +240,12 @@ const PRINCIPLES = `계정을 키우는 원칙 (꼭 지킬 것)
 7. 사용자가 말하지 않은 경력 · 숫자 · 수상 · 팔로워 수는 절대 만들지 않는다. 사용자가 준 재료의 말을 살려 쓴다.
 8. 서포터즈 지원과 이어지게: 담당자가 프로필을 열었을 때 '이 사람이 우리 브랜드 콘텐츠를 잘 만들겠다'가 보여야 한다. 단, 계정이 브랜드 광고판이 되면 안 된다.
 9. 참고 계정 · 이미지는 분위기 · 구성만 빌리고 그대로 베끼지 않는다.
-10. 한국어, 20대 대학생 말투. 이모지는 소개글 한 줄에 최대 1개.`;
+10. 인스타에 실제로 올라가는 글(소개글 · 이름 칸 · 정체성 한 줄 · 글감 제목)은 '~해요 · ~합니다' 체를 쓰지 않는다. 지금 인스타 말투로:
+   - 짧게 끊고 명사형 · '~중' · '~기록' · '~하는 사람'으로 끝낸다 (예: "자취 1년 차 🍳 10분 한 끼 기록", "편의점 재료로 버티는 중", "↓ 레시피 모아 둔 곳")
+   - 줄마다 키워드 하나, 구분은 ' | ' ' · ' ' ⌇ ' 정도. 이모지는 줄 앞이나 끝에 하나까지
+   - 글감 제목은 스크롤을 멈추게 하는 훅 (숫자 · 대비 · 질문. 예: "라면 냄비 하나로 끝내는 덮밥", "새내기 첫 장보기 실수 TOP3")
+   - 오글거리는 감성 문구 · 과장 · 유행어 남발은 피하고, 20대 대학생이 실제 쓸 법한 담백한 말
+   반면 사용자에게 하는 설명(why · steps · expand · fit · reply)은 '~해요' 체로 친절하게.`;
 
 const bioItem = { type: "object", properties: { concept: { type: "string" }, text: { type: "string" }, why: { type: "string" } }, required: ["concept", "text", "why"], additionalProperties: false };
 const pillarItem = {
@@ -269,7 +274,7 @@ const CHAT_SCHEMA = {
 
 const OUTPUT_RULES = `출력 칸
 - creature: 계정 컨셉을 담은 생명체 이름 (한글 2~5자, 귀엽게. 예: 자취몬, 리뷰새싹)
-- identity: 계정 정체성 한 문장 ("OO에게 OO를 OO하는 계정" 꼴, 40자 안팎)
+- identity: 계정 정체성 한 문장 (명사형으로 끝, "OO에게 OO 알려 주는 계정" 꼴, 40자 안팎)
 - names: 인스타 '이름 칸' 후보 3개 (각 30자 이하, 이름 + 검색 키워드. 예: "채령 | 자취 요리 기록")
 - bios: 소개글 3개, 서로 다른 컨셉 (각 ${BIO_MAX}자 이하, 줄바꿈 \\n 으로 2~4줄, 마지막 줄은 다음 행동 안내). why는 이 문구가 왜 통하는지 한 줄
 - pillars: 콘텐츠 기둥 정확히 3개 (teach · relate · show 하나씩), ideas는 기둥마다 바로 올릴 글감 2개
@@ -323,17 +328,17 @@ export function brewByRules(lab: LabState, ctx: LabContext, at: string): LabBrew
   const kind = /리뷰/.test(dir) ? "리뷰" : /공감|기록|일상/.test(dir) ? "기록" : "꿀팁";
   return {
     creature: `${topic.slice(0, 3)}몬`,
-    identity: short(`${who}에게 ${msg}을(를) 전하는 ${topic} ${kind} 계정`, 60),
+    identity: short(`${who}에게 ${msg} 전하는 ${topic} ${kind} 계정`, 60),
     names: [`${first} | ${topic} ${kind}`, `${first} · ${short(who, 10)}의 ${topic}`, `${topic} ${kind} | ${first}`].map((x) => short(x, 30)),
     bios: [
-      { concept: "약속형", text: short(`${who}를 위한 ${topic} ${kind}\n${msg}\n${strength ? strength + " → " : ""}매주 하나씩 올려요\n👇 처음이라면 고정 게시물부터`, BIO_MAX), why: "누구에게 무엇을 주는지 첫 줄에서 바로 보여요." },
-      { concept: "나다움형", text: short(`${unique || topic + " 좋아하는 대학생"}\n${msg}을(를) 기록해요\n📍 ${ctx.activityName} 준비 중`, BIO_MAX), why: "다른 계정과 다른 점이 먼저 보여요." },
-      { concept: "검색형", text: short(`${topic} · ${kind} · 대학생\n${who}가 저장하는 ${topic} 정리\n궁금한 건 댓글로 물어봐 주세요`, BIO_MAX), why: "검색 키워드가 앞에 와서 찾아오기 쉬워요." },
+      { concept: "약속형", text: short(`${who} 위한 ${topic} ${kind}\n${msg}\n${strength ? strength + " · " : ""}매주 하나씩 업로드 중\n↓ 처음이면 고정 게시물부터`, BIO_MAX), why: "누구에게 무엇을 주는지 첫 줄에서 바로 보여요." },
+      { concept: "나다움형", text: short(`${unique || topic + " 좋아하는 대학생"}\n${msg} 기록 중\n📍 ${ctx.activityName} 준비 중`, BIO_MAX), why: "다른 계정과 다른 점이 먼저 보여요." },
+      { concept: "검색형", text: short(`${topic} | ${kind} | 대학생\n${who}가 저장하는 ${topic} 정리\n궁금한 건 댓글로`, BIO_MAX), why: "검색 키워드가 앞에 와서 찾아오기 쉬워요." },
     ],
     pillars: [
-      { name: `${topic} 알려 주기`, kind: "teach", ideas: [`${who}가 처음 알아야 할 ${topic} 3가지`, `${topic} 실수 모음과 고치는 법`] },
-      { name: "공감 이야기", kind: "relate", ideas: [`${who}라면 공감할 장면 하나`, `내가 ${topic}을(를) 시작한 이유`] },
-      { name: "과정 보여 주기", kind: "show", ideas: [`${strength || "내 방식"}으로 만드는 과정 15초`, `${ctx.brand} 제품을 내 ${topic}에 써 본 기록`] },
+      { name: `${topic} 알려 주기`, kind: "teach", ideas: [`${who}가 처음 알아야 할 ${topic} 3가지`, `${topic} 실수 TOP3 + 고치는 법`] },
+      { name: "공감 이야기", kind: "relate", ideas: [`${who}라면 100% 공감하는 순간`, `${topic} 시작한 진짜 이유`] },
+      { name: "과정 보여 주기", kind: "show", ideas: [`${strength || "내 방식"}으로 만드는 과정 15초`, `${ctx.brand}로 ${topic} 기록해 봄`] },
     ],
     steps: [
       "이름 칸과 소개글을 위 후보 중 하나로 바꾸고, 첫 줄에 보여 줄 사람을 넣어요",
@@ -365,7 +370,7 @@ export async function brewWithLLM(lab: LabState, ctx: LabContext, llm: LLMClient
 
 /** 끓인 뒤 대화: 답하고, 필요하면 결과를 고친다 */
 export async function labChatWithLLM(lab: LabState, ctx: LabContext, message: string, llm: LLMClient, at: string): Promise<LabAiResult<{ reply: string; brew?: LabBrew }>> {
-  const system = `당신은 대학생 SNS 계정을 키워 주는 '계정 실험실'의 연금술사입니다. 이미 끓여 둔 결과를 사용자와 대화하며 다듬습니다.\n\n${PRINCIPLES}\n\n${OUTPUT_RULES.replace("{activity}", ctx.activityName)}\n\n응답 규칙\n- reply: 사용자에게 하는 말 2~4문장. 실험실 컨셉의 가벼운 말투(물약 · 솥 비유는 한 번만). 바꿨다면 무엇을 왜 바꿨는지, 질문이면 답을.\n- changed: 결과를 바꿨으면 true\n- brew: 고친 전체 결과 (안 바꿨으면 지금 결과 그대로)\nJSON 하나만 출력하세요.`;
+  const system = `당신은 대학생 SNS 계정을 키워 주는 '계정 실험실'의 연금술사입니다. 이미 끓여 둔 결과를 사용자와 대화하며 다듬습니다.\n\n${PRINCIPLES}\n\n${OUTPUT_RULES.replace("{activity}", ctx.activityName)}\n\n응답 규칙\n- reply: 사용자에게 하는 말 2~4문장. 담백하고 친근한 '~해요' 말투(실험실 비유는 쓰지 않거나 아주 가볍게). 바꿨다면 무엇을 왜 바꿨는지, 질문이면 답을.\n- changed: 결과를 바꿨으면 true\n- brew: 고친 전체 결과 (안 바꿨으면 지금 결과 그대로)\nJSON 하나만 출력하세요.`;
   const history = lab.chat.slice(-12).map((c) => `${c.role === "me" ? "사용자" : "실험실"}: ${c.text}`).join("\n");
   const user = `[맥락]\n${contextText(ctx)}\n\n[재료]\n${ingredientsText(lab)}\n\n[지금 결과]\n${JSON.stringify(lab.brew ? { ...lab.brew, model: undefined, at: undefined } : {})}\n\n[최근 대화]\n${history}\n\n[사용자의 새 말]\n${message.slice(0, 600)}`;
   const res = await llm.complete({ system, user, maxOutputTokens: 2400, json: true, schema: CHAT_SCHEMA });
