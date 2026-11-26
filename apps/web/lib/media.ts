@@ -1,5 +1,6 @@
 import { feedback } from "@supportlab/core";
 import { repo, type User } from "./repo";
+import { GRAPH_VERSION, graphHost } from "./meta";
 
 /**
  * 내 게시물 지표. 가짜 숫자는 만들지 않는다.
@@ -9,7 +10,7 @@ import { repo, type User } from "./repo";
  */
 export async function myMedia(user: User): Promise<{ media: feedback.MediaMetrics[]; source: "instagram" | "manual"; igError?: boolean }> {
   if (user.ig) {
-    const src = new feedback.GraphApiInstagramSource("v26.0", "https://graph.instagram.com");
+    const src = new feedback.GraphApiInstagramSource(GRAPH_VERSION, graphHost(user.ig.accessToken));
     try {
       return { media: await src.ownMedia(user.ig.accessToken, user.ig.userId, 25), source: "instagram" };
     } catch {

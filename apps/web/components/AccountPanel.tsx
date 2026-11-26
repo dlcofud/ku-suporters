@@ -20,6 +20,8 @@ const MSG: Record<string, [boolean, string]> = {
   disconnected: [true, "공식 연결을 끊었어요. 아이디와 옮겨 적은 프로필은 남아 있어요."],
   ok: [true, "인스타 계정을 공식으로 연결했어요. 성과 숫자를 자동으로 가져와요."],
   error: [false, "인스타 연결을 마치지 못했어요. 프로페셔널 계정인지 확인하고 다시 시도해 주세요."],
+  cancel: [false, "인스타 연결을 취소했어요."],
+  noaccount: [false, "로그인은 됐지만 허락한 인스타 계정을 찾지 못했어요. 로그인 중 '공유할 비즈니스 자산'에서 인스타 계정을 골랐는지, 그 계정이 앱의 Instagram 테스터인지 확인해 주세요."],
 };
 
 type Fix = "profile" | "perf";

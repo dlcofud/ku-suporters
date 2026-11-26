@@ -1,14 +1,15 @@
 import { account } from "@supportlab/core";
 import type { User } from "./repo";
 import { todayISO } from "./repo";
+import { GRAPH_VERSION, graphHost, legacyReady, loginOf, unifiedReady } from "./meta";
 
 /** 공식 로그인 연결이 준비됐는지 (Meta 앱 환경 변수). 없으면 '아이디로 연결'만 쓴다 */
 export function igLoginReady(): boolean {
-  return !!process.env.INSTAGRAM_APP_ID && !!process.env.INSTAGRAM_APP_SECRET && !!process.env.INSTAGRAM_REDIRECT_URI;
+  return unifiedReady() || legacyReady();
 }
 
-const FULL = "user_id,username,name,biography,website,profile_picture_url,followers_count,media_count";
-const BASE = "user_id,username,name,profile_picture_url,followers_count,media_count";
+const FULL = "username,name,biography,website,profile_picture_url,followers_count,media_count";
+const BASE = "username,name,profile_picture_url,followers_count,media_count";
 
 /**
  * 연결된 계정의 지금 프로필을 읽는다 (읽기만 됨. 소개글·링크 변경은 인스타 API가 지원하지 않는다).
@@ -16,9 +17,12 @@ const BASE = "user_id,username,name,profile_picture_url,followers_count,media_co
  */
 export async function fetchIgProfile(user: User): Promise<(account.AccountProfile & { picture?: string }) | undefined> {
   if (!user.ig) return undefined;
+  const { accessToken, userId } = user.ig;
+  // 통합 로그인 토큰은 graph.facebook.com 에서 계정 ID로, 예전 토큰은 graph.instagram.com/me 로 읽는다
+  const node = loginOf(accessToken) === "unified" ? `${GRAPH_VERSION}/${userId}` : "me";
   for (const fields of [FULL, BASE]) {
     try {
-      const r = await fetch(`https://graph.instagram.com/me?fields=${fields}&access_token=${encodeURIComponent(user.ig.accessToken)}`, { cache: "no-store", signal: AbortSignal.timeout(6000) });
+      const r = await fetch(`${graphHost(accessToken)}/${node}?fields=${fields}&access_token=${encodeURIComponent(accessToken)}`, { cache: "no-store", signal: AbortSignal.timeout(6000) });
       if (!r.ok) continue;
       const j = (await r.json()) as { username?: string; name?: string; biography?: string; website?: string; profile_picture_url?: string; followers_count?: number; media_count?: number };
       return {
