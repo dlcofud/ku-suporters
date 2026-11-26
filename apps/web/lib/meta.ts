@@ -28,7 +28,8 @@ export function loginOf(token: string): MetaLogin {
 
 /** 이 토큰으로 부를 그래프 API 주소 */
 export function graphHost(token: string): string {
-  return loginOf(token) === "instagram" ? "https://graph.instagram.com" : "https://graph.facebook.com";
+  if (loginOf(token) === "instagram") return "https://graph.instagram.com";
+  return process.env.META_GRAPH_BASE || "https://graph.facebook.com";
 }
 
 /** 로그인 후 돌아올 주소. Meta 앱의 '리디렉션 URL'에 똑같이 등록돼 있어야 한다 */

@@ -38,7 +38,7 @@ export default async function FeedbackPage({ searchParams }: { searchParams: Pro
     <>
       <header className="row between" style={{ alignItems: "flex-end" }}>
         <div>
-          <span className="eyebrow">{act.name} · SNS · 업로드 성과 · {Number(today.slice(5, 7))}월 {Number(today.slice(8, 10))}일 기준</span>
+          <span className="eyebrow">{act.name} · SNS · 분석하기 · {Number(today.slice(5, 7))}월 {Number(today.slice(8, 10))}일 기준</span>
           <h1>{s.topByViews ? `${fmtLabel(s.topByViews.format)} 반응이 가장 좋아요` : "아직 성과가 없어요"}</h1>
         </div>
         {manual ? <span className="tag pill" title="인스타를 연결하면 자동으로 가져와요">직접 입력</span> : <span className="tag pill k-post">인스타 연결됨</span>}

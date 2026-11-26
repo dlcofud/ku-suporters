@@ -354,6 +354,43 @@ export async function saveProfileAction(formData: FormData) {
   redirect("/account?acct=saved&fix=profile#improve");
 }
 
+/**
+ * 인스타 프로필 초안 저장 (공식 연결된 계정).
+ * 인스타 API는 소개글 · 이름 · 링크를 바꾸는 기능을 주지 않아서, 초안을 저장해 두고 사용자가 인스타에서 붙여넣는다.
+ */
+export async function saveDraftAction(formData: FormData) {
+  const user = await requireUser();
+  const act = await activityOrRedirect(user.id);
+  const website = String(formData.get("website") || "").trim().slice(0, 300);
+  const draft: account.ProfileDraft = {
+    name: String(formData.get("name") || "").trim().slice(0, 30) || undefined,
+    bio: String(formData.get("bio") || "").replace(/\r/g, "").slice(0, account.BIO_MAX) || undefined,
+    website: website || undefined,
+    at: new Date().toISOString(),
+  };
+  const interest = String(formData.get("interest") || "").trim().slice(0, 20) || undefined;
+  const prev = act.accountKit?.profile;
+  act.accountKit = { ...(act.accountKit ?? {}), draft, profile: { ...(prev ?? { source: "instagram", at: todayISO() }), interest } };
+  await repo.saveActivity(act);
+  revalidatePath("/account");
+  redirect("/account?acct=drafted&fix=profile#now");
+}
+
+/** 실험실 결과(소개글 · 이름 칸)를 인스타 프로필 초안에 넣는다. 다른 칸은 지금 초안(없으면 인스타 지금 값)을 그대로 둔다 */
+export async function labToDraftAction(formData: FormData) {
+  const user = await requireUser();
+  const act = await activityOrRedirect(user.id);
+  const field = String(formData.get("field") || "");
+  const value = String(formData.get("value") || "").replace(/\r/g, "");
+  if (field !== "bio" && field !== "name") redirect("/account?fix=profile#improve");
+  const base = act.accountKit?.draft ?? { at: "" };
+  const draft: account.ProfileDraft = { ...base, [field]: field === "bio" ? value.slice(0, account.BIO_MAX) : value.slice(0, 30), at: new Date().toISOString() };
+  act.accountKit = { ...(act.accountKit ?? {}), draft };
+  await repo.saveActivity(act);
+  revalidatePath("/account");
+  redirect("/account?acct=drafted&fix=profile#now");
+}
+
 /** 인스타 아이디만으로 연결 (공식 로그인 없이) */
 export async function connectInstaHandleAction(formData: FormData) {
   const user = await requireUser();

@@ -2,6 +2,7 @@ import { account, credits } from "@supportlab/core";
 import { currentUser, currentActivity } from "@/lib/session";
 import { repo, newId } from "@/lib/repo";
 import { getLLM, llmStatus } from "@/lib/llm";
+import { randomInt } from "node:crypto";
 import { labContextFor, LAB_IMAGE, type LabImage } from "@/lib/lab";
 
 export const dynamic = "force-dynamic";
@@ -23,7 +24,10 @@ export async function POST(req: Request) {
   if (!fd) return Response.json({ error: "보낸 내용을 받지 못했어요" }, { status: 400 });
   const action = String(fd.get("action") ?? "");
   const at = new Date().toISOString();
-  let lab: account.LabState = act.accountKit?.lab ?? account.emptyLab();
+  /** 이번 회차의 생명체 (종류 · 색). 처음 넣을 때 · 처음부터 다시 · 다시 실험할 때 새로 뽑는다 */
+  const roll = () => randomInt(0, 1_000_000);
+  let lab: account.LabState = act.accountKit?.lab ?? account.emptyLab(roll());
+  if (lab.seed === undefined) lab = { ...lab, seed: roll() };
   let notice: string | undefined;
 
   /** AI 한 번 쓰기: 크레딧을 잡고, 실패하거나 모자라면 undefined (규칙으로 대신한다) */
@@ -67,10 +71,12 @@ export async function POST(req: Request) {
   } else if (action === "remove") {
     lab = account.removeIngredient(lab, String(fd.get("slot") ?? "") as account.LabSlot);
   } else if (action === "reset") {
-    lab = account.emptyLab();
+    lab = account.emptyLab(roll());
   } else if (action === "brew") {
     if (!account.canBrew(lab)) return Response.json({ error: "재료를 3개 이상 넣어야 끓일 수 있어요" }, { status: 400 });
     const ctx = await labContextFor(user, act);
+    // 이미 실험했으면 새 회차: 다른 생명체로 다시 태어난다
+    if (lab.brew) lab = { ...lab, seed: roll() };
     const brew = (await withAi((c) => account.brewWithLLM(lab, ctx, c, at))) ?? account.brewByRules(lab, ctx, at);
     lab = { ...lab, brew, chat: [...lab.chat, { role: "lab" as const, text: `실험 완료! 이 계정의 이름은 '${brew.creature}' · ${brew.identity}`, at }].slice(-60) };
   } else if (action === "chat") {

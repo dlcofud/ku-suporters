@@ -67,3 +67,24 @@ describe("계정 실험실", () => {
     expect(changed.value.reply).toBe("말투를 바꿨어요");
   });
 });
+
+describe("회차마다 다른 생명체", () => {
+  it("seed로 종류와 색이 정해지고 4종 × 5색이 모두 나온다", () => {
+    const seen = new Set<string>();
+    for (let i = 0; i < 20; i++) {
+      const v = account.variantOf(i);
+      seen.add(`${v.species}-${v.hue}`);
+    }
+    expect(seen.size).toBe(20);
+    expect(account.variantOf(undefined)).toEqual(account.variantOf(0));
+    expect(account.stageName(4, "cactus")).toBe("어린 선인장");
+    expect(account.stageName(6, "slime")).toBe("왕관 슬라임");
+    expect(account.stageName(1, "mushroom")).toBe("씨앗");
+  });
+
+  it("초안 비교는 공백 차이를 무시한다", () => {
+    expect(account.sameField("자취 요리 \n기록 ", "자취 요리\n기록")).toBe(true);
+    expect(account.sameField(undefined, "")).toBe(true);
+    expect(account.sameField("a", "b")).toBe(false);
+  });
+});

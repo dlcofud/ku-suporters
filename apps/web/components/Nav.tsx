@@ -25,7 +25,7 @@ const SNS_ICON = I(<><rect x="3" y="3" width="18" height="18" rx="5" /><circle c
 /** 내 SNS: 계정·성과는 서포터즈와 상관없이 하나라서 서포터즈 밖에 둔다 */
 const SNS: [string, string, ReactNode][] = [
   ["/account", "계정 관리", SNS_ICON],
-  ["/feedback", "업로드 성과", I(<><path d="M4 19h16" /><path d="M6 15l4-4 3 3 5-6" /></>)],
+  ["/feedback", "분석하기", I(<><path d="M4 19h16" /><path d="M6 15l4-4 3 3 5-6" /></>)],
 ];
 const TRENDS: [string, string, ReactNode] = ["/trends", "합격 경향", I(<><path d="M4 19h16" /><path d="M7 16v-5M12 16V7M17 16v-8" /></>)];
 /** 휴대폰 더보기에 들어가는 화면 (사이드바 아래쪽: 크레딧 · 계정 · 릴리즈 노트 · 새 서포터즈) */
