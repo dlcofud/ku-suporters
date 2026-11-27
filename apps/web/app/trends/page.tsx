@@ -126,7 +126,8 @@ export default async function TrendsPage({ searchParams }: { searchParams: Promi
         </section>
       )}
 
-      <section className="grid g2" style={{ alignItems: "start" }}>
+      {/* 두 카드 높이를 맞추고, 오른쪽 카드는 늘어난 만큼 줄 사이를 고르게 벌린다 */}
+      <section className="grid g2 even">
         <div className={report.sampleSize < MIN ? "card thin" : "card"}>
           <h2>합격 요인 <span className="small muted" style={{ fontWeight: 500 }}>언급한 후기 수 · 그 안의 평균(0~2점) · {report.sampleSize}건 중</span> <Thin n={report.sampleSize} /></h2>
           {report.elementAverages.map((e) => (
@@ -141,7 +142,7 @@ export default async function TrendsPage({ searchParams }: { searchParams: Promi
           ))}
           <p className="small muted" style={{ margin: 0 }}>막대는 그 요인을 언급한 후기 안의 평균이에요. 후기에 아예 안 나온 경우(언급 없음)는 평균에서 빼고, 나오기는 하는데 내용이 없으면 0점이에요. ★ 많이 언급되고 뚜렷한 요인 · 틈: 합격 후기 30% 미만이 언급해 차별화하기 좋은 요인.</p>
         </div>
-        <div className="card">
+        <div className="card spread">
           <h2>자주 나온 합격 키워드 <span className="small muted" style={{ fontWeight: 500 }}>{report.sampleSize}건 중</span></h2>
           {report.keywordFrequency.slice(0, 10).map((k) => (
             <BarRow key={k.keyword} label={k.keyword} value={k.count} max={kwMax} right={`${k.count}건 · ${Math.round(k.share * 100)}%`} />
@@ -150,7 +151,7 @@ export default async function TrendsPage({ searchParams }: { searchParams: Promi
         </div>
       </section>
 
-      <section className="grid g2" style={{ alignItems: "start" }}>
+      <section className="grid g2 even">
         <div className="card">
           <h2>전형</h2>
           <div className="grid g3">
@@ -162,7 +163,7 @@ export default async function TrendsPage({ searchParams }: { searchParams: Promi
             {report.processFrequency.slice(0, 10).map((p) => <span key={p.keyword} className="tag">{p.keyword} {p.count}</span>)}
           </div>
         </div>
-        <div className={report.formatMentionedIn < MIN ? "card thin" : "card"}>
+        <div className={report.formatMentionedIn < MIN ? "card thin spread" : "card spread"}>
           <h2>후기에 나온 콘텐츠 포맷 <span className="small muted" style={{ fontWeight: 500 }}>포맷을 언급한 {report.formatMentionedIn}건 기준</span> <Thin n={report.formatMentionedIn} /></h2>
           {report.formatMentions.map((f) => (
             <BarRow key={f.format} label={f.format} value={f.count} max={report.formatMentionedIn} right={`${f.count}건 · ${pct(f.count, report.formatMentionedIn)}%`} />
